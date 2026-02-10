@@ -15,3 +15,4 @@ python-multipart
 alembic
 pdf2image==1.17.0
 pytesseract
+opencv-python-headless
