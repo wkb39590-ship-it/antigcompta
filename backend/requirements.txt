@@ -1,0 +1,17 @@
+# fastapi
+# uvicorn
+# sqlalchemy
+# psycopg[binary]
+# python-multipart
+
+
+
+
+fastapi
+uvicorn
+sqlalchemy
+psycopg[binary]
+python-multipart
+alembic
+pdf2image==1.17.0
+pytesseract
