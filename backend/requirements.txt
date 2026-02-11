@@ -15,3 +15,6 @@ python-multipart
 alembic
 pdf2image==1.17.0
 pytesseract
+opencv-python-headless
+openpyxl==3.1.5
+reportlab
