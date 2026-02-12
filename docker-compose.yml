@@ -1,3 +1,9 @@
+
+
+
+
+
+
 # services:
 #   db:
 #     image: postgres:15
@@ -11,24 +17,124 @@
 #       - "5433:5432"
 #     volumes:
 #       - postgres_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U admin -d compta_db"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 20
 
 #   backend:
-#     build: ./backend
+#     build:
+#       context: ./backend
 #     container_name: pfe_backend
 #     restart: always
 #     depends_on:
-#       - db
+#       db:
+#         condition: service_healthy
+
+#     # ✅ IMPORTANT: force la lecture du .env
+#     env_file:
+#       - .env
+
+#     environment:
+#       DATABASE_URL: postgresql+psycopg://admin:admin123@db:5432/compta_db
+#       PYTHONUNBUFFERED: "1"
+
+#       # ✅ Gemini
+#       GEMINI_API_KEY: ${GEMINI_API_KEY}
+#       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+
+#       # uploads
+#       UPLOAD_DIR: /app/uploads
+
 #     ports:
 #       - "8080:8000"
+
 #     volumes:
 #       - ./backend:/app
 #       - ./backend/uploads:/app/uploads
 
+#     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 # volumes:
 #   postgres_data:
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+# services:
+#   db:
+#     image: postgres:15
+#     container_name: pfe_postgres
+#     restart: always
+#     environment:
+#       POSTGRES_USER: admin
+#       POSTGRES_PASSWORD: admin123
+#       POSTGRES_DB: compta_db
+#     ports:
+#       - "5433:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U admin -d compta_db"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 20
+
+#     # (optionnel) DNS aussi pour DB
+#     dns:
+#       - 8.8.8.8
+#       - 1.1.1.1
+
+#   backend:
+#     build:
+#       context: ./backend
+#     container_name: pfe_backend
+#     restart: always
+#     depends_on:
+#       db:
+#         condition: service_healthy
+
+#     # ✅ force la lecture du .env
+#     env_file:
+#       - .env
+
+#     # ✅ DNS FIX (ton problème "Temporary failure in name resolution")
+#     dns:
+#       - 8.8.8.8
+#       - 1.1.1.1
+
+#     environment:
+#       DATABASE_URL: postgresql+psycopg://admin:admin123@db:5432/compta_db
+#       PYTHONUNBUFFERED: "1"
+
+#       # ✅ Gemini (sera injecté depuis .env)
+#       GEMINI_API_KEY: ${GEMINI_API_KEY}
+#       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+
+#       UPLOAD_DIR: /app/uploads
+
+#     ports:
+#       - "8080:8000"
+
+#     volumes:
+#       - ./backend:/app
+#       - ./backend/uploads:/app/uploads
+
+#     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# volumes:
+#   postgres_data:
 
 
 
@@ -58,20 +164,36 @@ services:
       retries: 20
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
     container_name: pfe_backend
     restart: always
     depends_on:
       db:
         condition: service_healthy
+
+    # ✅ IMPORTANT: force la lecture du .env
+    env_file:
+      - .env
+
     environment:
       DATABASE_URL: postgresql+psycopg://admin:admin123@db:5432/compta_db
       PYTHONUNBUFFERED: "1"
+
+      # ✅ Gemini
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+
+      # uploads
+      UPLOAD_DIR: /app/uploads
+
     ports:
       - "8080:8000"
+
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
+
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:

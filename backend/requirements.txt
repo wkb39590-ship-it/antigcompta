@@ -1,9 +1,16 @@
+
+
 # fastapi
 # uvicorn
 # sqlalchemy
 # psycopg[binary]
 # python-multipart
-
+# alembic
+# pdf2image==1.17.0
+# pytesseract
+# opencv-python-headless
+# openpyxl==3.1.5
+# reportlab
 
 
 
@@ -18,3 +25,6 @@ pytesseract
 opencv-python-headless
 openpyxl==3.1.5
 reportlab
+pdfplumber==0.11.4
+
+google-genai==1.63.0

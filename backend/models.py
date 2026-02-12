@@ -161,7 +161,159 @@
 
 
 
-# models.py
+# # models.py
+# from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey
+# from sqlalchemy.orm import relationship
+# from database import Base
+
+
+# class Facture(Base):
+#     __tablename__ = "factures"
+
+#     id = Column(Integer, primary_key=True, index=True)
+
+#     fournisseur = Column(String, nullable=True)
+
+#     date_facture = Column(Date, nullable=True)
+#     numero_facture = Column(String(50), nullable=True)
+
+#     designation = Column(String(255), nullable=True)
+
+#     montant_ht = Column(Float, nullable=True)
+#     montant_tva = Column(Float, nullable=True)
+#     montant_ttc = Column(Float, nullable=True)
+
+#     statut = Column(String, default="brouillon", nullable=False)
+
+#     if_frs = Column(String(50), nullable=True)
+#     ice_frs = Column(String(50), nullable=True)
+
+#     taux_tva = Column(Float, nullable=True)
+#     id_paie = Column(String(50), nullable=True)
+#     date_paie = Column(Date, nullable=True)
+
+#     ded_file_path = Column(String(255), nullable=True)
+#     ded_pdf_path = Column(String(255), nullable=True)
+#     ded_xlsx_path = Column(String(255), nullable=True)
+
+#     ecritures = relationship(
+#         "EcritureComptable",
+#         back_populates="facture",
+#         cascade="all, delete-orphan",
+#         passive_deletes=True,
+#     )
+
+
+# class EcritureComptable(Base):
+#     __tablename__ = "ecritures_comptables"
+
+#     id = Column(Integer, primary_key=True, index=True)
+#     facture_id = Column(
+#         Integer,
+#         ForeignKey("factures.id", ondelete="CASCADE"),
+#         nullable=False,
+#         index=True,
+#     )
+
+#     compte = Column(String(20), nullable=False)
+#     libelle = Column(String(255), nullable=True)
+#     debit = Column(Float, default=0, nullable=False)
+#     credit = Column(Float, default=0, nullable=False)
+
+#     facture = relationship("Facture", back_populates="ecritures")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # models.py
+# from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey
+# from sqlalchemy.orm import relationship
+# from database import Base
+
+
+# class Facture(Base):
+#     __tablename__ = "factures"
+
+#     id = Column(Integer, primary_key=True, index=True)
+
+#     fournisseur = Column(String, nullable=True)
+
+#     date_facture = Column(Date, nullable=True)
+#     numero_facture = Column(String(50), nullable=True)
+
+#     designation = Column(String(255), nullable=True)
+
+#     montant_ht = Column(Float, nullable=True)
+#     montant_tva = Column(Float, nullable=True)
+#     montant_ttc = Column(Float, nullable=True)
+
+#     statut = Column(String, default="brouillon", nullable=False)
+
+#     if_frs = Column(String(50), nullable=True)
+#     ice_frs = Column(String(50), nullable=True)
+
+#     taux_tva = Column(Float, nullable=True)
+#     id_paie = Column(String(50), nullable=True)
+#     date_paie = Column(Date, nullable=True)
+
+#     ded_file_path = Column(String(255), nullable=True)
+#     ded_pdf_path = Column(String(255), nullable=True)
+#     ded_xlsx_path = Column(String(255), nullable=True)
+
+#     ecritures = relationship(
+#         "EcritureComptable",
+#         back_populates="facture",
+#         cascade="all, delete-orphan",
+#         passive_deletes=True,
+#     )
+
+
+# class EcritureComptable(Base):
+#     __tablename__ = "ecritures_comptables"
+
+#     id = Column(Integer, primary_key=True, index=True)
+#     facture_id = Column(
+#         Integer,
+#         ForeignKey("factures.id", ondelete="CASCADE"),
+#         nullable=False,
+#         index=True,
+#     )
+
+#     compte = Column(String(20), nullable=False)
+#     libelle = Column(String(255), nullable=True)
+#     debit = Column(Float, default=0, nullable=False)
+#     credit = Column(Float, default=0, nullable=False)
+
+#     facture = relationship("Facture", back_populates="ecritures")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from database import Base
@@ -208,6 +360,7 @@ class EcritureComptable(Base):
     __tablename__ = "ecritures_comptables"
 
     id = Column(Integer, primary_key=True, index=True)
+
     facture_id = Column(
         Integer,
         ForeignKey("factures.id", ondelete="CASCADE"),
