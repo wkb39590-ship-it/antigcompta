@@ -1,23 +1,44 @@
+# # Python
+# __pycache__/
+# *.pyc
+# *.pyo
+# *.pyd
+# *.log
+# *.sqlite3
+
+# # Virtual env
+# venv/
+# .env
+
+# # Uploads / OCR outputs
+# backend/uploads/
+# uploads/
+
+# # Alembic caches
+# backend/alembic/__pycache__/
+
+# # OS / Editor
+# .DS_Store
+# .vscode/
+# .idea/
+
+
+
+
+
 # Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.log
-*.sqlite3
-
-# Virtual env
 venv/
+
+# Uploads
+backend/uploads/
+
+# Generated files
+backend/generated/
+
+# Environment
 .env
 
-# Uploads / OCR outputs
-backend/uploads/
-uploads/
-
-# Alembic caches
-backend/alembic/__pycache__/
-
-# OS / Editor
-.DS_Store
-.vscode/
-.idea/
+# Docker
+*.log
