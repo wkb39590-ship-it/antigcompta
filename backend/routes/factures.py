@@ -15,7 +15,7 @@
 # from sqlalchemy.orm import Session
 
 # from database import get_db
-# from models import Facture, Societe
+# from models import Facture, Societe, EcritureComptable
 
 # from services import ocr_service
 # from services import extract_fields
@@ -23,8 +23,9 @@
 # from services.pdf_utils import pdf_to_png_images_bytes
 # from services.validators import validate_or_fix, merge_fields
 
-# from utils.parsers import parse_date_fr, parse_amount
+# from services.accounting_rules import PieceComptable, generate_lines_pcm, get_journal_code
 
+# from utils.parsers import parse_date_fr, parse_amount
 # from schemas import FactureOut, FactureUpdate
 
 # router = APIRouter(prefix="/factures", tags=["factures"])
@@ -33,8 +34,7 @@
 # UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ALLOWED_EXTS = [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"]
-
-# ALLOWED_STATUTS = {"brouillon", "validee"}  # extensible plus tard (payee, annulee, etc.)
+# ALLOWED_STATUTS = {"brouillon", "validee"}
 
 
 # # -------------------------
@@ -100,7 +100,7 @@
 
 
 # # -------------------------
-# # TVA correction (FIX BUG)
+# # TVA correction
 # # -------------------------
 # def fix_tva_fields(fields: Dict[str, Any]) -> List[str]:
 #     issues: List[str] = []
@@ -117,13 +117,11 @@
 #     if computed < 0:
 #         return issues
 
-#     # si montant_tva absent -> fixer
 #     if mtva is None:
 #         fields["montant_tva"] = computed
 #         issues.append(f"montant_tva fixé via TTC-HT: {computed}")
 #         return issues
 
-#     # cas classique: montant_tva = taux (20)
 #     if taux is not None and abs(mtva - taux) < 1e-6:
 #         fields["montant_tva"] = computed
 #         issues.append(f"montant_tva corrigé (était taux {mtva}) -> {computed}")
@@ -172,36 +170,28 @@
 #     soc_ice = normalize_ice(societe.ice)
 #     inv_ice = normalize_ice(fields.get("ice_frs"))
 
-#     # règle métier: si ICE facture == ICE société => vente
 #     if soc_ice and inv_ice and soc_ice == inv_ice:
 #         return "vente", 1.0
 
-#     # sinon achat
 #     conf = 0.85 if used_gemini else 0.60
 #     return "achat", conf
 
 
 # # -------------------------
-# # Validation endpoint rules
+# # Validation rules
 # # -------------------------
 # def validate_facture_business_rules(f: Facture) -> List[str]:
-#     """
-#     Retourne la liste des erreurs bloquantes (vide si OK).
-#     Tu peux ajuster ces règles selon ton besoin.
-#     """
 #     errors: List[str] = []
 
-#     # societe_id doit exister
 #     if not f.societe_id:
 #         errors.append("societe_id manquant")
 
-#     # operation_type doit être correct
 #     if not f.operation_type or f.operation_type not in {"achat", "vente"}:
 #         errors.append("operation_type invalide (doit être 'achat' ou 'vente')")
 
-#     # champs essentiels
 #     if f.date_facture is None:
-#         errors.append("date_facture manquante")
+#         errors.append("date_facture manquante (date d'opération)")
+
 #     if f.numero_facture in [None, ""]:
 #         errors.append("numero_facture manquant")
 
@@ -210,21 +200,16 @@
 #     if f.montant_ttc is None:
 #         errors.append("montant_ttc manquant")
 
-#     # cohérence TVA si possible
 #     if f.montant_ht is not None and f.montant_ttc is not None:
 #         computed_tva = round(float(f.montant_ttc) - float(f.montant_ht), 2)
 #         if computed_tva < 0:
 #             errors.append("montants incohérents: TTC < HT")
 #         else:
-#             # si TVA vide -> on la fixe automatiquement (pas bloquant)
 #             if f.montant_tva is None:
 #                 f.montant_tva = computed_tva
 #             else:
-#                 # tolérance pour arrondis
 #                 if abs(float(f.montant_tva) - computed_tva) > 0.02:
-#                     errors.append(
-#                         f"montant_tva incohérent: attendu {computed_tva}, reçu {f.montant_tva}"
-#                     )
+#                     errors.append(f"montant_tva incohérent: attendu {computed_tva}, reçu {f.montant_tva}")
 
 #     return errors
 
@@ -244,10 +229,8 @@
 
 #     file_path = save_upload_file(file)
 
-#     # OCR
 #     ocr = ocr_service.extract(file_path)
 
-#     # extraction classique
 #     extracted = extract_fields.extract_fields_from_ocr(ocr)
 #     fields = to_dict(extracted)
 
@@ -255,7 +238,6 @@
 #     gemini_issues: List[str] = []
 #     post_issues: List[str] = []
 
-#     # Gemini fallback
 #     if should_use_gemini(ocr, fields):
 #         try:
 #             used_gemini = True
@@ -266,18 +248,13 @@
 #             used_gemini = False
 #             gemini_issues = [f"Gemini failed: {e}"]
 
-#     # Règle métier: date_paie = date_facture
 #     fields["date_paie"] = fields.get("date_facture")
-
-#     # ✅ Fix TVA
 #     post_issues.extend(fix_tva_fields(fields))
 
-#     # ✅ achat/vente via ICE société vs ICE facture
 #     operation_type, operation_confidence = decide_operation_type(societe, fields, used_gemini)
 #     fields["operation_type"] = operation_type
 #     fields["operation_confidence"] = operation_confidence
 
-#     # Conversion
 #     date_facture_db = parse_date_fr(fields.get("date_facture"))
 #     date_paie_db = parse_date_fr(fields.get("date_paie"))
 
@@ -303,6 +280,8 @@
 
 #         taux_tva=to_float(fields.get("taux_tva")),
 #         id_paie=fields.get("id_paie"),
+
+#         devise=fields.get("devise"),
 
 #         ded_file_path=file_path,
 #         ded_pdf_path=fields.get("ded_pdf_path"),
@@ -383,35 +362,94 @@
 #     return {"message": "Facture supprimée"}
 
 
-# # -------------------------
-# # ✅ NEW: Validate facture
-# # -------------------------
+# # ✅ afficher les écritures d'une facture
+# @router.get("/{facture_id}/ecritures", response_model=list[dict])
+# def list_ecritures_facture(facture_id: int, db: Session = Depends(get_db)):
+#     f = db.query(Facture).filter(Facture.id == facture_id).first()
+#     if not f:
+#         raise HTTPException(status_code=404, detail="Facture introuvable")
+
+#     return [
+#         {
+#             "compte": e.compte,
+#             "libelle": e.libelle,
+#             "debit": e.debit,
+#             "credit": e.credit,
+#             "journal": getattr(e, "journal", None),
+#             "date_operation": str(getattr(e, "date_operation", None)) if getattr(e, "date_operation", None) else None,
+#             "numero_piece": getattr(e, "numero_piece", None),
+#         }
+#         for e in f.ecritures
+#     ]
+
+
 # @router.post("/{facture_id}/valider", response_model=FactureOut)
 # def valider_facture(facture_id: int, db: Session = Depends(get_db)):
 #     f = db.query(Facture).filter(Facture.id == facture_id).first()
 #     if not f:
 #         raise HTTPException(status_code=404, detail="Facture introuvable")
 
-#     # idempotent: si déjà validée, on renvoie la facture
 #     if f.statut == "validee":
 #         return f
 
-#     # si statut inconnu -> refuser (optionnel)
 #     if f.statut not in ALLOWED_STATUTS:
 #         raise HTTPException(status_code=400, detail=f"Statut actuel invalide: {f.statut}")
 
-#     # règles métier
+#     # contrôle de pièce obligatoire (cahier des charges)
+#     if not f.numero_facture:
+#         raise HTTPException(status_code=422, detail="Numéro de facture obligatoire")
+#     if not f.date_facture:
+#         raise HTTPException(status_code=422, detail="Date d'opération obligatoire (date_facture)")
+
 #     errors = validate_facture_business_rules(f)
 #     if errors:
+#         raise HTTPException(status_code=422, detail={"message": "Validation refusée", "errors": errors})
+
+#     f.statut = "validee"
+
+#     # ✅ Génération PCM selon operation_type
+#     piece = PieceComptable(
+#         operation=f.operation_type,
+#         numero_piece=f.numero_facture,
+#         date_operation=f.date_facture,
+#         designation=f.designation or "",
+#         tiers_nom=f.fournisseur,
+#         montant_ht=float(f.montant_ht or 0),
+#         taux_tva=float(f.taux_tva or 20),
+#         montant_ttc=float(f.montant_ttc or 0),
+#     )
+
+#     journal_code = get_journal_code(piece.operation)
+#     lines = generate_lines_pcm(piece)
+
+#     # sécurité partie double
+#     total_debit = round(sum(float(l.get("debit", 0) or 0) for l in lines), 2)
+#     total_credit = round(sum(float(l.get("credit", 0) or 0) for l in lines), 2)
+#     if abs(total_debit - total_credit) > 0.01:
 #         raise HTTPException(
 #             status_code=422,
 #             detail={
-#                 "message": "Validation refusée",
-#                 "errors": errors,
+#                 "message": "Écriture non équilibrée",
+#                 "total_debit": total_debit,
+#                 "total_credit": total_credit,
+#                 "lines": lines,
 #             },
 #         )
 
-#     f.statut = "validee"
+#     # idempotence: supprimer anciennes écritures
+#     f.ecritures.clear()
+
+#     for l in lines:
+#         db.add(EcritureComptable(
+#             facture_id=f.id,
+#             journal=journal_code,
+#             date_operation=piece.date_operation,
+#             numero_piece=piece.numero_piece,
+#             compte=l["compte"],
+#             libelle=l.get("libelle"),
+#             debit=float(l.get("debit", 0) or 0),
+#             credit=float(l.get("credit", 0) or 0),
+#         ))
 
 #     try:
 #         db.commit()
@@ -443,6 +481,8 @@
 
 
 
+
+# routes/factures.py
 import os
 import re
 import uuid
@@ -453,7 +493,7 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Facture, Societe
+from models import Facture, Societe, EcritureComptable, EcritureLigne
 
 from services import ocr_service
 from services import extract_fields
@@ -463,7 +503,7 @@ from services.validators import validate_or_fix, merge_fields
 
 from utils.parsers import parse_date_fr, parse_amount
 
-from schemas import FactureOut, FactureUpdate
+from schemas import FactureOut, FactureUpdate, EcritureLigneOut
 
 router = APIRouter(prefix="/factures", tags=["factures"])
 
@@ -554,11 +594,13 @@ def fix_tva_fields(fields: Dict[str, Any]) -> List[str]:
     if computed < 0:
         return issues
 
+    # si montant_tva absent -> fixer
     if mtva is None:
         fields["montant_tva"] = computed
         issues.append(f"montant_tva fixé via TTC-HT: {computed}")
         return issues
 
+    # cas classique: montant_tva = taux (20)
     if taux is not None and abs(mtva - taux) < 1e-6:
         fields["montant_tva"] = computed
         issues.append(f"montant_tva corrigé (était taux {mtva}) -> {computed}")
@@ -607,6 +649,7 @@ def decide_operation_type(societe: Societe, fields: Dict[str, Any], used_gemini:
     soc_ice = normalize_ice(societe.ice)
     inv_ice = normalize_ice(fields.get("ice_frs"))
 
+    # règle métier: si ICE facture == ICE société => vente
     if soc_ice and inv_ice and soc_ice == inv_ice:
         return "vente", 1.0
 
@@ -637,6 +680,7 @@ def validate_facture_business_rules(f: Facture) -> List[str]:
     if f.montant_ttc is None:
         errors.append("montant_ttc manquant")
 
+    # cohérence TVA
     if f.montant_ht is not None and f.montant_ttc is not None:
         computed_tva = round(float(f.montant_ttc) - float(f.montant_ht), 2)
         if computed_tva < 0:
@@ -652,7 +696,7 @@ def validate_facture_business_rules(f: Facture) -> List[str]:
 
 
 # -------------------------
-# Endpoints
+# Endpoints Factures
 # -------------------------
 @router.post("/upload-facture/", response_model=dict)
 def upload_facture(
@@ -666,8 +710,10 @@ def upload_facture(
 
     file_path = save_upload_file(file)
 
+    # OCR
     ocr = ocr_service.extract(file_path)
 
+    # extraction classique
     extracted = extract_fields.extract_fields_from_ocr(ocr)
     fields = to_dict(extracted)
 
@@ -675,6 +721,7 @@ def upload_facture(
     gemini_issues: List[str] = []
     post_issues: List[str] = []
 
+    # Gemini fallback
     if should_use_gemini(ocr, fields):
         try:
             used_gemini = True
@@ -685,13 +732,18 @@ def upload_facture(
             used_gemini = False
             gemini_issues = [f"Gemini failed: {e}"]
 
+    # règle métier: date_paie = date_facture
     fields["date_paie"] = fields.get("date_facture")
+
+    # fix TVA
     post_issues.extend(fix_tva_fields(fields))
 
+    # achat/vente via ICE société vs ICE facture
     operation_type, operation_confidence = decide_operation_type(societe, fields, used_gemini)
     fields["operation_type"] = operation_type
     fields["operation_confidence"] = operation_confidence
 
+    # conversion types
     date_facture_db = parse_date_fr(fields.get("date_facture"))
     date_paie_db = parse_date_fr(fields.get("date_paie"))
 
@@ -718,7 +770,7 @@ def upload_facture(
         taux_tva=to_float(fields.get("taux_tva")),
         id_paie=fields.get("id_paie"),
 
-        devise=fields.get("devise"),  # ✅ AJOUT ICI (le coeur du fix)
+        devise=fields.get("devise"),
 
         ded_file_path=file_path,
         ded_pdf_path=fields.get("ded_pdf_path"),
@@ -828,3 +880,36 @@ def valider_facture(facture_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Erreur DB: {e}")
 
     return f
+
+
+# -------------------------
+# ✅ NEW: ecritures d'une facture (lignes PCM)
+# -------------------------
+@router.get("/{facture_id}/ecritures", response_model=list[EcritureLigneOut])
+def list_ecritures_for_facture(facture_id: int, db: Session = Depends(get_db)):
+    # vérifier facture
+    f = db.query(Facture).filter(Facture.id == facture_id).first()
+    if not f:
+        raise HTTPException(status_code=404, detail="Facture introuvable")
+
+    # récupérer les headers liés à la facture
+    headers = (
+        db.query(EcritureComptable)
+        .filter(EcritureComptable.facture_id == facture_id)
+        .order_by(EcritureComptable.id.desc())
+        .all()
+    )
+    if not headers:
+        return []
+
+    header_ids = [h.id for h in headers]
+
+    # récupérer les lignes liées à ces headers
+    lignes = (
+        db.query(EcritureLigne)
+        .filter(EcritureLigne.ecriture_id.in_(header_ids))
+        .order_by(EcritureLigne.id.asc())
+        .all()
+    )
+
+    return lignes
