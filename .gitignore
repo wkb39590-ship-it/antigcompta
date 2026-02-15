@@ -25,6 +25,8 @@
 
 
 
+# Exports (PDF/XLSX générés)
+backend/exports/
 
 # Python
 __pycache__/
