@@ -15,6 +15,14 @@ def _d(v) -> Decimal:
     return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def _is_tiers_account(account_code: str) -> bool:
+    """
+    Vérifie si un compte est un compte de tiers (fournisseurs/clients).
+    Les comptes de tiers commencent par 4 (401x, 411x, 4411, etc.)
+    """
+    return account_code.startswith("4") if account_code else False
+
+
 def _get_tva_account(pcm_class: Optional[int], invoice_type: Optional[str]) -> str:
     """
     Détermine le compte TVA selon la classe PCM et le type de facture.
@@ -121,6 +129,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 debit=Decimal("0"),
                 credit=ht,
                 tiers_name=client_name,  # Ajouter le nom du client
+                tiers_ice=client_ice,    # Ajouter ICE du client
             )
             db.add(el_ht)
             entry_lines.append(el_ht)
@@ -137,6 +146,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                     debit=Decimal("0"),
                     credit=tva,
                     tiers_name=client_name,  # Ajouter aussi pour la TVA
+                    tiers_ice=client_ice,     # Ajouter ICE du client
                 )
                 db.add(el_tva)
                 entry_lines.append(el_tva)
@@ -183,6 +193,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 debit=Decimal("0"),
                 credit=ht,
                 tiers_name=tiers_name,
+                tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
             )
             db.add(el_ht)
             entry_lines.append(el_ht)
@@ -199,6 +210,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                     debit=Decimal("0"),
                     credit=tva,
                     tiers_name=tiers_name,
+                    tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
                 )
                 db.add(el_tva)
                 entry_lines.append(el_tva)
@@ -227,6 +239,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 debit=ht,
                 credit=Decimal("0"),
                 tiers_name=tiers_name,
+                tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
             )
             db.add(el_ht)
             entry_lines.append(el_ht)
@@ -243,6 +256,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                     debit=tva,
                     credit=Decimal("0"),
                     tiers_name=tiers_name,
+                    tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
                 )
                 db.add(el_tva)
                 entry_lines.append(el_tva)
