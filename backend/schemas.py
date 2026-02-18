@@ -1,116 +1,11 @@
-
-
-# from datetime import date, datetime
-# from typing import Optional, List
-# from pydantic import BaseModel, ConfigDict
-
-
-# # -------------------------
-# # SOCIETE
-# # -------------------------
-# class SocieteIn(BaseModel):
-#     raison_sociale: str
-#     if_fiscal: Optional[str] = None
-#     ice: Optional[str] = None
-#     rc: Optional[str] = None
-#     adresse: Optional[str] = None
-
-
-# class SocieteUpdate(BaseModel):
-#     raison_sociale: Optional[str] = None
-#     if_fiscal: Optional[str] = None
-#     ice: Optional[str] = None
-#     rc: Optional[str] = None
-#     adresse: Optional[str] = None
-
-
-# class SocieteOut(BaseModel):
-#     id: int
-#     raison_sociale: str
-#     if_fiscal: Optional[str] = None
-#     ice: Optional[str] = None
-#     rc: Optional[str] = None
-#     adresse: Optional[str] = None
-#     created_at: datetime
-
-#     model_config = ConfigDict(from_attributes=True)
-
-
-# # -------------------------
-# # FACTURE
-# # -------------------------
-# class FactureOut(BaseModel):
-#     id: int
-#     societe_id: int
-
-#     operation_type: str
-#     operation_confidence: float
-
-#     fournisseur: Optional[str] = None
-#     date_facture: Optional[date] = None
-#     numero_facture: Optional[str] = None
-#     designation: Optional[str] = None
-
-#     montant_ht: Optional[float] = None
-#     montant_tva: Optional[float] = None
-#     montant_ttc: Optional[float] = None
-
-#     statut: str
-
-#     if_frs: Optional[str] = None
-#     ice_frs: Optional[str] = None
-#     taux_tva: Optional[float] = None
-#     id_paie: Optional[str] = None
-#     date_paie: Optional[date] = None
-
-#     devise: Optional[str] = None
-
-#     ded_file_path: Optional[str] = None
-#     ded_pdf_path: Optional[str] = None
-#     ded_xlsx_path: Optional[str] = None
-
-#     model_config = ConfigDict(from_attributes=True)
-
-
-# class FactureUpdate(BaseModel):
-#     fournisseur: Optional[str] = None
-#     date_facture: Optional[date] = None
-#     numero_facture: Optional[str] = None
-#     designation: Optional[str] = None
-
-#     montant_ht: Optional[float] = None
-#     montant_tva: Optional[float] = None
-#     montant_ttc: Optional[float] = None
-
-#     statut: Optional[str] = None
-
-#     if_frs: Optional[str] = None
-#     ice_frs: Optional[str] = None
-#     taux_tva: Optional[float] = None
-#     id_paie: Optional[str] = None
-#     date_paie: Optional[date] = None
-
-#     operation_type: Optional[str] = None
-#     operation_confidence: Optional[float] = None
-
-#     devise: Optional[str] = None
-
-#     ded_file_path: Optional[str] = None
-#     ded_pdf_path: Optional[str] = None
-#     ded_xlsx_path: Optional[str] = None
-
-
-
-
-
 from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 
 
-# -------------------------
-# SOCIETE
-# -------------------------
+# ─────────────────────────────────────────────
+# SOCIETE (compatible avec  ancien code)
+# ─────────────────────────────────────────────
 class SocieteIn(BaseModel):
     raison_sociale: str
     if_fiscal: Optional[str] = None
@@ -129,19 +24,22 @@ class SocieteUpdate(BaseModel):
 
 class SocieteOut(BaseModel):
     id: int
+    cabinet_id: Optional[int] = None  # Peut être NULL pour compatibilité
     raison_sociale: str
     if_fiscal: Optional[str] = None
     ice: Optional[str] = None
     rc: Optional[str] = None
+    patente: Optional[str] = None
     adresse: Optional[str] = None
-    created_at: datetime
+    logo_path: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# -------------------------
+# ─────────────────────────────────────────────
 # FACTURE
-# -------------------------
+# ─────────────────────────────────────────────
 class FactureOut(BaseModel):
     id: int
     societe_id: int
@@ -203,9 +101,9 @@ class FactureUpdate(BaseModel):
     ded_xlsx_path: Optional[str] = None
 
 
-# -------------------------
+# ─────────────────────────────────────────────
 # ECRITURES (HEADER + LIGNES)
-# -------------------------
+# ─────────────────────────────────────────────
 class EcritureLigneOut(BaseModel):
     id: int
     ecriture_id: int
@@ -243,3 +141,119 @@ class GenererEcrituresResponse(BaseModel):
     total_debit: float
     total_credit: float
     ecriture: EcritureOut
+
+
+# ═════════════════════════════════════════════
+# CABINET → AGENTS → SOCIÉTÉS (Multi-Cabinet)
+# ═════════════════════════════════════════════
+
+# ─────────────────────────────────────────────
+# CABINET SCHEMAS
+# ─────────────────────────────────────────────
+class CabinetCreate(BaseModel):
+    nom: str
+    email: Optional[str] = None
+    telephone: Optional[str] = None
+    adresse: Optional[str] = None
+
+
+class CabinetUpdate(BaseModel):
+    nom: Optional[str] = None
+    email: Optional[str] = None
+    telephone: Optional[str] = None
+    adresse: Optional[str] = None
+
+
+class CabinetOut(BaseModel):
+    id: int
+    nom: str
+    email: Optional[str] = None
+    telephone: Optional[str] = None
+    adresse: Optional[str] = None
+    logo_path: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ─────────────────────────────────────────────
+# AGENT (UTILISATEUR) SCHEMAS
+# ─────────────────────────────────────────────
+class AgentCreate(BaseModel):
+    username: str
+    email: str
+    password: str  # Sera hasé en backend
+    nom: Optional[str] = None
+    prenom: Optional[str] = None
+    is_admin: bool = False
+
+
+class AgentUpdate(BaseModel):
+    email: Optional[str] = None
+    nom: Optional[str] = None
+    prenom: Optional[str] = None
+    password: Optional[str] = None  # Pour changement de mot de passe
+
+
+class AgentOut(BaseModel):
+    id: int
+    cabinet_id: int
+    username: str
+    email: str
+    nom: Optional[str] = None
+    prenom: Optional[str] = None
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgentLogin(BaseModel):
+    username: str
+    password: str
+
+
+class AgentLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    agent: AgentOut
+    cabinets: List[CabinetOut] = []
+
+
+# ─────────────────────────────────────────────
+# SESSION / CONTEXT SCHEMAS
+# ─────────────────────────────────────────────
+class SessionContext(BaseModel):
+    agent_id: int
+    cabinet_id: int
+    societe_id: int
+    username: str
+    societe_raison_sociale: str
+
+
+class SelectSocieteRequest(BaseModel):
+    cabinet_id: int
+    societe_id: int
+
+
+class CompteurFacturationOut(BaseModel):
+    id: int
+    societe_id: int
+    annee: int
+    dernier_numero: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SocieteCreateUpdate(BaseModel):
+    raison_sociale: str
+    ice: Optional[str] = None
+    if_fiscal: Optional[str] = None
+    rc: Optional[str] = None
+    patente: Optional[str] = None
+    adresse: Optional[str] = None
+
+
+class SocieteWithAgents(SocieteOut):
+    agents: List[AgentOut] = []

@@ -851,35 +851,6 @@ def delete_facture(facture_id: int, db: Session = Depends(get_db)):
     return {"message": "Facture supprimée"}
 
 
-@router.post("/{facture_id}/valider", response_model=FactureOut)
-def valider_facture(facture_id: int, db: Session = Depends(get_db)):
-    f = db.query(Facture).filter(Facture.id == facture_id).first()
-    if not f:
-        raise HTTPException(status_code=404, detail="Facture introuvable")
-
-    if f.statut == "validee":
-        return f
-
-    if f.statut not in ALLOWED_STATUTS:
-        raise HTTPException(status_code=400, detail=f"Statut actuel invalide: {f.statut}")
-
-    errors = validate_facture_business_rules(f)
-    if errors:
-        raise HTTPException(
-            status_code=422,
-            detail={"message": "Validation refusée", "errors": errors},
-        )
-
-    f.statut = "validee"
-
-    try:
-        db.commit()
-        db.refresh(f)
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Erreur DB: {e}")
-
-    return f
 
 
 # -------------------------
