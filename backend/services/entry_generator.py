@@ -284,6 +284,24 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     entry.total_debit = total_debit
     entry.total_credit = total_credit
 
+    # Backfill: si une ligne d'écriture référence une invoice_line_id et que
+    # l'InvoiceLine n'a pas de pcm_account_code, copier l'account_code généré
+    for el in entry_lines:
+        try:
+            if getattr(el, "invoice_line_id", None) and getattr(el, "account_code", None):
+                inv = db.query(InvoiceLine).filter(InvoiceLine.id == el.invoice_line_id).first()
+                if inv:
+                    # n'écrase pas une correction manuelle
+                    if not inv.corrected_account_code and not inv.pcm_account_code:
+                        inv.pcm_account_code = el.account_code
+                        # copier aussi le libellé si absent
+                        if not inv.pcm_account_label and getattr(el, "account_label", None):
+                            inv.pcm_account_label = el.account_label
+                        db.add(inv)
+        except Exception:
+            # Ne pas stopper la génération d'écritures si le backfill échoue
+            pass
+
     db.commit()
     db.refresh(entry)
 

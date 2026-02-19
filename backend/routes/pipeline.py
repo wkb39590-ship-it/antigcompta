@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Facture, InvoiceLine, JournalEntry, EntryLine, Societe
+from routes.deps import get_current_session
 
 from services import ocr_service
 from services.gemini_service import (
@@ -137,13 +138,15 @@ def upload_facture(
 # ─────────────────────────────────────────────
 
 @router.post("/{facture_id}/extract", response_model=dict)
-def extract_facture(facture_id: int, db: Session = Depends(get_db)):
+def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """
     Lance OCR + Gemini sur la facture.
     Remplit le Tableau 1 (en-tête) et le Tableau 2 (lignes produits).
     Passe le statut à EXTRACTED.
     """
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     if not facture.file_path or not Path(facture.file_path).exists():
         raise HTTPException(400, "Fichier source introuvable")
@@ -180,9 +183,30 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db)):
         print(f"✅ Extraction Gemini (lignes) réussie: {len(raw_lines)} lignes")
     except Exception as e:
         print(f"❌ Erreur extraction Gemini lignes: {str(e)[:200]}")
-        # Fallback Tesseract pour les lignes (simplifié)
-        raw_lines = []
-        print("⚠️ Extraction de lignes indisponible - utiliser la classification manuelle")
+        # Fallback: créer une ligne par défaut avec le montant total
+        # L'utilisateur pourra la corriger manuellement
+        ht_total = header.get("montant_ht") or 0
+        tva_total = header.get("montant_tva") or 0
+        ttc_total = header.get("montant_ttc") or 0
+        
+        # Calculer le taux TVA
+        tva_rate = None
+        if ht_total and tva_total:
+            tva_rate = round((tva_total / ht_total) * 100, 2) if ht_total > 0 else None
+        
+        raw_lines = [{
+            "line_number": 1,
+            "description": f"Achat global / Vente globale (à corriger manuellement)",
+            "quantity": 1,
+            "unit": "lot",
+            "unit_price_ht": ht_total,
+            "line_amount_ht": ht_total,
+            "tva_rate": tva_rate,
+            "tva_amount": tva_total,
+            "line_amount_ttc": ttc_total,
+        }]
+        print(f"⚠️ Fallback: création ligne par défaut (Gemini non disponible)")
+        print(f"   Utilisateur doit corriger manuellement les lignes")
 
     # ── Remplir Tableau 1 (Facture) ────────────────────────────
     facture.numero_facture = header.get("numero_facture")
@@ -333,12 +357,14 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db)):
 # ─────────────────────────────────────────────
 
 @router.post("/{facture_id}/classify", response_model=dict)
-def classify_facture(facture_id: int, db: Session = Depends(get_db)):
+def classify_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """
     Classifie chaque ligne produit dans le Plan Comptable Marocain.
     Passe le statut à CLASSIFIED.
     """
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     if facture.status not in ("EXTRACTED", "CLASSIFIED"):
         raise HTTPException(400, f"Statut invalide pour classification: {facture.status}")
@@ -367,12 +393,15 @@ def classify_facture(facture_id: int, db: Session = Depends(get_db)):
 # ─────────────────────────────────────────────
 
 @router.post("/{facture_id}/generate-entries", response_model=dict)
-def generate_entries(facture_id: int, db: Session = Depends(get_db)):
+def generate_entries(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """
     Génère le brouillon des écritures comptables PCM.
     Passe le statut à DRAFT.
     """
     facture = _get_facture_or_404(facture_id, db)
+    # Enforce société isolation
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     if facture.status not in ("CLASSIFIED", "DRAFT"):
         raise HTTPException(400, f"Statut invalide pour génération: {facture.status}")
@@ -409,9 +438,11 @@ def generate_entries(facture_id: int, db: Session = Depends(get_db)):
 # ─────────────────────────────────────────────
 
 @router.get("/{facture_id}", response_model=dict)
-def get_facture(facture_id: int, db: Session = Depends(get_db)):
+def get_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """Retourne l'en-tête facture (Tableau 1) + flags DGI."""
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
     return {
         "id": facture.id,
         "status": facture.status,
@@ -443,9 +474,11 @@ def get_facture(facture_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{facture_id}/lines", response_model=list)
-def get_facture_lines(facture_id: int, db: Session = Depends(get_db)):
+def get_facture_lines(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """Retourne les lignes produits (Tableau 2) avec classification PCM."""
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
     return [
         {
             "id": line.id,
@@ -470,9 +503,11 @@ def get_facture_lines(facture_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{facture_id}/entries", response_model=dict)
-def get_facture_entries(facture_id: int, db: Session = Depends(get_db)):
+def get_facture_entries(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """Retourne le brouillon des écritures comptables."""
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     entries = db.query(JournalEntry).filter(JournalEntry.facture_id == facture_id).all()
     if not entries:
@@ -516,15 +551,36 @@ def update_invoice_line(
     line_id: int,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
-    """Permet au comptable de corriger le compte PCM d'une ligne."""
+    """Permet au comptable de corriger le compte PCM d'une ligne. Vérifie l'accès à la société."""
     line = db.query(InvoiceLine).filter(InvoiceLine.id == line_id).first()
     if not line:
         raise HTTPException(404, "Ligne introuvable")
+    
+    # Verify the invoice owning this line belongs to the current société
+    facture = db.query(Facture).filter(Facture.id == line.facture_id).first()
+    if not facture:
+        raise HTTPException(404, "Facture associée introuvable")
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette ligne")
 
     if "corrected_account_code" in payload:
         line.corrected_account_code = payload["corrected_account_code"]
         line.is_corrected = True
+    # Accept frontend payload keys as aliases
+    if "pcm_account_code" in payload and payload.get("pcm_account_code") is not None:
+        # Update both the classified PCM code and record a manual correction
+        line.pcm_account_code = payload["pcm_account_code"]
+        line.corrected_account_code = payload["pcm_account_code"]
+        line.is_corrected = True
+    if "pcm_account_label" in payload:
+        line.pcm_account_label = payload["pcm_account_label"]
+    if "classification_confidence" in payload:
+        try:
+            line.classification_confidence = float(payload["classification_confidence"]) if payload["classification_confidence"] is not None else None
+        except Exception:
+            pass
     if "description" in payload:
         line.description = payload["description"]
     if "line_amount_ht" in payload:
@@ -541,11 +597,22 @@ def update_entry_line(
     entry_line_id: int,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
-    """Permet au comptable de corriger une ligne débit/crédit."""
+    """Permet au comptable de corriger une ligne débit/crédit. Vérifie l'accès à la société."""
     el = db.query(EntryLine).filter(EntryLine.id == entry_line_id).first()
     if not el:
         raise HTTPException(404, "Ligne d'écriture introuvable")
+    
+    # Verify the entry owning this line's facture belongs to the current société
+    entry = db.query(JournalEntry).filter(JournalEntry.id == el.entry_id).first()
+    if not entry:
+        raise HTTPException(404, "Écriture associée introuvable")
+    facture = db.query(Facture).filter(Facture.id == entry.facture_id).first()
+    if not facture:
+        raise HTTPException(404, "Facture associée introuvable")
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette ligne")
 
     if "account_code" in payload:
         el.account_code = payload["account_code"]
@@ -569,6 +636,7 @@ def validate_facture(
     facture_id: int,
     validated_by: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
     """
     Valide la facture et enregistre définitivement les écritures en base.
@@ -576,6 +644,8 @@ def validate_facture(
     validated_by peut être un ID utilisateur (int) ou un nom d'utilisateur (string)
     """
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     if facture.status not in ("DRAFT", "CLASSIFIED"):
         raise HTTPException(400, f"Statut invalide pour validation: {facture.status}. Attendu: DRAFT")
@@ -634,9 +704,12 @@ def reject_facture(
     facture_id: int,
     reason: str = Query(..., description="Motif du rejet"),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
     """Rejette la facture avec un motif."""
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     facture.status = "ERROR"
     facture.reject_reason = reason
@@ -657,15 +730,14 @@ def reject_facture(
 @router.get("/", response_model=list)
 def list_factures(
     status: Optional[str] = Query(None),
-    societe_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
-    """Liste toutes les factures avec filtres optionnels."""
-    q = db.query(Facture)
+    """Liste toutes les factures pour la société courante avec filtres optionnels."""
+    societe_id = session.get("societe_id")
+    q = db.query(Facture).filter(Facture.societe_id == societe_id)
     if status:
         q = q.filter(Facture.status == status.upper())
-    if societe_id:
-        q = q.filter(Facture.societe_id == societe_id)
     factures = q.order_by(Facture.id.desc()).all()
 
     return [
@@ -689,9 +761,11 @@ def list_factures(
 # ─────────────────────────────────────────────
 
 @router.get("/{facture_id}/file")
-def get_facture_file(facture_id: int, db: Session = Depends(get_db)):
-    """Retourne le fichier source (PDF/image) pour aperçu."""
+def get_facture_file(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """Retourne le fichier source (PDF/image) pour aperçu. Doit appartenir à la société courante."""
     facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
     if not facture.file_path or not Path(facture.file_path).exists():
         raise HTTPException(404, "Fichier source introuvable")
     

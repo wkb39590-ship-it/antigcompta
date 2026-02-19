@@ -103,6 +103,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Facture, EcritureComptable, EcritureLigne
+from routes.deps import get_current_session
 from schemas import GenererEcrituresResponse, EcritureLigneOut
 from services.accounting_rules import PieceComptable, generate_lines_pcm, get_journal_code
 
@@ -110,10 +111,13 @@ router = APIRouter(prefix="/ecritures", tags=["ecritures"])
 
 
 @router.get("/facture/{facture_id}", response_model=list[EcritureLigneOut])
-def list_ecritures_facture(facture_id: int, db: Session = Depends(get_db)):
+def list_ecritures_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """Liste les écritures d'une facture. Vérifie l'accès à la société."""
     f = db.query(Facture).filter(Facture.id == facture_id).first()
     if not f:
         raise HTTPException(status_code=404, detail="Facture introuvable")
+    if f.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     header = (
         db.query(EcritureComptable)
@@ -138,10 +142,13 @@ def list_ecritures_facture(facture_id: int, db: Session = Depends(get_db)):
 def generer_ecritures_pcm(
     facture_id: int = Query(..., description="ID de la facture"),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
     f = db.query(Facture).filter(Facture.id == facture_id).first()
     if not f:
         raise HTTPException(status_code=404, detail="Facture introuvable")
+    if f.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette facture")
 
     # contrôles cahier des charges
     if not f.numero_facture:

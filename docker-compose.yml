@@ -51,7 +51,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:8090
     ports:
-      - "3090:3000"
+      - "3090:3090"
     volumes:
       - ./frontend:/app
       - /app/node_modules

@@ -1,27 +1,28 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../api'
+import { getCurrentSociete } from '../utils/tokenDecoder'
 
 export default function Upload() {
     const [file, setFile] = useState<File | null>(null)
-    const [societeId, setSocieteId] = useState<number>(1)
-    const [societes, setSocietes] = useState<any[]>([])
     const [dragOver, setDragOver] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
+    const [currentSociete, setCurrentSociete] = useState<any>(null)
     const fileRef = useRef<HTMLInputElement>(null)
     const navigate = useNavigate()
 
     useEffect(() => {
-        apiService.listSocietes()
-            .then(data => {
-                setSocietes(data)
-                if (data.length > 0) setSocieteId(data[0].id)
-            })
-            .catch(() => {
-                // Si pas de sociétés, on utilise 1 par défaut
-            })
+        // Get current societe from session token
+        const societe = getCurrentSociete()
+        
+        if (societe) {
+            setCurrentSociete(societe)
+            setError('')
+        } else {
+            setError('Aucune session active. Veuillez sélectionner une société d\'abord.')
+        }
     }, [])
 
     const handleDrop = (e: React.DragEvent) => {
@@ -38,25 +39,46 @@ export default function Upload() {
         setSuccess('')
 
         try {
-            // Étape 1: Upload
-            const uploaded = await apiService.uploadFacture(file, societeId)
+            console.log('[Upload] Starting pipeline with file:', file.name)
+            console.log('[Upload] Session token:', localStorage.getItem('session_token') ? '✅ Present' : '❌ Missing')
+
+            // Étape 1: Upload (societe_id is extracted from session_token by backend)
+            console.log('[Upload] Step 1: Uploading file...')
+            const uploaded = await apiService.uploadFacture(file)
             const id = uploaded.id
+            console.log('[Upload] ✅ Upload successful, facture ID:', id)
             setSuccess(`✅ Facture #${id} uploadée. Extraction en cours...`)
 
             // Étape 2: Extraction automatique
+            console.log('[Upload] Step 2: Extracting...')
             await apiService.extractFacture(id)
+            console.log('[Upload] ✅ Extraction done')
             setSuccess(`✅ Extraction terminée. Classification PCM en cours...`)
 
             // Étape 3: Classification automatique
+            console.log('[Upload] Step 3: Classifying...')
             await apiService.classifyFacture(id)
+            console.log('[Upload] ✅ Classification done')
             setSuccess(`✅ Classification terminée. Génération des écritures...`)
 
             // Étape 4: Génération des écritures
+            console.log('[Upload] Step 4: Generating entries...')
             await apiService.generateEntries(id)
+            console.log('[Upload] ✅ All steps done!')
             setSuccess(`✅ Pipeline complet! Redirection vers la facture #${id}...`)
 
             setTimeout(() => navigate(`/factures/${id}`), 1500)
         } catch (e: any) {
+            console.error('[Upload] ❌ Error:', e)
+            if (e.response) {
+                console.error('[Upload] Response status:', e.response.status)
+                console.error('[Upload] Response data:', e.response.data)
+            } else if (e.request) {
+                console.error('[Upload] Request made but no response:', e.request)
+            } else {
+                console.error('[Upload] Error message:', e.message)
+            }
+            
             const msg = e.response?.data?.detail || e.message || 'Erreur inconnue'
             setError(`❌ Erreur: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
         } finally {
@@ -133,25 +155,24 @@ export default function Upload() {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Société</label>
-                        {societes.length > 0 ? (
-                            <select
-                                className="form-input"
-                                value={societeId}
-                                onChange={e => setSocieteId(Number(e.target.value))}
-                            >
-                                {societes.map(s => (
-                                    <option key={s.id} value={s.id}>{s.raison_sociale}</option>
-                                ))}
-                            </select>
-                        ) : (
-                            <input
-                                className="form-input"
-                                type="number"
-                                value={societeId}
-                                onChange={e => setSocieteId(Number(e.target.value))}
-                                placeholder="ID de la société (ex: 1)"
-                            />
+                        <label className="form-label">Société sélectionnée</label>
+                        <div className="form-input" style={{ background: 'var(--bg2)', cursor: 'default', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '16px' }}>✓</span>
+                            <span>{currentSociete?.raison_sociale || 'Société non chargée'}</span>
+                        </div>
+                        {!currentSociete && (
+                            <div>
+                                <div style={{ fontSize: '12px', color: 'var(--error)', marginTop: '8px' }}>
+                                    ⚠️ Veuillez d'abord sélectionner une société
+                                </div>
+                                <button
+                                    className="btn btn-secondary"
+                                    style={{ width: '100%', marginTop: '12px', padding: '10px', fontSize: '12px' }}
+                                    onClick={() => navigate('/cabinets')}
+                                >
+                                    ← Retour à la sélection
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -173,7 +194,7 @@ export default function Upload() {
                         className="btn btn-primary"
                         style={{ width: '100%', marginTop: '24px', justifyContent: 'center', padding: '14px' }}
                         onClick={handleSubmit}
-                        disabled={loading || !file}
+                        disabled={loading || !file || !currentSociete}
                     >
                         {loading ? (
                             <><div className="spinner" /> Traitement en cours...</>

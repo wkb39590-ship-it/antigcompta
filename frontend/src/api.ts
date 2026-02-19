@@ -1,11 +1,48 @@
 import axios from 'axios'
+import { getSessionContext } from './utils/tokenDecoder'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8090'
+const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:8090'
+
+console.log('[API] Initializing with base URL:', API_BASE)
 
 const api = axios.create({
     baseURL: API_BASE,
-    timeout: 60000,
+    timeout: 15000,  // Reduced from 60000 to 15 seconds
 })
+
+// Attach session_token (if present) as Authorization Bearer for all requests
+api.interceptors.request.use((config) => {
+    try {
+        const session = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
+        console.log('[Axios Interceptor] Request to:', config.url, 'Session token:', session ? `${session.substring(0, 20)}...` : 'NONE')
+        
+        if (session) {
+            config.headers = config.headers || {}
+            config.headers['Authorization'] = `Bearer ${session}`
+            console.log('[Axios Interceptor] ✅ Added Authorization header')
+        } else {
+            console.warn('[Axios Interceptor] ⚠️ No session_token found (this might be expected for login/auth endpoints)')
+        }
+    } catch (e) {
+        console.error('[Axios Interceptor] Error:', e)
+    }
+    return config
+})
+
+// Add error interceptor for better debugging
+api.interceptors.response.use(
+    response => response,
+    error => {
+        console.error('[Axios Error]', {
+            message: error.message,
+            code: error.code,
+            status: error.response?.status,
+            data: error.response?.data,
+            url: error.config?.url
+        })
+        return Promise.reject(error)
+    }
+)
 
 export interface Facture {
     id: number
@@ -93,25 +130,30 @@ export const apiService = {
         api.get('/factures/', { params: { status } }).then(r => r.data),
 
     // Upload
-    uploadFacture: (file: File, societeId: number) => {
+    uploadFacture: (file: File) => {
         const form = new FormData()
         form.append('file', file)
-        return api.post(`/factures/upload?societe_id=${societeId}`, form, {
+        // session_token is sent automatically via Authorization header interceptor
+        return api.post(`/factures/upload-facture/`, form, {
             headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 120000  // 2 minutes for upload + OCR
         }).then(r => r.data)
     },
 
-    // Extraction
+    // Extraction (Gemini can be slow, use longer timeout)
     extractFacture: (id: number) =>
-        api.post(`/factures/${id}/extract`).then(r => r.data),
+        api.post(`/factures/${id}/extract`, {}, { timeout: 120000 }).then(r => r.data),  // 2 minutes
 
     // Classification
     classifyFacture: (id: number) =>
-        api.post(`/factures/${id}/classify`).then(r => r.data),
+        api.post(`/factures/${id}/classify`, {}, { timeout: 60000 }).then(r => r.data),  // 1 minute
+    // Classification
+    classifyFacture: (id: number) =>
+        api.post(`/factures/${id}/classify`, {}, { timeout: 60000 }).then(r => r.data),
 
     // Génération écritures
     generateEntries: (id: number) =>
-        api.post(`/factures/${id}/generate-entries`).then(r => r.data),
+        api.post(`/factures/${id}/generate-entries`, {}, { timeout: 60000 }).then(r => r.data),
 
     // Détail facture
     getFacture: (id: number) =>

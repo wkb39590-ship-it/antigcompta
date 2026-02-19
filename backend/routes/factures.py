@@ -494,6 +494,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Facture, Societe, EcritureComptable, EcritureLigne
+from routes.deps import get_current_session
 
 from services import ocr_service
 from services import extract_fields
@@ -701,9 +702,13 @@ def validate_facture_business_rules(f: Facture) -> List[str]:
 @router.post("/upload-facture/", response_model=dict)
 def upload_facture(
     file: UploadFile = File(...),
-    societe_id: int = Query(..., description="ID de la société (obligatoire)"),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
+    """Upload a new facture. Requires valid session_token in Authorization header."""
+    societe_id = session.get("societe_id")
+    if not societe_id:
+        raise HTTPException(status_code=400, detail="societe_id manquant dans le contexte de session")
     societe = db.query(Societe).filter(Societe.id == societe_id).first()
     if not societe:
         raise HTTPException(status_code=404, detail="Société introuvable")
@@ -762,7 +767,7 @@ def upload_facture(
         montant_tva=to_float(fields.get("montant_tva")),
         montant_ttc=to_float(fields.get("montant_ttc")),
 
-        statut="brouillon",
+        status="IMPORTED",  # Changed from statut="brouillon"
 
         if_frs=fields.get("if_frs") or fields.get("if_fiscal"),
         ice_frs=fields.get("ice_frs") or fields.get("ice"),
@@ -772,6 +777,7 @@ def upload_facture(
 
         devise=fields.get("devise"),
 
+        file_path=file_path,
         ded_file_path=file_path,
         ded_pdf_path=fields.get("ded_pdf_path"),
         ded_xlsx_path=fields.get("ded_xlsx_path"),
@@ -803,23 +809,29 @@ def upload_facture(
 
 
 @router.get("/", response_model=list[FactureOut])
-def list_factures(db: Session = Depends(get_db)):
-    return db.query(Facture).order_by(Facture.id.desc()).all()
+def list_factures(db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """List factures for the current société (from session_token)."""
+    societe_id = session.get("societe_id")
+    return db.query(Facture).filter(Facture.societe_id == societe_id).order_by(Facture.id.desc()).all()
 
 
 @router.get("/{facture_id}", response_model=FactureOut)
-def get_facture(facture_id: int, db: Session = Depends(get_db)):
-    f = db.query(Facture).filter(Facture.id == facture_id).first()
+def get_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """Get facture details. Must belong to current société."""
+    societe_id = session.get("societe_id")
+    f = db.query(Facture).filter(Facture.id == facture_id, Facture.societe_id == societe_id).first()
     if not f:
-        raise HTTPException(status_code=404, detail="Facture introuvable")
+        raise HTTPException(status_code=404, detail="Facture introuvable ou accès refusé")
     return f
 
 
 @router.put("/{facture_id}", response_model=FactureOut)
-def update_facture(facture_id: int, payload: FactureUpdate, db: Session = Depends(get_db)):
-    f = db.query(Facture).filter(Facture.id == facture_id).first()
+def update_facture(facture_id: int, payload: FactureUpdate, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """Update facture. Must belong to current société."""
+    societe_id = session.get("societe_id")
+    f = db.query(Facture).filter(Facture.id == facture_id, Facture.societe_id == societe_id).first()
     if not f:
-        raise HTTPException(status_code=404, detail="Facture introuvable")
+        raise HTTPException(status_code=404, detail="Facture introuvable ou accès refusé")
 
     data = payload.model_dump(exclude_unset=True)
     for k, v in data.items():
@@ -836,10 +848,12 @@ def update_facture(facture_id: int, payload: FactureUpdate, db: Session = Depend
 
 
 @router.delete("/{facture_id}")
-def delete_facture(facture_id: int, db: Session = Depends(get_db)):
-    f = db.query(Facture).filter(Facture.id == facture_id).first()
+def delete_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """Delete facture. Must belong to current société."""
+    societe_id = session.get("societe_id")
+    f = db.query(Facture).filter(Facture.id == facture_id, Facture.societe_id == societe_id).first()
     if not f:
-        raise HTTPException(status_code=404, detail="Facture introuvable")
+        raise HTTPException(status_code=404, detail="Facture introuvable ou accès refusé")
 
     db.delete(f)
     try:
@@ -857,11 +871,14 @@ def delete_facture(facture_id: int, db: Session = Depends(get_db)):
 # ✅ NEW: ecritures d'une facture (lignes PCM)
 # -------------------------
 @router.get("/{facture_id}/ecritures", response_model=list[EcritureLigneOut])
-def list_ecritures_for_facture(facture_id: int, db: Session = Depends(get_db)):
+def list_ecritures_for_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """List ecritures (lines) for a facture. Must belong to current société."""
+    societe_id = session.get("societe_id")
+    
     # vérifier facture
-    f = db.query(Facture).filter(Facture.id == facture_id).first()
+    f = db.query(Facture).filter(Facture.id == facture_id, Facture.societe_id == societe_id).first()
     if not f:
-        raise HTTPException(status_code=404, detail="Facture introuvable")
+        raise HTTPException(status_code=404, detail="Facture introuvable ou accès refusé")
 
     # récupérer les headers liés à la facture
     headers = (

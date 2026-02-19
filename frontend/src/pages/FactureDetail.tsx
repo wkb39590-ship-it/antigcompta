@@ -48,6 +48,9 @@ export default function FactureDetail() {
 
     const [facture, setFacture] = useState<Facture | null>(null)
     const [lines, setLines] = useState<InvoiceLine[]>([])
+    const [editingLineId, setEditingLineId] = useState<number | null>(null)
+    const [editedLine, setEditedLine] = useState<Partial<InvoiceLine> | null>(null)
+    const [lineModalOpen, setLineModalOpen] = useState(false)
     const [entries, setEntries] = useState<JournalEntry[]>([])
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState(false)
@@ -89,8 +92,46 @@ export default function FactureDetail() {
         }
     }
 
+    // Line edit modal save
+    const saveLineFromModal = async () => {
+        if (!editingLineId || !editedLine) return
+        setActionLoading(true)
+        try {
+            const payload: Partial<any> = {
+                description: editedLine.description,
+                quantity: editedLine.quantity,
+                unit_price_ht: editedLine.unit_price_ht,
+                line_amount_ht: editedLine.line_amount_ht,
+                tva_rate: editedLine.tva_rate,
+                pcm_account_code: editedLine.pcm_account_code,
+                pcm_account_label: editedLine.pcm_account_label,
+                classification_confidence: editedLine.classification_confidence,
+                corrected_account_code: editedLine.pcm_account_code,
+            }
+            await apiService.updateInvoiceLine(editingLineId, payload)
+            setMsg({ type: 'success', text: '✅ Ligne sauvegardée' })
+            setLineModalOpen(false)
+            setEditingLineId(null)
+            setEditedLine(null)
+            await load()
+        } catch (e:any) {
+            setMsg({ type: 'error', text: `Erreur: ${e.response?.data?.detail || e.message}` })
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
     if (loading) return <div className="loading"><div className="spinner" /> Chargement...</div>
     if (!facture) return <div className="empty-state"><div className="empty-title">Facture introuvable</div></div>
+
+    // basic modal styles (scoped inline for simplicity)
+    const modalStyles = `
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:9999 }
+    .modal { background: var(--bg); padding: 18px; border-radius: 8px; width: min(900px, 95%); box-shadow: 0 10px 30px rgba(0,0,0,0.2) }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px }
+    .modal-body textarea, .modal-body input { width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; background: var(--bg2); color:var(--text) }
+    .label { font-size:12px; color:var(--text3); margin-bottom:6px; display:block }
+    `
 
     const fmt = (v: number | null) => v != null ? v.toLocaleString('fr-MA', { minimumFractionDigits: 2 }) : '—'
 
@@ -304,18 +345,26 @@ export default function FactureDetail() {
                                             <td style={{ fontWeight: 600 }}>{fmt(line.line_amount_ht)}</td>
                                             <td>{line.tva_rate != null ? `${line.tva_rate}%` : '—'}</td>
                                             <td>
-                                                {line.pcm_account_code ? (
-                                                    <div>
-                                                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)' }}>
-                                                            {line.pcm_account_code}
-                                                        </span>
-                                                        {line.is_corrected && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--warning)' }}>✏️ corrigé</span>}
-                                                        <div style={{ fontSize: '11px', color: 'var(--text2)' }}>{line.pcm_account_label}</div>
-                                                    </div>
-                                                ) : '—'}
+                                                <div>
+                                                    {line.pcm_account_code ? (
+                                                        <div>
+                                                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)' }}>
+                                                                {line.pcm_account_code}
+                                                            </span>
+                                                            {line.is_corrected && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--warning)' }}>✏️ corrigé</span>}
+                                                            <div style={{ fontSize: '11px', color: 'var(--text2)' }}>{line.pcm_account_label}</div>
+                                                        </div>
+                                                    ) : '—'}
+                                                    {line.classification_confidence != null && line.classification_confidence < 0.5 && (
+                                                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>⚠️ faible confiance</div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td style={{ minWidth: '120px' }}>
                                                 <ConfidenceBar value={line.classification_confidence} />
+                                            </td>
+                                            <td style={{ width: 48, textAlign: 'right' }}>
+                                                <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 6, minWidth: 32 }}>✏️</button>
                                             </td>
                                         </tr>
                                     ))}
@@ -323,6 +372,60 @@ export default function FactureDetail() {
                             </table>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Line Edit Modal */}
+            {lineModalOpen && editedLine && (
+                <div className="modal-backdrop">
+                    <div className="modal">
+                        <div className="modal-header">
+                            <div style={{ fontWeight: 700 }}>Modifier la ligne #{editedLine.line_number}</div>
+                            <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>✖</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label className="label">Description</label>
+                                    <textarea value={editedLine.description || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), description: e.target.value }))} />
+                                </div>
+                                <div>
+                                    <label className="label">Quantité</label>
+                                    <input type="number" value={editedLine.quantity ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), quantity: e.target.value ? Number(e.target.value) : null }))} />
+                                    <label className="label">Unité</label>
+                                    <input value={editedLine.unit || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), unit: e.target.value }))} />
+                                </div>
+                                <div>
+                                    <label className="label">PU HT</label>
+                                    <input type="number" value={editedLine.unit_price_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), unit_price_ht: e.target.value ? Number(e.target.value) : null }))} />
+                                </div>
+                                <div>
+                                    <label className="label">Montant HT</label>
+                                    <input type="number" value={editedLine.line_amount_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), line_amount_ht: e.target.value ? Number(e.target.value) : null }))} />
+                                </div>
+                                <div>
+                                    <label className="label">TVA (%)</label>
+                                    <input type="number" value={editedLine.tva_rate ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), tva_rate: e.target.value ? Number(e.target.value) : null }))} />
+                                </div>
+                                <div>
+                                    <label className="label">Confiance</label>
+                                    <input type="range" min={0} max={100} value={Math.round((editedLine.classification_confidence ?? 0) * 100)} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), classification_confidence: Number(e.target.value) / 100 }))} />
+                                </div>
+                                <div>
+                                    <label className="label">Compte PCM</label>
+                                    <input value={editedLine.pcm_account_code || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), pcm_account_code: e.target.value }))} />
+                                </div>
+                                <div>
+                                    <label className="label">Libellé compte</label>
+                                    <input value={editedLine.pcm_account_label || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), pcm_account_label: e.target.value }))} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>Annuler</button>
+                            <button className="btn btn-primary" onClick={saveLineFromModal} disabled={actionLoading}>💾 Sauver</button>
+                        </div>
+                    </div>
                 </div>
             )}
 
