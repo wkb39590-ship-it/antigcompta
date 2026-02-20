@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_CONFIG } from '../config/apiConfig'
 import '../styles/auth.css'
 
 interface Cabinet {
@@ -46,22 +47,33 @@ export default function CabinetSelector() {
         setError('')
         try {
             const response = await fetch(
-                `http://localhost:8090/auth/societes?token=${token}&cabinet_id=${cabinetId}`
+                `${API_CONFIG.AUTH.SOCIETES_AUTH}?token=${token}&cabinet_id=${cabinetId}`
             )
+
+            const text = await response.text()
+            let data = null
+            try {
+                data = text ? JSON.parse(text) : null
+            } catch (e) {
+                console.error('[CabinetSelector] Failed to parse JSON:', text)
+            }
+
             if (!response.ok) {
-                let data = null
-                try { data = await response.json() } catch {}
-                const msg = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Erreur lors du chargement des sociétés'
+                const msg = data && data.detail
+                    ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))
+                    : `Erreur ${response.status}: ${text.substring(0, 100)}`
                 throw new Error(msg)
             }
-            const data = await response.json()
-            setSocietes(data)
+
+            setSocietes(data || [])
         } catch (err) {
-            setError(err instanceof Error ? err.message : (err ? JSON.stringify(err) : 'Erreur inconnue'))
+            console.error('[CabinetSelector] loadSocietes error:', err)
+            setError(err instanceof Error ? err.message : 'Erreur inconnue')
         } finally {
             setLoading(false)
         }
     }
+
 
     const handleSelectSociete = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -71,10 +83,10 @@ export default function CabinetSelector() {
         setError('')
         try {
             if (!token) throw new Error('Token manquant, reconnectez-vous')
-            
+
             console.log('[CabinetSelector] Calling select-societe with:', { selectedCabinet, selectedSociete })
-            
-            const response = await fetch(`http://localhost:8090/auth/select-societe?token=${encodeURIComponent(token)}`, {
+
+            const response = await fetch(`${API_CONFIG.AUTH.SELECT_SOCIETE}?token=${encodeURIComponent(token)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -89,7 +101,7 @@ export default function CabinetSelector() {
 
             if (!response.ok) {
                 let data = null
-                try { data = await response.json() } catch {}
+                try { data = await response.json() } catch { }
                 const msg = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Erreur lors de la sélection'
                 console.error('[CabinetSelector] Error response:', msg)
                 throw new Error(msg)
@@ -101,14 +113,14 @@ export default function CabinetSelector() {
 
             // Stocker le session_token et le contexte
             localStorage.setItem('session_token', data.session_token)
-            
+
             // Extract cabinet_id and societe_id from context
             const cabinet_id = data.context?.cabinet_id || selectedCabinet
             const societe_id = data.context?.societe_id || selectedSociete
-            
+
             localStorage.setItem('current_cabinet_id', String(cabinet_id))
             localStorage.setItem('current_societe_id', String(societe_id))
-            
+
             console.log('[CabinetSelector] ✅ Stored session_token in localStorage')
             console.log('[CabinetSelector] ✅ Stored context:', { cabinet_id, societe_id })
 

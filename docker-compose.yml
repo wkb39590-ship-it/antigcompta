@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: admin123
       POSTGRES_DB: compta_db
     ports:
-      - "5444:5432"
+      - "5454:5432"
     volumes:
       - postgres_data_v2:/var/lib/postgresql/data
     healthcheck:
@@ -34,12 +34,13 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       UPLOAD_DIR: /app/uploads
     ports:
-      - "8090:8000"
+      - "8888:8000"
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
     command: >
-      sh -c "python seed_pcm.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "python seed_pcm.py && python seed_multi_cabinet.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
 
   frontend:
     build:
@@ -49,12 +50,13 @@ services:
     depends_on:
       - backend
     environment:
-      VITE_API_URL: http://localhost:8090
+      VITE_API_URL: http://localhost:8888
     ports:
-      - "3090:3090"
+      - "3333:3333"
     volumes:
       - ./frontend:/app
       - /app/node_modules
 
 volumes:
   postgres_data_v2:
+

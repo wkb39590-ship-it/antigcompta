@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_CONFIG } from '../config/apiConfig'
 import '../styles/auth.css'
 
 interface LoginResponse {
@@ -21,7 +22,7 @@ export default function Login() {
         setLoading(true)
 
         try {
-            const response = await fetch('http://localhost:8090/auth/login', {
+            const response = await fetch(API_CONFIG.AUTH.LOGIN, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),

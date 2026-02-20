@@ -104,10 +104,16 @@ def _get_facture_or_404(facture_id: int, db: Session) -> Facture:
 @router.post("/upload", response_model=dict)
 def upload_facture(
     file: UploadFile = File(...),
-    societe_id: int = Query(..., description="ID de la société"),
     db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
 ):
-    """Upload un fichier facture. Crée une entrée avec statut IMPORTED."""
+    """Upload un fichier facture. Crée une entrée avec statut IMPORTED.
+
+    NOTE: This endpoint previously accepted `societe_id` as a query param.
+    It now uses the `session` context (session_token) to determine the company
+    and prevent clients from uploading for arbitrary sociétés.
+    """
+    societe_id = session.get("societe_id")
     societe = db.query(Societe).filter(Societe.id == societe_id).first()
     if not societe:
         raise HTTPException(404, "Société introuvable")
@@ -673,15 +679,18 @@ def validate_facture(
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
 
+        # Utiliser l'agent de la session si non fourni explicitement
+        v_by = validated_by or session.get("username")
+
         # Valider toutes les écritures
         for entry in entries:
             entry.is_validated = True
-            entry.validated_by = validated_by  # Peut être un nom ou un ID
+            entry.validated_by = v_by
             entry.validated_at = now
 
         # Mettre à jour le statut de la facture
         facture.status = "VALIDATED"
-        facture.validated_by = validated_by  # Peut être un nom ou un ID
+        facture.validated_by = v_by
         facture.validated_at = now
 
         db.commit()

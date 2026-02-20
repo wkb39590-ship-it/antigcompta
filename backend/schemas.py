@@ -257,3 +257,11 @@ class SocieteCreateUpdate(BaseModel):
 
 class SocieteWithAgents(SocieteOut):
     agents: List[AgentOut] = []
+
+
+class AgentStats(BaseModel):
+    total_factures_validees: int
+    total_societes_gerees: int
+    cabinet_nom: str
+
+

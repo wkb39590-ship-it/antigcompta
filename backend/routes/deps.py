@@ -1,12 +1,12 @@
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Depends
 from typing import Dict
 
 try:
     # reuse the simple decoder from auth.py
-    from routes.auth import decode_jwt_token
+    from routes.auth import decode_jwt_token, get_current_agent
 except Exception:
     # fallback: import relative
-    from .auth import decode_jwt_token
+    from .auth import decode_jwt_token, get_current_agent
 
 
 def get_current_session(authorization: str = Header(None)) -> Dict:
@@ -24,3 +24,13 @@ def get_current_session(authorization: str = Header(None)) -> Dict:
     if not data.get("societe_id"):
         raise HTTPException(status_code=401, detail="Session token missing societe context")
     return data
+
+
+def require_admin(agent = Depends(get_current_agent)):
+    """Dependency helper: ensures the current agent is an admin.
+
+    Note: `get_current_agent` validates the agent token.
+    """
+    if not getattr(agent, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return agent

@@ -9,12 +9,13 @@ import secrets
 import hashlib
 
 from database import get_db
-from models import Cabinet, Agent, Societe, agent_societes
+from models import Cabinet, Agent, Societe, Facture, agent_societes
 from schemas import (
     AgentCreate, AgentLogin, AgentLoginResponse,
     AgentOut, CabinetOut, SocieteOut,
-    SelectSocieteRequest, SessionContext
+    SelectSocieteRequest, SessionContext, AgentStats
 )
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -228,6 +229,26 @@ async def select_societe(
 async def get_current_user(agent: Agent = Depends(get_current_agent)):
     """Retourne l'agent actuel"""
     return agent
+
+
+@router.get("/stats", response_model=AgentStats)
+async def get_agent_stats(
+    agent: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Calcule les statistiques pour l'agent courant"""
+    # Nombre de factures validées par cet agent
+    total_validees = db.query(Facture).filter(Facture.validated_by == agent.username).count()
+    
+    # Nombre de sociétés associées à cet agent
+    total_societes = len(agent.societes)
+    
+    return {
+        "total_factures_validees": total_validees,
+        "total_societes_gerees": total_societes,
+        "cabinet_nom": agent.cabinet.nom if agent.cabinet else "Sans cabinet"
+    }
+
 
 
 @router.post("/logout")

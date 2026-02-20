@@ -1,13 +1,13 @@
 import axios from 'axios'
 import { getSessionContext } from './utils/tokenDecoder'
 
-const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:8090'
+const API_BASE = '/api'
 
 console.log('[API] Initializing with base URL:', API_BASE)
 
 const api = axios.create({
     baseURL: API_BASE,
-    timeout: 15000,  // Reduced from 60000 to 15 seconds
+    timeout: 60000,  // Increased from 15s to 60s for generic calls
 })
 
 // Attach session_token (if present) as Authorization Bearer for all requests
@@ -15,7 +15,7 @@ api.interceptors.request.use((config) => {
     try {
         const session = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
         console.log('[Axios Interceptor] Request to:', config.url, 'Session token:', session ? `${session.substring(0, 20)}...` : 'NONE')
-        
+
         if (session) {
             config.headers = config.headers || {}
             config.headers['Authorization'] = `Bearer ${session}`
@@ -142,18 +142,16 @@ export const apiService = {
 
     // Extraction (Gemini can be slow, use longer timeout)
     extractFacture: (id: number) =>
-        api.post(`/factures/${id}/extract`, {}, { timeout: 120000 }).then(r => r.data),  // 2 minutes
+        api.post(`/factures/${id}/extract`, {}, { timeout: 300000 }).then(r => r.data),  // 5 minutes
+
 
     // Classification
     classifyFacture: (id: number) =>
-        api.post(`/factures/${id}/classify`, {}, { timeout: 60000 }).then(r => r.data),  // 1 minute
-    // Classification
-    classifyFacture: (id: number) =>
-        api.post(`/factures/${id}/classify`, {}, { timeout: 60000 }).then(r => r.data),
+        api.post(`/factures/${id}/classify`, {}, { timeout: 300000 }).then(r => r.data),
 
     // Génération écritures
     generateEntries: (id: number) =>
-        api.post(`/factures/${id}/generate-entries`, {}, { timeout: 60000 }).then(r => r.data),
+        api.post(`/factures/${id}/generate-entries`, {}, { timeout: 300000 }).then(r => r.data),
 
     // Détail facture
     getFacture: (id: number) =>
@@ -194,8 +192,16 @@ export const apiService = {
     createSociete: (data: { raison_sociale: string; ice?: string; if_fiscal?: string }) =>
         api.post('/societes/', data).then(r => r.data),
 
+    // Profil & Auth
+    getProfile: (token: string) =>
+        api.get(`/auth/me?token=${token}`).then(r => r.data),
+
+    getAgentStats: (token: string) =>
+        api.get(`/auth/stats?token=${token}`).then(r => r.data),
+
     // URL fichier
     getFileUrl: (id: number) => `${API_BASE}/factures/${id}/file`,
 }
+
 
 export default apiService

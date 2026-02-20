@@ -61,7 +61,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg://admin:admin123@db:5432/compta_db"
+    # Default to a local sqlite DB for developer convenience when Postgres is not available
+    "sqlite:///./test.db"
 )
 
 engine = create_engine(DATABASE_URL, future=True)
