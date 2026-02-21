@@ -70,9 +70,23 @@ def decode_jwt_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Token invalide")
 
 
-def get_current_agent(token: str = Query(...), db: Session = Depends(get_db)) -> Agent:
-    """Valide le token JWT et retourne l'Agent courant"""
-    data = decode_jwt_token(token)
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+security = HTTPBearer(auto_error=False)
+
+def get_current_agent(
+    token: Optional[str] = Query(None),
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> Agent:
+    """Valide le token JWT (depuis Header ou Query) et retourne l'Agent courant"""
+    actual_token = token
+    if auth:
+        actual_token = auth.credentials
+        
+    if not actual_token:
+        raise HTTPException(status_code=401, detail="Token manquant")
+        
+    data = decode_jwt_token(actual_token)
     agent = db.query(Agent).filter(Agent.id == data.get("agent_id")).first()
     if not agent or not agent.is_active:
         raise HTTPException(status_code=401, detail="Agent non trouvé ou inactif")

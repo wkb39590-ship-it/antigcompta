@@ -265,3 +265,10 @@ class AgentStats(BaseModel):
     cabinet_nom: str
 
 
+class GlobalStats(BaseModel):
+    total_cabinets: int
+    total_agents: int
+    total_societes: int
+    total_factures: int
+
+

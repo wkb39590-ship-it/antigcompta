@@ -22,22 +22,32 @@ export const AdminCabinets: React.FC = () => {
   });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
-  const token = localStorage.getItem('admin_token');
 
   useEffect(() => {
     fetchCabinets();
   }, []);
 
+  const getErrorMessage = (err: any) => {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    return err.message || 'Une erreur est survenue';
+  };
+
   const fetchCabinets = async () => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      setError('Session expirée');
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      // Note: Endpoint à adapter selon votre API
       const response = await axios.get(`${API_URL}/admin/cabinets`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCabinets(Array.isArray(response.data) ? response.data : []);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erreur lors du chargement');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -45,7 +55,13 @@ export const AdminCabinets: React.FC = () => {
 
   const handleCreateCabinet = async (e: React.FormEvent) => {
     e.preventDefault();
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      setError('Session expirée');
+      return;
+    }
     try {
+      setError('');
       await axios.post(
         `${API_URL}/admin/cabinets`,
         formData,
@@ -55,295 +71,340 @@ export const AdminCabinets: React.FC = () => {
       setShowForm(false);
       fetchCabinets();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erreur lors de la création');
+      setError(getErrorMessage(err));
     }
   };
 
   return (
-    <div className="page-content">
-        <div className="page-header">
-          <h1>Gestion des Cabinets</h1>
-          <button
-            className="btn-primary"
-            onClick={() => setShowForm(!showForm)}
-          >
-            {showForm ? 'Annuler' : '+ Nouveau Cabinet'}
-          </button>
+    <div className="aurora-page">
+      <div className="aurora-page-header">
+        <div>
+          <h1 className="glass-text">Gestion des Cabinets</h1>
+          <p className="aurora-subtitle">Gérez les partenaires comptables de la plateforme.</p>
         </div>
+        <button
+          className={`aurora-fab ${showForm ? 'active' : ''}`}
+          onClick={() => setShowForm(!showForm)}
+        >
+          {showForm ? '✕' : '+ Nouveau'}
+        </button>
+      </div>
 
-        {error && <div className="error-message">{error}</div>}
+      {error && <div className="aurora-error-toast">{error}</div>}
 
+      <div className="aurora-content-layout">
         {showForm && (
-          <form className="form-card" onSubmit={handleCreateCabinet}>
-            <h2>Créer un nouveau cabinet</h2>
-            <div className="form-group">
-              <label>Nom du cabinet</label>
-              <input
-                type="text"
-                value={formData.nom}
-                onChange={(e) =>
-                  setFormData({ ...formData, nom: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Email</label>
+          <form className="aurora-glass-form aurora-card" onSubmit={handleCreateCabinet}>
+            <h2 className="glass-text">Nouveau Cabinet</h2>
+            <div className="aurora-form-grid">
+              <div className="aurora-input-group">
+                <label>Nom du cabinet</label>
                 <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  type="text"
+                  placeholder="Ex: ExpertCompta"
+                  value={formData.nom}
+                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
                   required
                 />
               </div>
-              <div className="form-group">
-                <label>Téléphone</label>
+              <div className="aurora-input-group">
+                <label>Email professionnel</label>
                 <input
-                  type="text"
-                  value={formData.telephone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, telephone: e.target.value })
-                  }
+                  type="email"
+                  placeholder="contact@cabinet.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
                 />
               </div>
             </div>
-            <div className="form-group">
-              <label>Adresse</label>
-              <input
-                type="text"
-                value={formData.adresse}
-                onChange={(e) =>
-                  setFormData({ ...formData, adresse: e.target.value })
-                }
-              />
-            </div>
-            <button type="submit" className="btn-primary">
-              Créer le cabinet
+            <button type="submit" className="aurora-btn-submit">
+              Enregistrer le partenaire
             </button>
           </form>
         )}
 
-        {loading ? (
-          <div className="loading">Chargement des cabinets...</div>
-        ) : (
-          <div className="table-container">
-            {cabinets.length === 0 ? (
-              <p className="empty-state">Aucun cabinet créé</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Email</th>
-                    <th>Téléphone</th>
-                    <th>Adresse</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cabinets.map((cabinet) => (
-                    <tr key={cabinet.id}>
-                      <td>{cabinet.nom}</td>
-                      <td>{cabinet.email}</td>
-                      <td>{cabinet.telephone}</td>
-                      <td>{cabinet.adresse}</td>
-                      <td>
-                        <button className="btn-small">Éditer</button>
-                        <button className="btn-small btn-danger">
-                          Supprimer
-                        </button>
-                      </td>
+        <div className="aurora-table-wrapper aurora-card">
+          {loading ? (
+            <div className="aurora-loader-inline">
+              <div className="spinner-aurora"></div>
+              <span>Synchronisation...</span>
+            </div>
+          ) : (
+            <>
+              {cabinets.length === 0 ? (
+                <div className="aurora-empty">
+                  <span>📭</span>
+                  <p>Aucun cabinet n'a encore été enregistré.</p>
+                </div>
+              ) : (
+                <table className="aurora-table">
+                  <thead>
+                    <tr>
+                      <th>Partenaire</th>
+                      <th>Email</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        <style>{`
-          .page-content {
-            max-width: 1200px;
-          }
-
-          .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-          }
-
-          .page-header h1 {
-            margin: 0;
-            color: #2c3e50;
-            font-size: 28px;
-          }
-
-          .btn-primary {
-            padding: 10px 20px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.2s;
-          }
-
-          .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-          }
-
-          .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            border-left: 4px solid #c33;
-          }
-
-          .form-card {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-          }
-
-          .form-card h2 {
-            margin-top: 0;
-            color: #2c3e50;
-          }
-
-          .form-group {
-            margin-bottom: 20px;
-          }
-
-          .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-          }
-
-          .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #2c3e50;
-            font-weight: 500;
-            font-size: 14px;
-          }
-
-          .form-group input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            box-sizing: border-box;
-          }
-
-          .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-          }
-
-          .loading {
-            text-align: center;
-            padding: 40px;
-            color: #7f8c8d;
-          }
-
-          .table-container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            overflow-x: auto;
-          }
-
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-
-          thead {
-            background: #f8f9fa;
-            border-bottom: 2px solid #ecf0f1;
-          }
-
-          th {
-            padding: 15px;
-            text-align: left;
-            color: #2c3e50;
-            font-weight: 600;
-            font-size: 14px;
-          }
-
-          td {
-            padding: 15px;
-            border-bottom: 1px solid #ecf0f1;
-            color: #34495e;
-          }
-
-          tbody tr:hover {
-            background: #f8f9fa;
-          }
-
-          .btn-small {
-            padding: 6px 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-right: 5px;
-            transition: all 0.2s;
-          }
-
-          .btn-small:hover {
-            background: #5568d3;
-          }
-
-          .btn-danger {
-            background: #e74c3c;
-          }
-
-          .btn-danger:hover {
-            background: #c0392b;
-          }
-
-          .empty-state {
-            padding: 40px;
-            text-align: center;
-            color: #95a5a6;
-          }
-
-          @media (max-width: 768px) {
-            .page-header {
-              flex-direction: column;
-              align-items: flex-start;
-            }
-
-            .form-row {
-              grid-template-columns: 1fr;
-            }
-
-            table {
-              font-size: 12px;
-            }
-
-            th, td {
-              padding: 10px;
-            }
-          }
-        `}</style>
+                  </thead>
+                  <tbody>
+                    {cabinets.map((cabinet) => (
+                      <tr key={cabinet.id} className="aurora-tr">
+                        <td>
+                          <div className="aurora-td-name">
+                            <div className="name-avatar">{cabinet.nom[0]}</div>
+                            <span>{cabinet.nom}</span>
+                          </div>
+                        </td>
+                        <td><span className="aurora-td-email">{cabinet.email}</span></td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button className="aurora-btn-icon">✏️</button>
+                          <button className="aurora-btn-icon delete">🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      <style>{`
+        .aurora-page {
+          animation: pageEnter 0.6s ease-out;
+        }
+
+        @keyframes pageEnter {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .aurora-page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          margin-bottom: 40px;
+        }
+
+        .aurora-page-header h1 {
+          font-size: 36px;
+          font-weight: 900;
+          margin: 0;
+          letter-spacing: -1px;
+        }
+
+        .aurora-subtitle {
+          color: var(--admin-text-dim);
+          font-size: 14px;
+          font-weight: 500;
+          margin-top: 5px;
+        }
+
+        .aurora-fab {
+          width: 140px;
+          height: 48px;
+          background: var(--admin-gradient);
+          color: white;
+          border: none;
+          border-radius: 24px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 10px 20px var(--admin-accent-glow);
+        }
+
+        .aurora-fab:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 15px 30px var(--admin-accent-glow);
+        }
+
+        .aurora-fab.active {
+          background: #334155;
+          box-shadow: none;
+        }
+
+        .aurora-error-toast {
+          background: rgba(239, 68, 68, 0.1);
+          color: #f87171;
+          padding: 15px 25px;
+          border-radius: 16px;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          margin-bottom: 25px;
+          font-weight: 600;
+        }
+
+        .aurora-content-layout {
+          display: grid;
+          gap: 25px;
+        }
+
+        .aurora-glass-form {
+          padding: 40px;
+          margin-bottom: 10px;
+        }
+
+        .aurora-glass-form h2 {
+          margin: 0 0 30px 0;
+          font-size: 20px;
+          font-weight: 800;
+        }
+
+        .aurora-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin-bottom: 30px;
+        }
+
+        .aurora-input-group label {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--admin-text-dim);
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 10px;
+        }
+
+        .aurora-input-group input {
+          width: 100%;
+          padding: 15px;
+          border-radius: 14px;
+          border: 1px solid var(--admin-glass-border);
+          background: rgba(255, 255, 255, 0.03);
+          color: white;
+          outline: none;
+          transition: all 0.3s;
+        }
+
+        .aurora-input-group input:focus {
+          border-color: var(--admin-accent);
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .aurora-btn-submit {
+          padding: 15px 30px;
+          border-radius: 14px;
+          border: none;
+          background: var(--admin-gradient);
+          color: white;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .aurora-btn-submit:hover { transform: scale(1.02); }
+
+        .aurora-table-wrapper {
+          padding: 10px;
+          overflow: hidden;
+        }
+
+        .aurora-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .aurora-table th {
+          padding: 20px;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--admin-text-dim);
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          border-bottom: 1px solid var(--admin-glass-border);
+          text-align: left;
+        }
+
+        .aurora-tr {
+          transition: all 0.3s;
+        }
+
+        .aurora-tr:last-child {
+          border-bottom: none;
+        }
+
+        .aurora-tr:hover {
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .aurora-tr td {
+          padding: 20px;
+          color: var(--admin-text);
+          font-weight: 500;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .aurora-td-name {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+
+        .name-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: var(--admin-accent);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 14px;
+        }
+
+        .aurora-td-email {
+          font-size: 13px;
+          color: var(--admin-text-dim);
+        }
+
+        .aurora-btn-icon {
+          background: transparent;
+          border: none;
+          font-size: 16px;
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .aurora-btn-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        .aurora-btn-icon.delete:hover { background: rgba(239, 68, 68, 0.1); }
+
+        .aurora-loader-inline {
+          padding: 50px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 15px;
+          color: var(--admin-text-dim);
+        }
+
+        .spinner-aurora {
+          width: 30px;
+          height: 30px;
+          border: 3px solid var(--admin-glass-border);
+          border-top-color: var(--admin-accent);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .aurora-empty {
+          padding: 60px;
+          text-align: center;
+          color: var(--admin-text-dim);
+        }
+
+        .aurora-empty span { font-size: 40px; display: block; margin-bottom: 15px; opacity: 0.5; }
+
+        @media (max-width: 768px) {
+          .aurora-form-grid { grid-template-columns: 1fr; }
+          .aurora-page-header { flex-direction: column; align-items: flex-start; gap: 20px; }
+        }
+      `}</style>
+    </div>
   );
 };

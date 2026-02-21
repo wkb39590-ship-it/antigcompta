@@ -6,6 +6,8 @@ export interface AdminUser {
   agent_id: number
   username: string
   email: string
+  nom?: string
+  prenom?: string
   is_admin: boolean
   cabinet_id: number
 }

@@ -1,317 +1,258 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getAdminToken } from '../../utils/adminTokenDecoder';
+
+interface Agent {
+  id: number;
+  username: string;
+  nom: string;
+  prenom: string;
+  cabinet_id: number;
+}
+
+interface Societe {
+  id: number;
+  raison_sociale: string;
+  cabinet_id: number;
+}
 
 interface Cabinet {
   id: number;
   nom: string;
 }
 
-interface Societe {
-  id: number;
-  raison_sociale: string;
-  cabinet_id?: number;
-}
-
 export const AdminAssociations: React.FC = () => {
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedCabinet, setSelectedCabinet] = useState<number | null>(null);
-  const [selectedSociete, setSelectedSociete] = useState<number | null>(null);
   const [message, setMessage] = useState('');
 
+  const [selectedCabinet, setSelectedCabinet] = useState<number | ''>('');
+  const [selectedAgent, setSelectedAgent] = useState<number | ''>('');
+  const [selectedSociete, setSelectedSociete] = useState<number | ''>('');
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
-  const token = localStorage.getItem('admin_token');
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  const getErrorMessage = (err: any) => {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    return err.message || 'Une erreur est survenue';
+  };
+
   const fetchData = async () => {
+    const token = getAdminToken();
+    if (!token) {
+      setError('Session expirée');
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const [cabRes, socRes] = await Promise.all([
+      const [cabRes, agRes, socRes] = await Promise.all([
         axios.get(`${API_URL}/admin/cabinets`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`${API_URL}/societes`, {
-          params: { token },
+        axios.get(`${API_URL}/admin/agents`, {
+          headers: { Authorization: `Bearer ${token}` }
         }),
+        axios.get(`${API_URL}/admin/societes`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
       ]);
 
       setCabinets(Array.isArray(cabRes.data) ? cabRes.data : []);
+      setAgents(Array.isArray(agRes.data) ? agRes.data : []);
       setSocietes(Array.isArray(socRes.data) ? socRes.data : []);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erreur lors du chargement');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   const handleAssociate = async () => {
-    if (!selectedCabinet || !selectedSociete) {
-      setError('Veuillez sélectionner un cabinet et une société');
+    const token = getAdminToken();
+    if (!token) {
+      setError('Session expirée');
+      return;
+    }
+    if (!selectedCabinet || !selectedAgent || !selectedSociete) {
+      setError('Tous les champs sont requis');
       return;
     }
 
     try {
+      setError('');
       await axios.post(
-        `${API_URL}/admin/cabinets/${selectedCabinet}/societes`,
-        { id: selectedSociete },
+        `${API_URL}/admin/cabinets/${selectedCabinet}/agents/assign-societe?agent_id=${selectedAgent}&societe_id=${selectedSociete}`,
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setMessage('Association créée avec succès');
-      setSelectedCabinet(null);
-      setSelectedSociete(null);
+      setMessage('Liaison établie avec succès');
+      setError('');
       setTimeout(() => setMessage(''), 3000);
-      fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erreur lors de l\'association');
+      setError(getErrorMessage(err));
     }
   };
 
-  const cabinetSocietes = selectedCabinet
-    ? societes.filter((s) => s.cabinet_id === selectedCabinet)
+  const filteredAgents = selectedCabinet
+    ? agents.filter(a => a.cabinet_id === Number(selectedCabinet))
+    : [];
+
+  const filteredSocietes = selectedCabinet
+    ? societes.filter(s => s.cabinet_id === Number(selectedCabinet))
     : [];
 
   return (
-    <div className="page-content">
-        <h1>Association Sociétés ↔ Cabinets</h1>
+    <div className="aurora-page">
+      <div className="aurora-page-header">
+        <div>
+          <h1 className="glass-text">Associations</h1>
+          <p className="aurora-subtitle">Connectez les collaborateurs aux portefeuilles clients.</p>
+        </div>
+      </div>
 
-        {error && <div className="error-message">{error}</div>}
-        {message && <div className="success-message">{message}</div>}
+      {error && <div className="aurora-error-toast">{error}</div>}
+      {message && <div className="aurora-success-toast">{message}</div>}
 
+      <div className="aurora-content-layout">
         {loading ? (
-          <div className="loading">Chargement des données...</div>
+          <div className="aurora-loader-inline">
+            <div className="spinner-aurora"></div>
+            <span>Cartographie des flux...</span>
+          </div>
         ) : (
-          <div className="association-container">
-            <div className="card">
-              <h2>Lier une Société à un Cabinet</h2>
+          <div className="aurora-assoc-grid">
+            <div className="aurora-glass-card aurora-card assoc-form-panel">
+              <h2 className="glass-text">Nouvelle Liaison</h2>
 
-              <div className="form-group">
-                <label>Sélectionner un Cabinet</label>
-                <select
-                  value={selectedCabinet || ''}
-                  onChange={(e) =>
-                    setSelectedCabinet(
-                      e.target.value ? parseInt(e.target.value) : null
-                    )
-                  }
-                >
-                  <option value="">-- Choisir un cabinet --</option>
-                  {cabinets.map((cab) => (
-                    <option key={cab.id} value={cab.id}>
-                      {cab.nom}
-                    </option>
-                  ))}
-                </select>
+              <div className="aurora-step">
+                <div className="step-num">01</div>
+                <div className="aurora-input-group">
+                  <label>Sélectionner le Cabinet</label>
+                  <select
+                    className="aurora-select"
+                    value={selectedCabinet}
+                    onChange={(e) => {
+                      setSelectedCabinet(e.target.value ? Number(e.target.value) : '');
+                      setSelectedAgent('');
+                      setSelectedSociete('');
+                    }}
+                  >
+                    <option value="">-- Choisir un partenaire --</option>
+                    {cabinets.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                  </select>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Sélectionner une Société</label>
-                <select
-                  value={selectedSociete || ''}
-                  onChange={(e) =>
-                    setSelectedSociete(
-                      e.target.value ? parseInt(e.target.value) : null
-                    )
-                  }
-                >
-                  <option value="">-- Choisir une société --</option>
-                  {societes
-                    .filter((s) => !s.cabinet_id)
-                    .map((soc) => (
-                      <option key={soc.id} value={soc.id}>
-                        {soc.raison_sociale}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              {selectedCabinet && (
+                <div className="aurora-fade-in">
+                  <div className="aurora-step">
+                    <div className="step-num">02</div>
+                    <div className="aurora-form-row-assoc">
+                      <div className="aurora-input-group">
+                        <label>Choisir l'Agent</label>
+                        <select
+                          className="aurora-select"
+                          value={selectedAgent}
+                          onChange={(e) => setSelectedAgent(e.target.value ? Number(e.target.value) : '')}
+                        >
+                          <option value="">-- Sélectionner l'agent --</option>
+                          {filteredAgents.map(a => (
+                            <option key={a.id} value={a.id}>{a.prenom} {a.nom}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="aurora-input-group">
+                        <label>Attribuer la Société</label>
+                        <select
+                          className="aurora-select"
+                          value={selectedSociete}
+                          onChange={(e) => setSelectedSociete(e.target.value ? Number(e.target.value) : '')}
+                        >
+                          <option value="">-- Sélectionner l'entité --</option>
+                          {filteredSocietes.map(s => (
+                            <option key={s.id} value={s.id}>{s.raison_sociale}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
 
-              <button className="btn-primary" onClick={handleAssociate}>
-                Créer l'association
-              </button>
+                  <button
+                    className="aurora-btn-submit full-width neon-glow"
+                    onClick={handleAssociate}
+                    disabled={!selectedAgent || !selectedSociete}
+                  >
+                    Finaliser l'Affectation 🔗
+                  </button>
+                </div>
+              )}
             </div>
 
-            {selectedCabinet && (
-              <div className="card">
-                <h2>
-                  Sociétés associées à{' '}
-                  {cabinets.find((c) => c.id === selectedCabinet)?.nom}
-                </h2>
-
-                {cabinetSocietes.length === 0 ? (
-                  <p className="empty-state">
-                    Aucune société associée à ce cabinet
-                  </p>
-                ) : (
-                  <ul className="societe-list">
-                    {cabinetSocietes.map((soc) => (
-                      <li key={soc.id}>
-                        <span>{soc.raison_sociale}</span>
-                        <button className="btn-small btn-danger">
-                          Dissocier
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            <div className="aurora-glass-card aurora-card info-panel">
+              <div className="info-icon">⚡</div>
+              <h3 className="glass-text">Synchronisation</h3>
+              <p>L'agent sélectionné recevra immédiatement un accès complet aux données financières de la société choisie.</p>
+              <ul className="info-list">
+                <li>Visibilité sur les factures OCR</li>
+                <li>Génération des écritures comptables</li>
+                <li>Validation DGI & Audit Trail</li>
+              </ul>
+            </div>
           </div>
         )}
-
-        <style>{`
-          .page-content {
-            max-width: 1000px;
-          }
-
-          .page-content h1 {
-            color: #2c3e50;
-            font-size: 28px;
-            margin-top: 0;
-          }
-
-          .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            border-left: 4px solid #c33;
-          }
-
-          .success-message {
-            background: #efe;
-            color: #3c3;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            border-left: 4px solid #3c3;
-          }
-
-          .loading {
-            text-align: center;
-            padding: 40px;
-            color: #7f8c8d;
-          }
-
-          .association-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-          }
-
-          .card {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          }
-
-          .card h2 {
-            margin-top: 0;
-            color: #2c3e50;
-            font-size: 20px;
-          }
-
-          .form-group {
-            margin-bottom: 20px;
-          }
-
-          .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #2c3e50;
-            font-weight: 500;
-            font-size: 14px;
-          }
-
-          .form-group select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            box-sizing: border-box;
-            background: white;
-          }
-
-          .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-          }
-
-          .btn-primary {
-            width: 100%;
-            padding: 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.2s;
-          }
-
-          .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-          }
-
-          .societe-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-          }
-
-          .societe-list li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border-bottom: 1px solid #ecf0f1;
-            background: #f8f9fa;
-            margin-bottom: 10px;
-            border-radius: 4px;
-          }
-
-          .societe-list li span {
-            color: #2c3e50;
-            font-weight: 500;
-          }
-
-          .btn-small {
-            padding: 6px 12px;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-          }
-
-          .btn-small:hover {
-            background: #c0392b;
-          }
-
-          .empty-state {
-            text-align: center;
-            padding: 20px;
-            color: #95a5a6;
-          }
-
-          @media (max-width: 768px) {
-            .association-container {
-              grid-template-columns: 1fr;
-            }
-          }
-        `}</style>
       </div>
+
+      <style>{`
+        .aurora-page { animation: pageEnter 0.6s ease-out; }
+        @keyframes pageEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .aurora-page-header { margin-bottom: 40px; }
+        .aurora-page-header h1 { font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -1px; }
+        .aurora-subtitle { color: var(--admin-text-dim); font-size: 14px; font-weight: 500; margin-top: 5px; }
+
+        .aurora-error-toast { background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 15px 25px; border-radius: 16px; border: 1px solid rgba(239, 68, 68, 0.2); margin-bottom: 25px; }
+        .aurora-success-toast { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 15px 25px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.2); margin-bottom: 25px; font-weight: 700; text-align: center; }
+
+        .aurora-assoc-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; }
+        .assoc-form-panel { padding: 40px; }
+        .assoc-form-panel h2 { margin: 0 0 35px 0; font-size: 22px; font-weight: 800; }
+
+        .aurora-step { display: flex; gap: 20px; margin-bottom: 30px; }
+        .step-num { width: 40px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--admin-accent); font-size: 14px; border: 1px solid var(--admin-glass-border); }
+        
+        .aurora-input-group { flex: 1; }
+        .aurora-input-group label { display: block; font-size: 11px; font-weight: 800; color: var(--admin-text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .aurora-select { width: 100%; padding: 15px; border-radius: 14px; border: 1px solid var(--admin-glass-border); background: rgba(255, 255, 255, 0.03); color: white; outline: none; transition: all 0.3s; font-weight: 600; }
+        .aurora-select:focus { border-color: var(--admin-accent); background: rgba(255, 255, 255, 0.06); }
+        .aurora-select option { background: #1e293b; color: white; }
+
+        .aurora-form-row-assoc { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex: 1; }
+        .aurora-btn-submit.full-width { width: 100%; margin-top: 10px; padding: 18px; font-size: 15px; }
+
+        .info-panel { padding: 40px; background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.1); display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .info-icon { width: 60px; height: 60px; border-radius: 20px; background: var(--admin-gradient); margin-bottom: 25px; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
+        .info-panel h3 { margin: 0 0 15px 0; font-size: 20px; font-weight: 800; }
+        .info-panel p { color: var(--admin-text-dim); font-size: 14px; line-height: 1.6; margin-bottom: 25px; }
+        .info-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+        .info-list li { padding: 12px; font-size: 13px; font-weight: 700; color: var(--admin-text); border-bottom: 1px solid var(--admin-glass-border); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .info-list li:last-child { border-bottom: none; }
+        .info-list li::before { content: '✓'; color: #10b981; }
+
+        .aurora-fade-in { animation: fadeInScale 0.4s ease-out; }
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        @media (max-width: 1024px) { .aurora-assoc-grid { grid-template-columns: 1fr; } }
+      `}</style>
+    </div>
   );
 };

@@ -18,6 +18,7 @@ import { AdminCabinets } from './pages/admin/AdminCabinets'
 import { AdminSocietes } from './pages/admin/AdminSocietes'
 import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminAssociations } from './pages/admin/AdminAssociations'
+import { AdminProfile } from './pages/admin/AdminProfile'
 
 // Composant de protection de route pour utilisateurs normaux
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -189,6 +190,16 @@ export default function App() {
                     <AdminProtectedRoute>
                         <AdminLayout currentPage="associations">
                             <AdminAssociations />
+                        </AdminLayout>
+                    </AdminProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/profile"
+                element={
+                    <AdminProtectedRoute>
+                        <AdminLayout currentPage="profile">
+                            <AdminProfile />
                         </AdminLayout>
                     </AdminProtectedRoute>
                 }
