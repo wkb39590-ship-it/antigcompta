@@ -1,5 +1,5 @@
 """
-main.py — Application FastAPI "Comptabilité Zéro Saisie"
+main.py — Application FastAPI "comptafacile"
 Architecture Multi-Cabinet / Multi-Agents / Multi-Sociétés
 """
 from fastapi import FastAPI
@@ -29,7 +29,7 @@ except Exception:
 
 
 app = FastAPI(
-    title="Comptabilité Zéro Saisie — API",
+    title="comptafacile — API",
     description="Pipeline OCR + Gemini → Classification PCM → Écritures comptables marocaines\nArchitecture Multi-Cabinet avec Agents et Sociétés",
     version="2.1.0",
 )
@@ -66,7 +66,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 @app.get("/")
 def home():
     return {
-        "message": "Comptabilité Zéro Saisie API v2.0",
+        "message": "comptafacile API v2.0",
         "docs": "/docs",
         "pipeline": [
             "POST /factures/upload",

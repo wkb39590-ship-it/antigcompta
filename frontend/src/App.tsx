@@ -11,7 +11,7 @@ import { getSessionContext } from './utils/tokenDecoder'
 import { isAdminLoggedIn } from './utils/adminTokenDecoder'
 
 // Import des pages admin
-import { AdminLogin } from './pages/admin/AdminLogin'
+// AdminLogin supprimé car unifié dans Login.tsx
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminCabinets } from './pages/admin/AdminCabinets'
@@ -32,7 +32,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // Composant de protection de route pour les administrateurs
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
     if (!isAdminLoggedIn()) {
-        return <Navigate to="/admin/login" replace />
+        return <Navigate to="/login" replace />
     }
     return <>{children}</>
 }
@@ -52,8 +52,8 @@ function Sidebar() {
     return (
         <aside className="sidebar">
             <div className="sidebar-logo">
-                <h1>⚡ Comptabilité<br />Zéro Saisie</h1>
-                <p>PCM / CGNC Maroc</p>
+                <h1>⚡ comptafacile</h1>
+                <p>Intelligence Comptable</p>
             </div>
             <nav className="sidebar-nav">
                 {navItems.map(item => (
@@ -139,9 +139,6 @@ export default function App() {
             {/* Public Auth Pages */}
             <Route path="/login" element={<Login />} />
             <Route path="/select-cabinet" element={<CabinetSelector />} />
-
-            {/* Admin Login (public) */}
-            <Route path="/admin/login" element={<AdminLogin />} />
 
             {/* Admin Protected Routes */}
             <Route

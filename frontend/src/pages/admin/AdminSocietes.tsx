@@ -187,11 +187,21 @@ export const AdminSocietes: React.FC = () => {
                 />
               </div>
               <div className="aurora-input-group">
-                <label>RC (Registre)</label>
+                <label>RC (Registre du Commerce)</label>
                 <input
                   type="text"
+                  placeholder="Ex: 12345"
                   value={formData.rc}
                   onChange={(e) => setFormData({ ...formData, rc: e.target.value })}
+                />
+              </div>
+              <div className="aurora-input-group span-2">
+                <label>Adresse complète</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 123 Rue des Palmiers, Casablanca"
+                  value={formData.adresse}
+                  onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
                 />
               </div>
             </div>

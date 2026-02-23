@@ -184,7 +184,7 @@ async def register_agent(
 @router.post("/select-societe")
 async def select_societe(
     payload: SelectSocieteRequest,
-    token: str = Query(...),
+    agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ) -> dict:
     """
@@ -197,8 +197,7 @@ async def select_societe(
         "context": SessionContext
     }
     """
-    # Valider le JWT
-    agent = get_current_agent(token, db)
+    # Valider l'agent (déjà fait par la dépendance agent)
     
     # ✅ VÉRIFICATION CRITIQUE: L'agent ne peut sélectionner que dans SON cabinet
     if agent.cabinet_id != payload.cabinet_id:

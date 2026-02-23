@@ -14,7 +14,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
 
   const handleLogout = () => {
     clearAdminSession();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   const navItems = [
@@ -35,8 +35,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
               <span className="brand-logo">⚡</span>
             </div>
             <div className="brand-texts">
-              <h2 className="glass-text">AURORA</h2>
-              <p>Admin System</p>
+              <h2 className="glass-text">COMPTAFACILE</h2>
+              <p>Administration Système</p>
             </div>
           </div>
 
