@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { getAdminToken } from '../../utils/adminTokenDecoder';
 
 interface Stats {
@@ -9,13 +10,23 @@ interface Stats {
   total_factures: number;
 }
 
+interface Activity {
+  id: string;
+  type: string;
+  title: string;
+  time: string;
+  dot_color: string;
+}
+
 export const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({
     total_agents: 0,
     total_societes: 0,
     total_cabinets: 0,
     total_factures: 0,
   });
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,7 +39,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       const token = getAdminToken();
       if (!token) {
         setError('Session expirée');
@@ -37,10 +48,16 @@ export const AdminDashboard: React.FC = () => {
       }
 
       try {
-        const res = await axios.get(`${API_URL}/admin/stats/global`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setStats(res.data);
+        const [statsRes, activitiesRes] = await Promise.all([
+          axios.get(`${API_URL}/admin/stats/global`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          axios.get(`${API_URL}/admin/activities`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+        setStats(statsRes.data);
+        setActivities(activitiesRes.data.activities);
       } catch (err: any) {
         setError(getErrorMessage(err));
       } finally {
@@ -48,7 +65,7 @@ export const AdminDashboard: React.FC = () => {
       }
     };
 
-    fetchStats();
+    fetchData();
   }, [API_URL]);
 
   const AuroraWidget = ({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) => (
@@ -61,6 +78,17 @@ export const AdminDashboard: React.FC = () => {
       <div className="widget-glow" style={{ background: color }} />
     </div>
   );
+
+  const formatMarkdown = (text: string) => {
+    // Remplacer **texte** par <strong>texte</strong>
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i}>{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
 
   return (
     <div className="admin-dashboard-aurora">
@@ -89,30 +117,28 @@ export const AdminDashboard: React.FC = () => {
               <span className="live-status">LIVE</span>
             </div>
             <div className="placeholder-list">
-              <div className="list-item-glass">
-                <span className="item-dot blue"></span>
-                <p>Nouveau cabinet **ExpertCompta** ajouté au système</p>
-                <span className="item-time">Il y a 2 min</span>
-              </div>
-              <div className="list-item-glass">
-                <span className="item-dot purple"></span>
-                <p>Agent **Wissal** a validé 15 factures pour **Société Alpha**</p>
-                <span className="item-time">Il y a 1 heure</span>
-              </div>
-              <div className="list-item-glass">
-                <span className="item-dot orange"></span>
-                <p>Alerte: 3 factures en attente de classification</p>
-                <span className="item-time">Il y a 3 heures</span>
-              </div>
+              {activities.length > 0 ? (
+                activities.map((act) => (
+                  <div key={act.id} className="list-item-glass">
+                    <span className={`item-dot ${act.dot_color}`}></span>
+                    <p>{formatMarkdown(act.title)}</p>
+                    <span className="item-time">{act.time}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="list-item-glass">
+                  <p>Aucune activité récente pour le moment.</p>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="aurora-info-card aurora-card">
             <h2 className="glass-text">Raccourcis</h2>
             <div className="shortcut-grid">
-              <button className="shortcut-btn">Ajouter Cabinet</button>
-              <button className="shortcut-btn">Nouvel Agent</button>
-              <button className="shortcut-btn">Rapports PDF</button>
+              <button className="shortcut-btn" onClick={() => navigate('/admin/cabinets')}>Ajouter Cabinet</button>
+              <button className="shortcut-btn" onClick={() => navigate('/admin/agents')}>Nouvel Agent</button>
+              <button className="shortcut-btn" onClick={() => alert('Fonctionnalité de rapports PDF bientôt disponible !')}>Rapports PDF</button>
             </div>
           </div>
         </div>

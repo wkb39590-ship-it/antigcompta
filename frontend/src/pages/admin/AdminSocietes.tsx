@@ -23,6 +23,7 @@ export const AdminSocietes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editingSociete, setEditingSociete] = useState<Societe | null>(null);
   const [formData, setFormData] = useState({
     raison_sociale: '',
     ice: '',
@@ -83,17 +84,27 @@ export const AdminSocietes: React.FC = () => {
     }
 
     try {
-      await axios.post(
-        `${API_URL}/admin/societes?cabinet_id=${formData.cabinet_id}`,
-        {
-          raison_sociale: formData.raison_sociale,
-          ice: formData.ice,
-          if_fiscal: formData.if_fiscal,
-          rc: formData.rc,
-          adresse: formData.adresse,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const payload = {
+        raison_sociale: formData.raison_sociale,
+        ice: formData.ice,
+        if_fiscal: formData.if_fiscal,
+        rc: formData.rc,
+        adresse: formData.adresse,
+      };
+
+      if (editingSociete) {
+        await axios.put(
+          `${API_URL}/admin/societes/${editingSociete.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await axios.post(
+          `${API_URL}/admin/societes?cabinet_id=${formData.cabinet_id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
       setFormData({
         raison_sociale: '',
         ice: '',
@@ -103,10 +114,24 @@ export const AdminSocietes: React.FC = () => {
         cabinet_id: '',
       });
       setShowForm(false);
+      setEditingSociete(null);
       fetchData();
     } catch (err: any) {
       setError(getErrorMessage(err));
     }
+  };
+
+  const handleEditClick = (societe: Societe) => {
+    setEditingSociete(societe);
+    setFormData({
+      raison_sociale: societe.raison_sociale,
+      ice: societe.ice || '',
+      if_fiscal: societe.if_fiscal || '',
+      rc: societe.rc || '',
+      adresse: societe.adresse || '',
+      cabinet_id: String(societe.cabinet_id),
+    });
+    setShowForm(true);
   };
 
   const deleteSociete = async (id: number) => {
@@ -132,7 +157,23 @@ export const AdminSocietes: React.FC = () => {
         </div>
         <button
           className={`aurora-fab ${showForm ? 'active' : ''}`}
-          onClick={() => { setShowForm(!showForm); setError(''); }}
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false);
+              setEditingSociete(null);
+              setFormData({
+                raison_sociale: '',
+                ice: '',
+                if_fiscal: '',
+                rc: '',
+                adresse: '',
+                cabinet_id: '',
+              });
+            } else {
+              setShowForm(true);
+            }
+            setError('');
+          }}
         >
           {showForm ? '✕' : '+ Société'}
         </button>
@@ -143,7 +184,7 @@ export const AdminSocietes: React.FC = () => {
       <div className="aurora-content-layout">
         {showForm && (
           <form className="aurora-glass-form aurora-card" onSubmit={handleCreateSociete}>
-            <h2 className="glass-text">Nouvelle Société</h2>
+            <h2 className="glass-text">{editingSociete ? 'Modifier la Société' : 'Nouvelle Société'}</h2>
             <div className="aurora-form-grid">
               <div className="aurora-input-group span-2">
                 <label>Cabinet de rattachement</label>
@@ -255,7 +296,7 @@ export const AdminSocietes: React.FC = () => {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="aurora-btn-icon">✏️</button>
+                          <button className="aurora-btn-icon" onClick={() => handleEditClick(societe)}>✏️</button>
                           <button className="aurora-btn-icon delete" onClick={() => deleteSociete(societe.id)}>🗑️</button>
                         </td>
                       </tr>

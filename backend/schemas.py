@@ -272,3 +272,15 @@ class GlobalStats(BaseModel):
     total_factures: int
 
 
+class ActivityOut(BaseModel):
+    id: str  # Pour React keys
+    type: str  # CABINET, VALIDATION, ALERT
+    title: str
+    time: str
+    dot_color: str
+
+
+class ActivitiesResponse(BaseModel):
+    activities: List[ActivityOut]
+
+

@@ -14,6 +14,7 @@ export const AdminCabinets: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editingCabinet, setEditingCabinet] = useState<Cabinet | null>(null);
   const [formData, setFormData] = useState({
     nom: '',
     email: '',
@@ -62,13 +63,48 @@ export const AdminCabinets: React.FC = () => {
     }
     try {
       setError('');
-      await axios.post(
-        `${API_URL}/admin/cabinets`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      if (editingCabinet) {
+        await axios.put(
+          `${API_URL}/admin/cabinets/${editingCabinet.id}`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await axios.post(
+          `${API_URL}/admin/cabinets`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
       setFormData({ nom: '', email: '', telephone: '', adresse: '' });
       setShowForm(false);
+      setEditingCabinet(null);
+      fetchCabinets();
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleEditClick = (cabinet: Cabinet) => {
+    setEditingCabinet(cabinet);
+    setFormData({
+      nom: cabinet.nom,
+      email: cabinet.email,
+      telephone: cabinet.telephone,
+      adresse: cabinet.adresse,
+    });
+    setShowForm(true);
+  };
+
+  const handleDeleteCabinet = async (id: number) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce cabinet ?')) return;
+    const token = localStorage.getItem('admin_token');
+    if (!token) return;
+
+    try {
+      await axios.delete(`${API_URL}/admin/cabinets/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       fetchCabinets();
     } catch (err: any) {
       setError(getErrorMessage(err));
@@ -84,7 +120,15 @@ export const AdminCabinets: React.FC = () => {
         </div>
         <button
           className={`aurora-fab ${showForm ? 'active' : ''}`}
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false);
+              setEditingCabinet(null);
+              setFormData({ nom: '', email: '', telephone: '', adresse: '' });
+            } else {
+              setShowForm(true);
+            }
+          }}
         >
           {showForm ? '✕' : '+ Nouveau'}
         </button>
@@ -95,7 +139,7 @@ export const AdminCabinets: React.FC = () => {
       <div className="aurora-content-layout">
         {showForm && (
           <form className="aurora-glass-form aurora-card" onSubmit={handleCreateCabinet}>
-            <h2 className="glass-text">Nouveau Cabinet</h2>
+            <h2 className="glass-text">{editingCabinet ? 'Modifier le Cabinet' : 'Nouveau Cabinet'}</h2>
             <div className="aurora-form-grid">
               <div className="aurora-input-group">
                 <label>Nom du cabinet</label>
@@ -157,8 +201,8 @@ export const AdminCabinets: React.FC = () => {
                         </td>
                         <td><span className="aurora-td-email">{cabinet.email}</span></td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="aurora-btn-icon">✏️</button>
-                          <button className="aurora-btn-icon delete">🗑️</button>
+                          <button className="aurora-btn-icon" onClick={() => handleEditClick(cabinet)}>✏️</button>
+                          <button className="aurora-btn-icon delete" onClick={() => handleDeleteCabinet(cabinet.id)}>🗑️</button>
                         </td>
                       </tr>
                     ))}

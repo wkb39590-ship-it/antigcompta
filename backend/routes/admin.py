@@ -12,7 +12,7 @@ from models import Cabinet, Agent, Societe, CompteurFacturation, agent_societes,
 from schemas import (
     CabinetCreate, CabinetUpdate, CabinetOut,
     AgentOut, AgentCreate, AgentUpdate, SocieteOut, SocieteCreateUpdate,
-    CompteurFacturationOut, GlobalStats
+    CompteurFacturationOut, GlobalStats, ActivityOut, ActivitiesResponse
 )
 from routes.auth import get_current_agent, hash_password
 
@@ -440,3 +440,53 @@ def get_next_invoice_number(societe_id: int, db: Session) -> str:
     
     numero_format = str(compteur.dernier_numero).zfill(5)
     return f"{numero_format}/{annee_court}"
+
+
+@router.get("/activities", response_model=ActivitiesResponse)
+async def get_recent_activities(
+    agent: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Retourne les activités récentes du système pour le Dashboard Admin"""
+    if not agent.is_admin:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+    
+    activities = []
+    
+    # 1. Nouveaux cabinets (3 derniers)
+    cabinets = db.query(Cabinet).order_by(Cabinet.created_at.desc()).limit(3).all()
+    for cab in cabinets:
+        # Calcul temps simplifié
+        activities.append(ActivityOut(
+            id=f"cab_{cab.id}",
+            type="CABINET",
+            title=f"Nouveau cabinet **{cab.nom}** ajouté au système",
+            time="Récemment",
+            dot_color="blue"
+        ))
+    
+    # 2. Factures validées récemment (3 dernières)
+    factures_validees = db.query(Facture).filter(Facture.status == "VALIDATED").order_by(Facture.validated_at.desc()).limit(3).all()
+    for f in factures_validees:
+        # On essaie de trouver le nom de la société
+        soc_nom = f.societe.raison_sociale if f.societe else "Inconnue"
+        activities.append(ActivityOut(
+            id=f"fac_{f.id}",
+            type="VALIDATION",
+            title=f"Agent **{f.validated_by or 'Système'}** a validé la facture **{f.numero_facture or 'Sans N°'}** pour **{soc_nom}**",
+            time="Aujourd'hui",
+            dot_color="purple"
+        ))
+        
+    # 3. Alertes (Factures en attente)
+    en_attente = db.query(Facture).filter(Facture.status.in_(["IMPORTED", "EXTRACTED"])).count()
+    if en_attente > 0:
+        activities.append(ActivityOut(
+            id="alert_pending",
+            type="ALERT",
+            title=f"Alerte: {en_attente} factures en attente de traitement",
+            time="Live",
+            dot_color="orange"
+        ))
+        
+    return {"activities": activities}

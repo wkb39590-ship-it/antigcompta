@@ -24,6 +24,7 @@ export const AdminAgents: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -84,18 +85,35 @@ export const AdminAgents: React.FC = () => {
       return;
     }
     try {
-      await axios.post(
-        `${API_URL}/admin/agents?cabinet_id=${formData.cabinet_id}`,
-        {
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-          nom: formData.nom,
-          prenom: formData.prenom,
-          is_admin: formData.is_admin,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const payload: any = {
+        username: formData.username,
+        email: formData.email,
+        nom: formData.nom,
+        prenom: formData.prenom,
+        is_admin: formData.is_admin,
+      };
+
+      if (formData.password) {
+        payload.password = formData.password;
+      }
+
+      if (editingAgent) {
+        await axios.put(
+          `${API_URL}/admin/agents/${editingAgent.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        if (!formData.password) {
+          setError('Le mot de passe est obligatoire pour un nouvel agent');
+          return;
+        }
+        await axios.post(
+          `${API_URL}/admin/agents?cabinet_id=${formData.cabinet_id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
       setFormData({
         username: '',
         email: '',
@@ -106,6 +124,35 @@ export const AdminAgents: React.FC = () => {
         cabinet_id: '',
       });
       setShowForm(false);
+      setEditingAgent(null);
+      fetchData();
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleEditClick = (agent: Agent) => {
+    setEditingAgent(agent);
+    setFormData({
+      username: agent.username,
+      email: agent.email,
+      password: '', // On ne remplit pas le mot de passe par sécurité
+      nom: agent.nom,
+      prenom: agent.prenom,
+      is_admin: agent.is_admin,
+      cabinet_id: String(agent.cabinet_id),
+    });
+    setShowForm(true);
+  };
+
+  const handleDeleteAgent = async (id: number) => {
+    if (!window.confirm('Supprimer cet agent ?')) return;
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      await axios.delete(`${API_URL}/admin/agents/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchData();
     } catch (err: any) {
       setError(getErrorMessage(err));
@@ -121,7 +168,24 @@ export const AdminAgents: React.FC = () => {
         </div>
         <button
           className={`aurora-fab ${showForm ? 'active' : ''}`}
-          onClick={() => { setShowForm(!showForm); setError(''); }}
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false);
+              setEditingAgent(null);
+              setFormData({
+                username: '',
+                email: '',
+                password: '',
+                nom: '',
+                prenom: '',
+                is_admin: false,
+                cabinet_id: '',
+              });
+            } else {
+              setShowForm(true);
+            }
+            setError('');
+          }}
         >
           {showForm ? '✕' : '+ Collaborateur'}
         </button>
@@ -132,7 +196,7 @@ export const AdminAgents: React.FC = () => {
       <div className="aurora-content-layout">
         {showForm && (
           <form className="aurora-glass-form aurora-card" onSubmit={handleCreateAgent}>
-            <h2 className="glass-text">Nouvel Agent</h2>
+            <h2 className="glass-text">{editingAgent ? 'Modifier le Collaborateur' : 'Nouvel Agent'}</h2>
             <div className="aurora-form-grid">
               <div className="aurora-input-group span-2">
                 <label>Cabinet d'affectation</label>
@@ -189,12 +253,12 @@ export const AdminAgents: React.FC = () => {
                 />
               </div>
               <div className="aurora-input-group">
-                <label>Mot de passe</label>
+                <label>Mot de passe {editingAgent && '(optionnel)'}</label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
+                  required={!editingAgent}
                 />
               </div>
               <div className="aurora-input-group aurora-checkbox-group">
@@ -273,8 +337,8 @@ export const AdminAgents: React.FC = () => {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="aurora-btn-icon">⚙️</button>
-                          <button className="aurora-btn-icon delete">🚫</button>
+                          <button className="aurora-btn-icon" onClick={() => handleEditClick(agent)}>⚙️</button>
+                          <button className="aurora-btn-icon delete" onClick={() => handleDeleteAgent(agent.id)}>🚫</button>
                         </td>
                       </tr>
                     ))}
