@@ -267,6 +267,26 @@ class PcmAccount(Base):
 
 
 # ─────────────────────────────────────────────
+# SupplierMapping — Apprentissage par l'usage
+# ─────────────────────────────────────────────
+class SupplierMapping(Base):
+    __tablename__ = "supplier_mappings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cabinet_id = Column(Integer, ForeignKey("cabinets.id"), nullable=False, index=True)
+    supplier_ice = Column(String(15), nullable=False, index=True)
+    pcm_account_code = Column(String(10), nullable=False)
+    
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # Unicité par cabinet et ICE
+    __table_args__ = (
+        None,
+    )
+
+
+# ─────────────────────────────────────────────
 # JournalEntry — En-tête écriture comptable
 # ─────────────────────────────────────────────
 class JournalEntry(Base):

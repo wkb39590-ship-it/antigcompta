@@ -201,6 +201,13 @@ export const apiService = {
 
     // URL fichier
     getFileUrl: (id: number) => `${API_BASE}/factures/${id}/file`,
+
+    // Mappings (Feedback Loop)
+    listMappings: () =>
+        api.get('/mappings/').then(r => r.data),
+
+    deleteMapping: (id: number) =>
+        api.delete(`/mappings/${id}`).then(r => r.data),
 }
 
 

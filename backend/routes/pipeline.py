@@ -280,6 +280,31 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     facture.operation_confidence = 0.9
     facture.extraction_source = "GEMINI"
 
+    # ── ANTI-DOUBLON: Sécurité anti-saisies multiples ──────────
+    # On cherche une autre facture avec le même (ICE ou Nom) + Date + TTC
+    if facture.date_facture and facture.montant_ttc:
+        query = db.query(Facture).filter(
+            Facture.societe_id == facture.societe_id,
+            Facture.id != facture.id,
+            Facture.date_facture == facture.date_facture,
+            Facture.montant_ttc == facture.montant_ttc
+        )
+        
+        if facture.supplier_ice:
+            query = query.filter(Facture.supplier_ice == facture.supplier_ice)
+        else:
+            query = query.filter(Facture.supplier_name == facture.supplier_name)
+            
+        duplicate = query.first()
+        
+        if duplicate:
+            db.rollback()
+            supplier_id = facture.supplier_ice or facture.supplier_name or "Inconnu"
+            raise HTTPException(
+                status_code=409, 
+                detail=f"Doublon détecté : Cette facture (Fournisseur: {supplier_id}, Date: {facture.date_facture}, TTC: {facture.montant_ttc}) existe déjà dans ce dossier."
+            )
+
     # ── Contrôles DGI ──────────────────────────────────────────
     dgi_flags = validate_dgi({
         "supplier_ice": facture.supplier_ice,
@@ -692,6 +717,36 @@ def validate_facture(
         facture.status = "VALIDATED"
         facture.validated_by = v_by
         facture.validated_at = now
+
+        # --- FEEDBACK LOOP: Enregistrer le mapping fournisseur ---
+        if facture.supplier_ice and facture.lines:
+            # On prend le compte de la première ligne comme référence pour le fournisseur
+            # (Souvent les factures d'un même fournisseur vont dans le même compte de charge)
+            first_line = facture.lines[0]
+            account_code = first_line.corrected_account_code or first_line.pcm_account_code
+            
+            if account_code:
+                from models import SupplierMapping
+                # Chercher si un mapping existe déjà
+                mapping = (
+                    db.query(SupplierMapping)
+                    .filter(
+                        SupplierMapping.cabinet_id == facture.societe.cabinet_id,
+                        SupplierMapping.supplier_ice == facture.supplier_ice
+                    )
+                    .first()
+                )
+                
+                if mapping:
+                    mapping.pcm_account_code = account_code
+                else:
+                    new_mapping = SupplierMapping(
+                        cabinet_id=facture.societe.cabinet_id,
+                        supplier_ice=facture.supplier_ice,
+                        pcm_account_code=account_code
+                    )
+                    db.add(new_mapping)
+        # ---------------------------------------------------------
 
         db.commit()
 

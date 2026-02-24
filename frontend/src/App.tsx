@@ -6,6 +6,7 @@ import FactureDetail from './pages/FactureDetail'
 import PcmPage from './pages/PcmPage'
 import Profile from './pages/Profile'
 import History from './pages/History'
+import SupplierDirectory from './pages/SupplierDirectory'
 import Login from './pages/Login'
 
 import CabinetSelector from './pages/CabinetSelector'
@@ -53,6 +54,7 @@ function Sidebar() {
         { to: '/upload', icon: '📤', label: 'Importer facture' },
         { to: '/pcm', icon: '📒', label: 'Plan Comptable' },
         { to: '/history', icon: '📂', label: 'Historique' },
+        { to: '/mappings', icon: '📇', label: 'Répertoire' },
         { to: '/profile', icon: '👤', label: 'Mon Profil' },
     ]
 
@@ -332,6 +334,7 @@ export default function App() {
                 <Route path="factures/:id" element={<ProtectedRoute><FactureDetail /></ProtectedRoute>} />
                 <Route path="pcm" element={<ProtectedRoute><PcmPage /></ProtectedRoute>} />
                 <Route path="history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+                <Route path="mappings" element={<ProtectedRoute><SupplierDirectory /></ProtectedRoute>} />
                 <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             </Route>
 

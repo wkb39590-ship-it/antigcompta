@@ -13,6 +13,7 @@ from routes.admin import router as admin_router  # NOUVEAU
 from routes.pipeline import router as pipeline_router
 from routes.pcm import router as pcm_router
 from routes.societes import router as societes_router
+from routes.mappings import router as mappings_router
 
 # Legacy routers (conservés pour compatibilité)
 try:
@@ -50,6 +51,7 @@ app.include_router(admin_router)  # /admin/cabinets, /admin/agents, /admin/socie
 app.include_router(pipeline_router)   # /factures/* pipeline complet
 app.include_router(pcm_router)        # /pcm/accounts, /pcm/tva-rates
 app.include_router(societes_router)   # /societes/*
+app.include_router(mappings_router)   # /mappings/*
 
 # ── Routers legacy ──────────────────────────────────────────
 if _has_factures:
