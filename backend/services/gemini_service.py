@@ -138,6 +138,8 @@ RÈGLES DE PARSING:
 - Dates: Chercher les formats "05/06/2025", "5 juin 2025", "JUIN 2025" => DD/MM/YYYY
 - Numéro facture: Chercher "FACTURE", "N°", "Ref", "Invoice #", etc.
 
+IMPORTANT: Le document peut comporter plusieurs pages. Analyse l'intégralité des images fournies pour extraire les informations. Si les données sont réparties sur plusieurs pages (ex: total en fin de document), consolide-les.
+
 ATTENTION: Ne renvoie RIEN d'autre que le JSON valide. Pas de commentaires, pas d'explications.
 """
 
@@ -310,14 +312,22 @@ def _extract_invoice_header_fallback(ocr_text: str) -> Dict[str, Any]:
 
 
 def extract_invoice_header(
-    image_bytes: bytes,
+    image_data: Any,  # bytes or List[bytes]
     mime_type: str = "image/png",
     model: str = DEFAULT_MODEL,
 ) -> Dict[str, Any]:
     """Extrait les champs d'en-tête obligatoires de la facture (Tableau 1).
     Essaie Gemini en premier, puis fallback OCR."""
-    if not image_bytes:
-        raise ValueError("image_bytes is empty")
+    if not image_data:
+        raise ValueError("image_data is empty")
+
+    # Normaliser en liste d'images
+    images_list = image_data if isinstance(image_data, list) else [image_data]
+    
+    # Préparer les parts pour Gemini
+    parts = [{"text": HEADER_SYSTEM_PROMPT}]
+    for img_bytes in images_list:
+        parts.append({"inline_data": {"mime_type": mime_type, "data": img_bytes}})
 
     # Essayer Gemini
     try:
@@ -326,10 +336,7 @@ def extract_invoice_header(
             model=model,
             contents=[{
                 "role": "user",
-                "parts": [
-                    {"text": HEADER_SYSTEM_PROMPT},
-                    {"inline_data": {"mime_type": mime_type, "data": image_bytes}},
-                ],
+                "parts": parts,
             }],
             config={
                 "response_mime_type": "application/json",
@@ -362,9 +369,9 @@ def extract_invoice_header(
         from pathlib import Path
         import tempfile
         
-        # Sauvegarder les bytes en fichier temporaire
+        # Sauvegarder la première page seulement pour le fallback OCR
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-            tmp.write(image_bytes)
+            tmp.write(images_list[0])
             tmp_path = tmp.name
         
         try:
@@ -410,27 +417,34 @@ Règles:
 - montants: nombre décimal (ex: 8000.00)
 - tva_rate: nombre (7, 10, 14 ou 20)
 - Ne renvoie aucun texte hors du JSON.
+
+IMPORTANT: Le document peut comporter plusieurs pages. Extrait TOUTES les lignes de toutes les pages.
 """
 
 
 def extract_invoice_lines(
-    image_bytes: bytes,
+    image_data: Any,  # bytes or List[bytes]
     mime_type: str = "image/png",
     model: str = DEFAULT_MODEL,
 ) -> List[Dict[str, Any]]:
     """Extrait les lignes produits/services de la facture (Tableau 2)."""
-    if not image_bytes:
-        raise ValueError("image_bytes is empty")
+    if not image_data:
+        raise ValueError("image_data is empty")
+
+    # Normaliser en liste d'images
+    images_list = image_data if isinstance(image_data, list) else [image_data]
+    
+    # Préparer les parts pour Gemini
+    parts = [{"text": LINES_SYSTEM_PROMPT}]
+    for img_bytes in images_list:
+        parts.append({"inline_data": {"mime_type": mime_type, "data": img_bytes}})
 
     client = _client()
     resp = client.models.generate_content(
         model=model,
         contents=[{
             "role": "user",
-            "parts": [
-                {"text": LINES_SYSTEM_PROMPT},
-                {"inline_data": {"mime_type": mime_type, "data": image_bytes}},
-            ],
+            "parts": parts,
         }],
         config={
             "response_mime_type": "application/json",
@@ -554,23 +568,28 @@ Règles:
 
 
 def extract_invoice_fields_from_image_bytes(
-    image_bytes: bytes,
+    image_data: Any,  # bytes or List[bytes]
     mime_type: str = "image/png",
     model: str = DEFAULT_MODEL,
 ) -> Dict[str, Any]:
     """Legacy: Envoie une image à Gemini et récupère un JSON structuré (en-tête seulement)."""
-    if not image_bytes:
-        raise ValueError("image_bytes is empty")
+    if not image_data:
+        raise ValueError("image_data is empty")
+
+    # Normaliser en liste d'images
+    images_list = image_data if isinstance(image_data, list) else [image_data]
+    
+    # Préparer les parts pour Gemini
+    parts = [{"text": SYSTEM_PROMPT}]
+    for img_bytes in images_list:
+        parts.append({"inline_data": {"mime_type": mime_type, "data": img_bytes}})
 
     client = _client()
     resp = client.models.generate_content(
         model=model,
         contents=[{
             "role": "user",
-            "parts": [
-                {"text": SYSTEM_PROMPT},
-                {"inline_data": {"mime_type": mime_type, "data": image_bytes}},
-            ],
+            "parts": parts,
         }],
         config={
             "response_mime_type": "application/json",
@@ -579,6 +598,10 @@ def extract_invoice_fields_from_image_bytes(
         },
     )
     try:
-        return json.loads(resp.text)
+        data = json.loads(resp.text)
+        # Compat legacy
+        if data.get("fournisseur") and not data.get("supplier_name"):
+            data["supplier_name"] = data["fournisseur"]
+        return data
     except Exception as e:
         raise RuntimeError(f"Gemini response is not valid JSON. Raw: {resp.text[:500]}") from e

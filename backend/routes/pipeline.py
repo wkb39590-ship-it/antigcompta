@@ -78,14 +78,14 @@ def _guess_mime(path: str) -> str:
     }.get(ext, "application/octet-stream")
 
 
-def _get_image_bytes(file_path: str):
-    """Retourne (image_bytes, mime_type) — convertit PDF en PNG si nécessaire."""
+def _get_image_data(file_path: str):
+    """Retourne (image_data, mime_type) — image_data est bytes ou List[bytes] pour PDF."""
     ext = Path(file_path).suffix.lower()
     if ext == ".pdf":
-        images = pdf_to_png_images_bytes(file_path, dpi=300, max_pages=1)
+        images = pdf_to_png_images_bytes(file_path, dpi=300, max_pages=10)
         if not images:
-            raise HTTPException(500, "Impossible de convertir le PDF en image")
-        return images[0], "image/png"
+            raise HTTPException(500, "Impossible de convertir le PDF en images")
+        return images, "image/png"
     with open(file_path, "rb") as f:
         return f.read(), _guess_mime(file_path)
 
@@ -157,17 +157,17 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     if not facture.file_path or not Path(facture.file_path).exists():
         raise HTTPException(400, "Fichier source introuvable")
 
-    image_bytes, mime_type = _get_image_bytes(facture.file_path)
+    image_data, mime_type = _get_image_data(facture.file_path)
 
     # ── Extraction en-tête via Gemini ──────────────────────────
     try:
-        header = extract_invoice_header(image_bytes, mime_type=mime_type)
+        header = extract_invoice_header(image_data, mime_type=mime_type)
         print("✅ Extraction Gemini (header) réussie")
     except Exception as e:
         print(f"❌ Erreur extraction Gemini header: {str(e)[:200]}")
         # Fallback vers l'extraction legacy Gemini
         try:
-            header = extract_invoice_fields_from_image_bytes(image_bytes, mime_type=mime_type)
+            header = extract_invoice_fields_from_image_bytes(image_data, mime_type=mime_type)
             print("✅ Extraction Gemini legacy réussie")
         except Exception as e2:
             print(f"❌ Erreur extraction Gemini legacy: {str(e2)[:200]}")
@@ -185,7 +185,7 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
 
     # ── Extraction lignes produits via Gemini ──────────────────
     try:
-        raw_lines = extract_invoice_lines(image_bytes, mime_type=mime_type)
+        raw_lines = extract_invoice_lines(image_data, mime_type=mime_type)
         print(f"✅ Extraction Gemini (lignes) réussie: {len(raw_lines)} lignes")
     except Exception as e:
         print(f"❌ Erreur extraction Gemini lignes: {str(e)[:200]}")
