@@ -13,7 +13,8 @@ from models import Cabinet, Agent, Societe, Facture, agent_societes
 from schemas import (
     AgentCreate, AgentLogin, AgentLoginResponse,
     AgentOut, CabinetOut, SocieteOut,
-    SelectSocieteRequest, SessionContext, AgentStats
+    SelectSocieteRequest, SessionContext, AgentStats,
+    AgentUpdate
 )
 
 
@@ -290,3 +291,49 @@ async def list_societes(
     
     societes = query.all()
     return societes
+
+
+@router.put("/profile", response_model=AgentOut)
+async def update_agent_profile(
+    payload: AgentUpdate,
+    agent: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Met à jour le profil de l'agent connecté avec logs détaillés"""
+    try:
+        print(f"[AUTH] Mise à jour profil pour l'agent {agent.username} (ID: {agent.id})")
+        
+        if payload.email and payload.email != agent.email:
+            existing = db.query(Agent).filter(Agent.email == payload.email).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Cet email est déjà utilisé par un autre compte.")
+            agent.email = payload.email
+
+        if payload.nom is not None:
+            agent.nom = payload.nom
+        if payload.prenom is not None:
+            agent.prenom = payload.prenom
+            
+        if payload.password is not None and payload.password.strip():
+            print(f"[AUTH] Changement de mot de passe pour {agent.username}")
+            agent.password_hash = hash_password(payload.password)
+            
+        db.commit()
+        db.refresh(agent)
+        
+        # S'assurer que les relations nécessaires sont chargées si besoin
+        # (bien que AgentOut n'en utilise pas explicitement)
+        
+        return agent
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[AUTH CRITICAL ERROR] {error_details}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Échec de la mise à jour : {str(e)}"
+        )

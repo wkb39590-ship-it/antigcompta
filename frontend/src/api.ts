@@ -14,14 +14,17 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
     try {
         const session = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
-        console.log('[Axios Interceptor] Request to:', config.url, 'Session token:', session ? `${session.substring(0, 20)}...` : 'NONE')
+        const access = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+        const tokenToUse = session || access
 
-        if (session) {
+        console.log('[Axios Interceptor] Request to:', config.url, 'Token found:', tokenToUse ? 'YES' : 'NONE')
+
+        if (tokenToUse) {
             config.headers = config.headers || {}
-            config.headers['Authorization'] = `Bearer ${session}`
+            config.headers['Authorization'] = `Bearer ${tokenToUse}`
             console.log('[Axios Interceptor] ✅ Added Authorization header')
         } else {
-            console.warn('[Axios Interceptor] ⚠️ No session_token found (this might be expected for login/auth endpoints)')
+            console.warn('[Axios Interceptor] ⚠️ No token found')
         }
     } catch (e) {
         console.error('[Axios Interceptor] Error:', e)
@@ -216,6 +219,10 @@ export const apiService = {
     // Mise à jour facture
     updateFacture: (id: number, data: Partial<Facture>) =>
         api.put(`/factures/${id}`, data).then(r => r.data),
+
+    // Mise à jour profil (Agent)
+    updateProfile: (data: any) =>
+        api.put('/auth/profile', data).then(r => r.data),
 }
 
 
