@@ -109,15 +109,18 @@ CHAMPS À EXTRAIRE ABSOLUMENT:
 1. ENTÊTE (bloc supérieur)
    - numero_facture: Le numéro ou référence unique de la facture (ex: "FAC-2024-001", "N°12345")
    - date_facture: Date d'émission (DD/MM/YYYY ou jour/mois/année en français)
+   - due_date: Date d'échéance du paiement (DD/MM/YYYY)
 
 2. PARTIES (corps du document)
    - supplier_name: NOM/RAISON SOCIALE du fournisseur/vendeur (celui qui émet la facture)
    - supplier_ice: ICE du fournisseur (15 chiffres exactement)
    - supplier_if: Identifiant Fiscal du fournisseur
    - supplier_rc: Registre de Commerce du fournisseur
+   - supplier_address: Adresse complète du fournisseur
    - client_name: NOM/RAISON SOCIALE du client/acheteur (celui qui reçoit)
    - client_ice: ICE du client
    - client_if: IF du client
+   - client_address: Adresse complète du client
 
 3. MONTANTS (section "Total" ou "Résumé")
    - montant_ht: Sous-total / Total HT (avant TVA)
