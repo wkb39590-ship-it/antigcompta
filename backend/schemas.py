@@ -44,8 +44,8 @@ class FactureOut(BaseModel):
     id: int
     societe_id: int
 
-    operation_type: str
-    operation_confidence: float
+    operation_type: Optional[str] = None
+    operation_confidence: Optional[float] = None
 
     fournisseur: Optional[str] = None
     date_facture: Optional[date] = None
@@ -56,7 +56,7 @@ class FactureOut(BaseModel):
     montant_tva: Optional[float] = None
     montant_ttc: Optional[float] = None
 
-    statut: str
+    status: str
 
     if_frs: Optional[str] = None
     ice_frs: Optional[str] = None
@@ -65,6 +65,19 @@ class FactureOut(BaseModel):
     date_paie: Optional[date] = None
 
     devise: Optional[str] = None
+
+    # Champs v2
+    supplier_name: Optional[str] = None
+    supplier_ice: Optional[str] = None
+    supplier_if: Optional[str] = None
+    supplier_rc: Optional[str] = None
+    supplier_address: Optional[str] = None
+    client_name: Optional[str] = None
+    client_ice: Optional[str] = None
+    client_if: Optional[str] = None
+    due_date: Optional[date] = None
+    invoice_type: Optional[str] = None
+    payment_mode: Optional[str] = None
 
     ded_file_path: Optional[str] = None
     ded_pdf_path: Optional[str] = None
@@ -83,7 +96,7 @@ class FactureUpdate(BaseModel):
     montant_tva: Optional[float] = None
     montant_ttc: Optional[float] = None
 
-    statut: Optional[str] = None
+    status: Optional[str] = None
 
     if_frs: Optional[str] = None
     ice_frs: Optional[str] = None
@@ -95,6 +108,20 @@ class FactureUpdate(BaseModel):
     operation_confidence: Optional[float] = None
 
     devise: Optional[str] = None
+    
+    # Nouveaux champs v2
+    due_date: Optional[date] = None
+    invoice_type: Optional[str] = None
+    payment_mode: Optional[str] = None
+    supplier_name: Optional[str] = None
+    supplier_ice: Optional[str] = None
+    supplier_if: Optional[str] = None
+    supplier_rc: Optional[str] = None
+    supplier_address: Optional[str] = None
+    client_name: Optional[str] = None
+    client_ice: Optional[str] = None
+    client_if: Optional[str] = None
+    client_address: Optional[str] = None
 
     ded_file_path: Optional[str] = None
     ded_pdf_path: Optional[str] = None

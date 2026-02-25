@@ -112,13 +112,21 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
 
         # Crédit 7xxx par ligne + Crédit 4455 TVA
         for line in facture.lines:
-            account_code = line.corrected_account_code or line.pcm_account_code or "7111"
-            account_label = line.pcm_account_label or "Ventes"
+            # Sécurité: Ne pas utiliser de compte de classe 6 (Charges) pour une vente
+            raw_account = line.pcm_account_code or "7111"
+            if not line.corrected_account_code and raw_account.startswith("6"):
+                account_code = "7111"
+                account_label = "Ventes de marchandises (redressé)"
+            else:
+                account_code = line.corrected_account_code or raw_account
+                account_label = line.pcm_account_label or "Ventes"
+
             ht = _d(line.line_amount_ht)
-            # Si tva_amount est vide, la calculer depuis le taux
+            
+            # Priorité absolue au montant TVA extrait
             tva = _d(line.tva_amount)
-            if tva == Decimal("0") and line.tva_rate:
-                tva = ht * (_d(line.tva_rate) / Decimal("100"))
+            if tva == Decimal("0") and line.tva_rate and _d(line.tva_rate) > 0:
+                tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
             el_ht = EntryLine(
                 journal_entry_id=entry.id,
@@ -128,8 +136,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 account_label=account_label,
                 debit=Decimal("0"),
                 credit=ht,
-                tiers_name=client_name,  # Ajouter le nom du client
-                tiers_ice=client_ice,    # Ajouter ICE du client
+                tiers_name=client_name,
+                tiers_ice=client_ice,
             )
             db.add(el_ht)
             entry_lines.append(el_ht)
@@ -145,8 +153,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                     account_label="TVA facturée",
                     debit=Decimal("0"),
                     credit=tva,
-                    tiers_name=client_name,  # Ajouter aussi pour la TVA
-                    tiers_ice=client_ice,     # Ajouter ICE du client
+                    tiers_name=client_name,
+                    tiers_ice=client_ice,
                 )
                 db.add(el_tva)
                 entry_lines.append(el_tva)
@@ -221,13 +229,24 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         # ── ACHAT (charge ou immobilisation) ─────────────────────
         # Débit 6xxx ou 2xxx + Débit TVA par ligne
         for line in facture.lines:
-            account_code = line.corrected_account_code or line.pcm_account_code or "6111"
-            account_label = line.pcm_account_label or "Achats"
+            # Sécurité: Ne pas utiliser de compte de classe 7 (Produits) pour un achat
+            # sauf si l'utilisateur l'a explicitement corrigé (corrected_account_code)
+            raw_account = line.pcm_account_code or "6111"
+            if not line.corrected_account_code and raw_account.startswith("7"):
+                account_code = "6111" # Redresser vers un compte d'achat par défaut
+                account_label = "Achats de marchandises (redressé)"
+            else:
+                account_code = line.corrected_account_code or raw_account
+                account_label = line.pcm_account_label or "Achats"
+
             ht = _d(line.line_amount_ht)
-            # Si tva_amount est vide, la calculer depuis le taux
+            
+            # Priorité absolue au montant TVA extrait
             tva = _d(line.tva_amount)
-            if tva == Decimal("0") and line.tva_rate:
-                tva = ht * (_d(line.tva_rate) / Decimal("100"))
+            # On ne recalcule que si tva_amount est strictement nul ET qu'un taux est présent
+            if tva == Decimal("0") and line.tva_rate and _d(line.tva_rate) > 0:
+                tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            
             tva_account = _get_tva_account(line.pcm_class, invoice_type)
 
             el_ht = EntryLine(
@@ -239,7 +258,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 debit=ht,
                 credit=Decimal("0"),
                 tiers_name=tiers_name,
-                tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
+                tiers_ice=tiers_ice,
             )
             db.add(el_ht)
             entry_lines.append(el_ht)
@@ -256,7 +275,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                     debit=tva,
                     credit=Decimal("0"),
                     tiers_name=tiers_name,
-                    tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
+                    tiers_ice=tiers_ice,
                 )
                 db.add(el_tva)
                 entry_lines.append(el_tva)

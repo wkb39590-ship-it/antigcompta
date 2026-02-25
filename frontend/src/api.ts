@@ -208,6 +208,14 @@ export const apiService = {
 
     deleteMapping: (id: number) =>
         api.delete(`/mappings/${id}`).then(r => r.data),
+
+    // Suppression facture
+    deleteFacture: (id: number) =>
+        api.delete(`/factures/${id}`).then(r => r.data),
+
+    // Mise à jour facture
+    updateFacture: (id: number, data: Partial<Facture>) =>
+        api.put(`/factures/${id}`, data).then(r => r.data),
 }
 
 

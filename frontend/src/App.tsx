@@ -50,12 +50,12 @@ function Sidebar() {
     const societeDisplay = session?.societe_raison_sociale || 'Société non sélectionnée'
 
     const navItems = [
-        { to: '/dashboard', icon: '📊', label: 'Tableau de bord' },
-        { to: '/upload', icon: '📤', label: 'Importer facture' },
-        { to: '/pcm', icon: '📒', label: 'Plan Comptable' },
-        { to: '/history', icon: '📂', label: 'Historique' },
-        { to: '/mappings', icon: '📇', label: 'Répertoire' },
-        { to: '/profile', icon: '👤', label: 'Mon Profil' },
+        { to: '/dashboard', label: 'Tableau de bord' },
+        { to: '/upload', label: 'Transmission' },
+        { to: '/pcm', label: 'Plan Comptable' },
+        { to: '/history', label: 'Historique' },
+        { to: '/mappings', label: 'Répertoire' },
+        { to: '/profile', label: 'Mon Profil' },
     ]
 
     useEffect(() => {
@@ -108,8 +108,8 @@ function Sidebar() {
     return (
         <aside className="sidebar">
             <div className="sidebar-logo">
-                <h1>⚡ comptafacile</h1>
-                <p>Intelligence Comptable</p>
+                <h1>comptafacile</h1>
+                <p>Gestion Comptable Intégrale</p>
             </div>
             <nav className="sidebar-nav">
                 {navItems.map(item => (
@@ -118,7 +118,6 @@ function Sidebar() {
                         to={item.to}
                         className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
                     >
-                        <span className="nav-icon">{item.icon}</span>
                         {item.label}
                     </NavLink>
                 ))}
@@ -168,7 +167,7 @@ function Sidebar() {
                                     onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                                     onMouseOut={(e) => (e.currentTarget.style.background = s.id === session?.societe_id ? 'rgba(99, 102, 241, 0.2)' : 'transparent')}
                                 >
-                                    🏢 {s.raison_sociale}
+                                    {s.raison_sociale}
                                 </button>
                             ))
                         )}
@@ -239,7 +238,7 @@ function Sidebar() {
                         transition: 'all 0.2s'
                     }}
                 >
-                    🚪 Déconnexion
+                    Déconnexion
                 </button>
             </div>
 

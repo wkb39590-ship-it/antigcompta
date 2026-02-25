@@ -16,7 +16,7 @@ export default function Upload() {
     useEffect(() => {
         // Get current societe from session token
         const societe = getCurrentSociete()
-        
+
         if (societe) {
             setCurrentSociete(societe)
             setError('')
@@ -78,7 +78,7 @@ export default function Upload() {
             } else {
                 console.error('[Upload] Error message:', e.message)
             }
-            
+
             const msg = e.response?.data?.detail || e.message || 'Erreur inconnue'
             setError(`❌ Erreur: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
         } finally {
@@ -89,21 +89,21 @@ export default function Upload() {
     return (
         <div>
             <div className="page-header">
-                <h1 className="page-title">Importer une facture</h1>
-                <p className="page-subtitle">Le pipeline complet s'exécute automatiquement: OCR → Extraction → Classification PCM → Écritures</p>
+                <h1 className="page-title">Transmission de Documents</h1>
+                <p className="page-subtitle">Traitement intégral certifié : Analyse de conformité, imputation PCM et génération d'écritures réglementaires.</p>
             </div>
 
             {/* Pipeline steps */}
             <div className="pipeline-steps">
-                <div className="step active">1 Upload</div>
+                <div className="step active">Réception</div>
                 <span className="step-arrow">→</span>
-                <div className="step">2 OCR + Gemini</div>
+                <div className="step">Analyse</div>
                 <span className="step-arrow">→</span>
-                <div className="step">3 Classification PCM</div>
+                <div className="step">Imputation</div>
                 <span className="step-arrow">→</span>
-                <div className="step">4 Écritures</div>
+                <div className="step">Écritures</div>
                 <span className="step-arrow">→</span>
-                <div className="step">5 Validation</div>
+                <div className="step">Contrôle</div>
             </div>
 
             <div className="two-col">
@@ -111,8 +111,8 @@ export default function Upload() {
                 <div className="card">
                     <div className="card-header">
                         <div>
-                            <div className="card-title">Fichier facture</div>
-                            <div className="card-subtitle">PDF, PNG, JPG, WEBP, TIFF</div>
+                            <div className="card-title">Pièce Justificative</div>
+                            <div className="card-subtitle">Formats acceptés : PDF, PNG, JPG</div>
                         </div>
                     </div>
 
@@ -135,14 +135,14 @@ export default function Upload() {
                                 <div className="upload-icon">📄</div>
                                 <div className="upload-title">{file.name}</div>
                                 <div className="upload-subtitle">
-                                    {(file.size / 1024).toFixed(1)} KB — Cliquez pour changer
+                                    {(file.size / 1024).toFixed(1)} KB — Modifier le document
                                 </div>
                             </>
                         ) : (
                             <>
-                                <div className="upload-icon">☁️</div>
-                                <div className="upload-title">Glissez votre facture ici</div>
-                                <div className="upload-subtitle">ou cliquez pour parcourir</div>
+                                <div className="upload-icon">📥</div>
+                                <div className="upload-title">Déposez vos documents ici</div>
+                                <div className="upload-subtitle">ou sélectionnez un fichier sur votre poste</div>
                             </>
                         )}
                     </div>
@@ -151,40 +151,29 @@ export default function Upload() {
                 {/* Options */}
                 <div className="card">
                     <div className="card-header">
-                        <div className="card-title">Configuration</div>
+                        <div className="card-title">Configuration du dossier</div>
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">Société sélectionnée</label>
+                        <label className="form-label">Société de destination</label>
                         <div className="form-input" style={{ background: 'var(--bg2)', cursor: 'default', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '16px' }}>✓</span>
+                            <span style={{ color: 'var(--success)' }}>✔</span>
                             <span>{currentSociete?.raison_sociale || 'Société non chargée'}</span>
                         </div>
                         {!currentSociete && (
                             <div>
                                 <div style={{ fontSize: '12px', color: 'var(--error)', marginTop: '8px' }}>
-                                    ⚠️ Veuillez d'abord sélectionner une société
+                                    ⚠️ Session de société requise
                                 </div>
                                 <button
                                     className="btn btn-secondary"
                                     style={{ width: '100%', marginTop: '12px', padding: '10px', fontSize: '12px' }}
                                     onClick={() => navigate('/cabinets')}
                                 >
-                                    ← Retour à la sélection
+                                    ← Sélectionner une société
                                 </button>
                             </div>
                         )}
-                    </div>
-
-                    <div style={{ marginTop: '24px' }}>
-                        <div className="card-title" style={{ marginBottom: '12px', fontSize: '13px' }}>
-                            🤖 Pipeline automatique
-                        </div>
-                        {['OCR + Extraction Gemini (Tableau 1 & 2)', 'Classification PCM par ligne', 'Génération écritures comptables', 'Contrôles DGI automatiques'].map((step, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '13px', color: 'var(--text2)' }}>
-                                <span style={{ color: 'var(--accent)' }}>✓</span> {step}
-                            </div>
-                        ))}
                     </div>
 
                     {error && <div className="alert alert-error" style={{ marginTop: '16px' }}>{error}</div>}
@@ -199,7 +188,7 @@ export default function Upload() {
                         {loading ? (
                             <><div className="spinner" /> Traitement en cours...</>
                         ) : (
-                            '⚡ Lancer le pipeline'
+                            'Lancer le Traitement'
                         )}
                     </button>
                 </div>

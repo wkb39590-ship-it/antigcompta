@@ -15,11 +15,14 @@ GET  /factures/{id}
 import json
 import os
 import uuid
+import csv
+import io
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query, Body
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -39,6 +42,7 @@ from services.dgi_validator import validate_dgi
 from services.validators import validate_or_fix, merge_fields
 
 from utils.parsers import parse_date_fr
+from schemas import FactureOut, FactureUpdate
 
 router = APIRouter(prefix="/factures", tags=["pipeline"])
 
@@ -315,6 +319,7 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
         "montant_ttc": facture.montant_ttc,
         "taux_tva": facture.taux_tva,
         "date_facture": facture.date_facture,
+        "lines": raw_lines, # Ajout des lignes pour cohérence
     })
     facture.set_dgi_flags(dgi_flags)
 
@@ -799,30 +804,153 @@ def list_factures(
 ):
     """Liste toutes les factures pour la société courante avec filtres optionnels."""
     societe_id = session.get("societe_id")
-    q = db.query(Facture).filter(Facture.societe_id == societe_id)
+    query = db.query(Facture).filter(Facture.societe_id == societe_id)
     if status:
-        q = q.filter(Facture.status == status.upper())
-    factures = q.order_by(Facture.id.desc()).all()
-
+        query = query.filter(Facture.status == status)
+    
+    factures = query.order_by(Facture.id.desc()).all()
     return [
         {
             "id": f.id,
             "status": f.status,
             "numero_facture": f.numero_facture,
             "date_facture": str(f.date_facture) if f.date_facture else None,
+            "supplier_name": f.supplier_name,
+            "montant_ttc": float(f.montant_ttc) if f.montant_ttc else 0,
             "invoice_type": f.invoice_type,
-            "supplier_name": f.supplier_name or f.fournisseur,
-            "montant_ttc": float(f.montant_ttc) if f.montant_ttc else None,
             "devise": f.devise,
-            "created_at": str(f.created_at) if f.created_at else None,
         }
         for f in factures
     ]
 
 
+@router.put("/{facture_id}", response_model=FactureOut)
+def update_facture(
+    facture_id: int,
+    payload: FactureUpdate,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
+):
+    """
+    Met à jour les informations d'une facture.
+    Réservé à la société propriétaire.
+    """
+    societe_id = session.get("societe_id")
+    facture = db.query(Facture).filter(Facture.id == facture_id, Facture.societe_id == societe_id).first()
+    
+    if not facture:
+        raise HTTPException(status_code=404, detail="Facture introuvable ou accès refusé")
+
+    # Mettre à jour les champs fournis
+    data = payload.model_dump(exclude_unset=True)
+    
+    # Mapping des noms de champs si nécessaire (ex: if_frs vs supplier_if dans le modèle)
+    # Le modèle Facture semble utiliser les deux (legacy + nouveau)
+    # On se concentre sur les champs principaux du modèle v2
+    
+    for key, value in data.items():
+        if hasattr(facture, key):
+            setattr(facture, key, value)
+            
+    try:
+        db.commit()
+        db.refresh(facture)
+        return facture
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Erreur lors de la mise à jour: {str(e)}")
+
+
+# ─────────────────────────────────────────────
+# Export des écritures (CSV/Excel)
+# ─────────────────────────────────────────────
+
+@router.get("/export-csv")
+def export_journal_entries_csv(
+    status: Optional[str] = Query("VALIDATED"),
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
+):
+    """Génère un fichier CSV contenant toutes les écritures validées (ou selon filtre)."""
+    societe_id = session.get("societe_id")
+    
+    # Récupérer les écritures des factures de cette société
+    query = (
+        db.query(EntryLine)
+        .join(JournalEntry)
+        .join(Facture)
+        .filter(Facture.societe_id == societe_id)
+    )
+    
+    if status:
+        query = query.filter(Facture.status == status)
+        
+    lines = query.order_by(Facture.date_facture, JournalEntry.id, EntryLine.line_order).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    
+    # Header
+    writer.writerow([
+        "Date", "Journal", "Compte", "Libelle Compte", 
+        "Debit", "Credit", "Reference", "Libelle Ecriture", "Tiers", "ICE Tiers"
+    ])
+    
+    for l in lines:
+        writer.writerow([
+            l.journal_entry.entry_date.strftime("%d/%m/%Y") if l.journal_entry.entry_date else "",
+            l.journal_entry.journal_code,
+            l.account_code,
+            l.account_label,
+            str(l.debit).replace('.', ','),
+            str(l.credit).replace('.', ','),
+            l.journal_entry.reference or "",
+            l.journal_entry.description or "",
+            l.tiers_name or "",
+            l.tiers_ice or ""
+        ])
+    
+    output.seek(0)
+    filename = f"export_compta_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 # ─────────────────────────────────────────────
 # Aperçu du fichier
 # ─────────────────────────────────────────────
+
+@router.delete("/{facture_id}", response_model=dict)
+def delete_facture(
+    facture_id: int,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
+):
+    """Supprime une facture et ses fichiers associés. Doit appartenir à la société courante."""
+    facture = _get_facture_or_404(facture_id, db)
+    if facture.societe_id != session.get("societe_id"):
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    file_path = facture.file_path
+    
+    try:
+        # Suppression en base (la cascade gérera les lignes et écritures)
+        db.delete(facture)
+        db.commit()
+        
+        # Suppression physique du fichier
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+            
+        return {"message": "Facture supprimée avec succès", "id": facture_id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Erreur lors de la suppression: {str(e)}")
+
 
 @router.get("/{facture_id}/file")
 def get_facture_file(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):

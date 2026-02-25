@@ -3,11 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import apiService, { Facture, InvoiceLine, JournalEntry, DgiFlag } from '../api'
 
 function StatusBadge({ status }: { status: string }) {
-    const icons: Record<string, string> = {
-        IMPORTED: '📥', EXTRACTED: '🔍', CLASSIFIED: '🧠',
-        DRAFT: '📝', VALIDATED: '✅', EXPORTED: '📤', ERROR: '❌'
-    }
-    return <span className={`badge badge-${status.toLowerCase()}`}>{icons[status] || '•'} {status}</span>
+    return <span className={`badge badge-${status.toLowerCase()}`}>{status}</span>
 }
 
 function DgiFlagList({ flags }: { flags: DgiFlag[] }) {
@@ -29,14 +25,15 @@ function DgiFlagList({ flags }: { flags: DgiFlag[] }) {
 }
 
 function ConfidenceBar({ value }: { value: number | null }) {
+    if (value === null) return null;
     const pct = Math.round((value || 0) * 100)
-    const color = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)'
+    // On ne montre que si besoin d'attention, sinon on reste discret (puissance silencieuse)
+    if (pct >= 90) return null;
+
+    const color = pct >= 80 ? 'var(--warning)' : 'var(--danger)'
     return (
-        <div className="confidence-bar">
-            <div className="confidence-track">
-                <div className="confidence-fill" style={{ width: `${pct}%`, background: color }} />
-            </div>
-            <span style={{ color, fontWeight: 600, minWidth: '36px' }}>{pct}%</span>
+        <div style={{ fontSize: '11px', color: color, fontWeight: 600 }}>
+            {pct < 80 ? 'Révision conseillée' : 'À vérifier'}
         </div>
     )
 }
@@ -56,6 +53,8 @@ export default function FactureDetail() {
     const [actionLoading, setActionLoading] = useState(false)
     const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const [activeTab, setActiveTab] = useState<'header' | 'lines' | 'entries'>('header')
+    const [editingHeader, setEditingHeader] = useState(false)
+    const [headerForm, setHeaderForm] = useState<Partial<Facture>>({})
 
     const load = async () => {
         setLoading(true)
@@ -68,10 +67,30 @@ export default function FactureDetail() {
             setFacture(f)
             setLines(l)
             setEntries(e.journal_entries || [])
+            // Initialiser le formulaire avec les données chargées si on n'est pas en train d'éditer
+            if (!editingHeader) {
+                setHeaderForm(f)
+            }
         } catch (err) {
             console.error(err)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const saveHeader = async () => {
+        if (!facture) return
+        setActionLoading(true)
+        try {
+            const updated = await apiService.updateFacture(factureId, headerForm)
+            setFacture(updated)
+            setEditingHeader(false)
+            setMsg({ type: 'success', text: '✅ En-tête mis à jour' })
+            await load() // Recharger pour être sûr de la cohérence avec les lignes/écritures
+        } catch (e: any) {
+            setMsg({ type: 'error', text: `Erreur: ${e.response?.data?.detail || e.message}` })
+        } finally {
+            setActionLoading(false)
         }
     }
 
@@ -114,7 +133,7 @@ export default function FactureDetail() {
             setEditingLineId(null)
             setEditedLine(null)
             await load()
-        } catch (e:any) {
+        } catch (e: any) {
             setMsg({ type: 'error', text: `Erreur: ${e.response?.data?.detail || e.message}` })
         } finally {
             setActionLoading(false)
@@ -154,32 +173,32 @@ export default function FactureDetail() {
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {facture.status === 'IMPORTED' && (
                         <button className="btn btn-primary" disabled={actionLoading}
-                            onClick={() => runAction(() => apiService.extractFacture(factureId), '✅ Extraction terminée')}>
-                            🔍 Extraire
+                            onClick={() => runAction(() => apiService.extractFacture(factureId), '✅ Analyse terminée')}>
+                            Lancer l'Analyse
                         </button>
                     )}
                     {facture.status === 'EXTRACTED' && (
                         <button className="btn btn-primary" disabled={actionLoading}
-                            onClick={() => runAction(() => apiService.classifyFacture(factureId), '✅ Classification terminée')}>
-                            🧠 Classifier
+                            onClick={() => runAction(() => apiService.classifyFacture(factureId), '✅ Imputation terminée')}>
+                            Qualifier les lignes
                         </button>
                     )}
                     {facture.status === 'CLASSIFIED' && (
                         <button className="btn btn-primary" disabled={actionLoading}
                             onClick={() => runAction(() => apiService.generateEntries(factureId), '✅ Écritures générées')}>
-                            📝 Générer écritures
+                            Générer les écritures
                         </button>
                     )}
                     {facture.status === 'DRAFT' && (
                         <button className="btn btn-success" disabled={actionLoading}
                             onClick={() => runAction(() => apiService.validateFacture(factureId), '✅ Facture validée!')}>
-                            ✅ Valider
+                            Valider le dossier
                         </button>
                     )}
                     {['EXTRACTED', 'CLASSIFIED', 'DRAFT'].includes(facture.status) && (
                         <button className="btn btn-danger" disabled={actionLoading}
                             onClick={() => runAction(() => apiService.rejectFacture(factureId, 'Rejeté manuellement'), '❌ Facture rejetée')}>
-                            ❌ Rejeter
+                            Rejeter
                         </button>
                     )}
                 </div>
@@ -210,7 +229,7 @@ export default function FactureDetail() {
                             transition: 'all 0.2s',
                         }}
                     >
-                        {tab === 'header' ? '📋 En-tête' : tab === 'lines' ? `📦 Lignes (${lines.length})` : `📒 Écritures (${entries.length})`}
+                        {tab === 'header' ? 'En-tête' : tab === 'lines' ? `Lignes (${lines.length})` : `Écritures (${entries.length})`}
                     </button>
                 ))}
             </div>
@@ -219,19 +238,54 @@ export default function FactureDetail() {
             {activeTab === 'header' && (
                 <div className="two-col">
                     <div className="card">
-                        <div className="card-header"><div className="card-title">Informations facture</div></div>
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className="card-title">Informations facture</div>
+                            {editingHeader ? (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button className="btn btn-ghost" onClick={() => { setEditingHeader(false); setHeaderForm({}) }}>Annuler</button>
+                                    <button className="btn btn-primary" onClick={saveHeader} disabled={actionLoading}>Enregistrer</button>
+                                </div>
+                            ) : (
+                                <button className="btn btn-ghost" style={{ padding: '6px 12px' }} onClick={() => { setEditingHeader(true); setHeaderForm({ ...facture }) }}>
+                                    Modifier ✎
+                                </button>
+                            )}
+                        </div>
+
                         <div className="three-col" style={{ gap: '12px' }}>
                             {[
-                                ['N° Facture', facture.numero_facture],
-                                ['Date', facture.date_facture],
-                                ['Échéance', facture.due_date],
-                                ['Type', facture.invoice_type],
-                                ['Devise', facture.devise],
-                                ['Mode paiement', facture.payment_mode],
-                            ].map(([label, value]) => (
-                                <div key={label as string}>
-                                    <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{label}</div>
-                                    <div style={{ fontWeight: 600 }}>{value || '—'}</div>
+                                { label: 'N° Facture', key: 'numero_facture', type: 'text' },
+                                { label: 'Date', key: 'date_facture', type: 'date' },
+                                { label: 'Échéance', key: 'due_date', type: 'date' },
+                                { label: 'Type', key: 'invoice_type', type: 'select', options: ['ACHAT', 'VENTE', 'AVOIR', 'NOTE_FRAIS', 'IMMOBILISATION'] },
+                                { label: 'Devise', key: 'devise', type: 'text' },
+                                { label: 'Mode paiement', key: 'payment_mode', type: 'select', options: ['Virement', 'Chèque', 'Espèces', 'Effet', 'Autre'] },
+                            ].map((field) => (
+                                <div key={field.label}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
+                                    {editingHeader ? (
+                                        field.type === 'select' ? (
+                                            <select
+                                                className="form-input"
+                                                value={(headerForm as any)[field.key] || ''}
+                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                            >
+                                                <option value="">—</option>
+                                                {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type={field.type}
+                                                className="form-input"
+                                                value={(headerForm as any)[field.key] || ''}
+                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                            />
+                                        )
+                                    ) : (
+                                        <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -240,15 +294,24 @@ export default function FactureDetail() {
                             <div className="card-title" style={{ marginBottom: '16px', fontSize: '14px' }}>Fournisseur</div>
                             <div className="three-col" style={{ gap: '12px' }}>
                                 {[
-                                    ['Nom', facture.supplier_name],
-                                    ['ICE', facture.supplier_ice],
-                                    ['IF', facture.supplier_if],
-                                    ['RC', facture.supplier_rc],
-                                    ['Adresse', facture.supplier_address],
-                                ].map(([label, value]) => (
-                                    <div key={label as string}>
-                                        <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{label}</div>
-                                        <div style={{ fontWeight: 600 }}>{value || '—'}</div>
+                                    { label: 'Nom', key: 'supplier_name' },
+                                    { label: 'ICE', key: 'supplier_ice' },
+                                    { label: 'IF', key: 'supplier_if' },
+                                    { label: 'RC', key: 'supplier_rc' },
+                                    { label: 'Adresse', key: 'supplier_address' },
+                                ].map((field) => (
+                                    <div key={field.label}>
+                                        <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
+                                        {editingHeader ? (
+                                            <input
+                                                className="form-input"
+                                                value={(headerForm as any)[field.key] || ''}
+                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                            />
+                                        ) : (
+                                            <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -258,13 +321,22 @@ export default function FactureDetail() {
                             <div className="card-title" style={{ marginBottom: '16px', fontSize: '14px' }}>Client</div>
                             <div className="three-col" style={{ gap: '12px' }}>
                                 {[
-                                    ['Nom', facture.client_name],
-                                    ['ICE', facture.client_ice],
-                                    ['IF', facture.client_if],
-                                ].map(([label, value]) => (
-                                    <div key={label as string}>
-                                        <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{label}</div>
-                                        <div style={{ fontWeight: 600 }}>{value || '—'}</div>
+                                    { label: 'Nom', key: 'client_name' },
+                                    { label: 'ICE', key: 'client_ice' },
+                                    { label: 'IF', key: 'client_if' },
+                                ].map((field) => (
+                                    <div key={field.label}>
+                                        <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
+                                        {editingHeader ? (
+                                            <input
+                                                className="form-input"
+                                                value={(headerForm as any)[field.key] || ''}
+                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                            />
+                                        ) : (
+                                            <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -277,15 +349,25 @@ export default function FactureDetail() {
                             <div className="card-title" style={{ marginBottom: '16px' }}>Montants</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {[
-                                    ['Montant HT', facture.montant_ht, 'var(--text)'],
-                                    [`TVA (${facture.taux_tva || '?'}%)`, facture.montant_tva, 'var(--warning)'],
-                                    ['Montant TTC', facture.montant_ttc, 'var(--accent)'],
-                                ].map(([label, value, color]) => (
-                                    <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ color: 'var(--text2)', fontSize: '14px' }}>{label as string}</span>
-                                        <span style={{ fontWeight: 700, fontSize: '16px', color: color as string }}>
-                                            {fmt(value as number | null)} {facture.devise || 'MAD'}
-                                        </span>
+                                    { label: 'Montant HT', key: 'montant_ht', color: 'var(--text)' },
+                                    { label: `TVA (${facture.taux_tva || '?'}%)`, key: 'montant_tva', color: 'var(--warning)' },
+                                    { label: 'Montant TTC', key: 'montant_ttc', color: 'var(--accent)' },
+                                ].map((field) => (
+                                    <div key={field.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: 'var(--text2)', fontSize: '14px' }}>{field.label}</span>
+                                        {editingHeader ? (
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                value={(headerForm as any)[field.key] || ''}
+                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value ? Number(e.target.value) : null }))}
+                                                style={{ width: '120px', padding: '4px 8px', fontSize: '13px', textAlign: 'right' }}
+                                            />
+                                        ) : (
+                                            <span style={{ fontWeight: 700, fontSize: '16px', color: field.color }}>
+                                                {fmt((facture as any)[field.key])} {facture.devise || 'MAD'}
+                                            </span>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -325,7 +407,7 @@ export default function FactureDetail() {
                                         <th>Montant HT</th>
                                         <th>TVA</th>
                                         <th>Compte PCM</th>
-                                        <th>Confiance</th>
+                                        <th>Statut</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -364,7 +446,7 @@ export default function FactureDetail() {
                                                 <ConfidenceBar value={line.classification_confidence} />
                                             </td>
                                             <td style={{ width: 48, textAlign: 'right' }}>
-                                                <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 6, minWidth: 32 }}>✏️</button>
+                                                <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 6, minWidth: 32 }}>✎</button>
                                             </td>
                                         </tr>
                                     ))}
@@ -387,37 +469,37 @@ export default function FactureDetail() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div>
                                     <label className="label">Description</label>
-                                    <textarea value={editedLine.description || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), description: e.target.value }))} />
+                                    <textarea value={editedLine.description || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), description: e.target.value }))} />
                                 </div>
                                 <div>
                                     <label className="label">Quantité</label>
-                                    <input type="number" value={editedLine.quantity ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), quantity: e.target.value ? Number(e.target.value) : null }))} />
+                                    <input type="number" value={editedLine.quantity ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), quantity: e.target.value ? Number(e.target.value) : null }))} />
                                     <label className="label">Unité</label>
-                                    <input value={editedLine.unit || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), unit: e.target.value }))} />
+                                    <input value={editedLine.unit || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), unit: e.target.value }))} />
                                 </div>
                                 <div>
                                     <label className="label">PU HT</label>
-                                    <input type="number" value={editedLine.unit_price_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), unit_price_ht: e.target.value ? Number(e.target.value) : null }))} />
+                                    <input type="number" value={editedLine.unit_price_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), unit_price_ht: e.target.value ? Number(e.target.value) : null }))} />
                                 </div>
                                 <div>
                                     <label className="label">Montant HT</label>
-                                    <input type="number" value={editedLine.line_amount_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), line_amount_ht: e.target.value ? Number(e.target.value) : null }))} />
+                                    <input type="number" value={editedLine.line_amount_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), line_amount_ht: e.target.value ? Number(e.target.value) : null }))} />
                                 </div>
                                 <div>
                                     <label className="label">TVA (%)</label>
-                                    <input type="number" value={editedLine.tva_rate ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), tva_rate: e.target.value ? Number(e.target.value) : null }))} />
+                                    <input type="number" value={editedLine.tva_rate ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), tva_rate: e.target.value ? Number(e.target.value) : null }))} />
                                 </div>
                                 <div>
                                     <label className="label">Confiance</label>
-                                    <input type="range" min={0} max={100} value={Math.round((editedLine.classification_confidence ?? 0) * 100)} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), classification_confidence: Number(e.target.value) / 100 }))} />
+                                    <input type="range" min={0} max={100} value={Math.round((editedLine.classification_confidence ?? 0) * 100)} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), classification_confidence: Number(e.target.value) / 100 }))} />
                                 </div>
                                 <div>
                                     <label className="label">Compte PCM</label>
-                                    <input value={editedLine.pcm_account_code || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), pcm_account_code: e.target.value }))} />
+                                    <input value={editedLine.pcm_account_code || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), pcm_account_code: e.target.value }))} />
                                 </div>
                                 <div>
                                     <label className="label">Libellé compte</label>
-                                    <input value={editedLine.pcm_account_label || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev||{}), pcm_account_label: e.target.value }))} />
+                                    <input value={editedLine.pcm_account_label || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), pcm_account_label: e.target.value }))} />
                                 </div>
                             </div>
                         </div>

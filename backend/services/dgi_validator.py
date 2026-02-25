@@ -59,7 +59,7 @@ def validate_dgi(facture_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "field": "numero_facture",
         })
 
-    # ── Cohérence HT + TVA = TTC ─────────────────────────────────
+    # ── Cohérence HT + TVA = TTC (En-tête) ───────────────────────
     ht = _to_float(facture_data.get("montant_ht"))
     tva = _to_float(facture_data.get("montant_tva"))
     ttc = _to_float(facture_data.get("montant_ttc"))
@@ -72,6 +72,28 @@ def validate_dgi(facture_data: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "message": f"Incohérence: HT({ht}) + TVA({tva}) = {computed} ≠ TTC({ttc})",
                 "severity": "ERROR",
                 "field": "montant_ttc",
+            })
+
+    # ── Cohérence En-tête vs Somme des lignes ───────────────────
+    lines = facture_data.get("lines") or []
+    if lines:
+        sum_ht = sum(_to_float(l.get("line_amount_ht")) or 0 for l in lines)
+        sum_tva = sum(_to_float(l.get("tva_amount")) or 0 for l in lines)
+        sum_ttc = sum(_to_float(l.get("line_amount_ttc")) or 0 for l in lines)
+        
+        if ttc is not None and abs(round(sum_ttc, 2) - ttc) > 0.05:
+            flags.append({
+                "code": "LINES_SUM_MISMATCH",
+                "message": f"Divergence: Somme des lignes({round(sum_ttc, 2)}) ≠ TTC En-tête({ttc})",
+                "severity": "ERROR",
+                "field": "montant_ttc",
+            })
+        elif tva is not None and abs(round(sum_tva, 2) - tva) > 0.05:
+            flags.append({
+                "code": "TVA_LINES_MISMATCH",
+                "message": f"Divergence: Somme TVA lignes({round(sum_tva, 2)}) ≠ TVA En-tête({tva})",
+                "severity": "WARNING",
+                "field": "montant_tva",
             })
 
     # ── Taux TVA valide ──────────────────────────────────────────
