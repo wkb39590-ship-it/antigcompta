@@ -3,7 +3,7 @@
  */
 
 export interface AdminUser {
-  agent_id: number
+  id: number
   username: string
   email: string
   nom?: string

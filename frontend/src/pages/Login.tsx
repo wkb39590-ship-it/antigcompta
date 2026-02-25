@@ -78,7 +78,7 @@ export default function Login() {
                 <div className="login-header">
                     <div className="logo-icon">⚡</div>
                     <h1>comptafacile</h1>
-                    <p className="subtitle">L'IA qui simplifie votre comptabilité</p>
+                    <p className="subtitle">Solution d'automatisation et de dématérialisation comptable</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="login-form">
@@ -129,15 +129,7 @@ export default function Login() {
                     </button>
                 </form>
 
-                <div className="login-footer">
-                    <div className="test-accounts">
-                        <p>💡 Comptes d'accès</p>
-                        <div className="account-chips">
-                            <span className="chip admin">Admin: wissal</span>
-                            <span className="chip user">Agent: fatima</span>
-                        </div>
-                    </div>
-                </div>
+
             </div>
 
             <style>{`
