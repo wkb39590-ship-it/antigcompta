@@ -38,6 +38,14 @@ function ConfidenceBar({ value }: { value: number | null }) {
     )
 }
 
+/**
+ * Page de détail d'une facture.
+ * C'est le centre névralgique de l'application où l'utilisateur :
+ * 1. Visualise les données extraites
+ * 2. Lance les étapes du pipeline (Analyse, Qualification, Écritures)
+ * 3. Corrige les erreurs potentielles
+ * 4. Valide le dossier final
+ */
 export default function FactureDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
@@ -96,6 +104,11 @@ export default function FactureDetail() {
 
     useEffect(() => { load() }, [factureId])
 
+    /**
+     * Exécute une action du pipeline et gère le retour visuel.
+     * @param action Fonction asynchrone à exécuter (ex: apiService.extractFacture)
+     * @param successMsg Message à afficher en cas de succès
+     */
     const runAction = async (action: () => Promise<any>, successMsg: string) => {
         setActionLoading(true)
         setMsg(null)

@@ -241,38 +241,3 @@ def get_ecritures_by_facture_id(db: Session, facture_id: int):
 
 def get_ecritures_by_facture(db: Session, facture_id: int):
     return get_ecritures_by_facture_id(db, facture_id)
-
-
-# -------------------------
-# DED PATHS
-# -------------------------
-def set_ded_file_path(db: Session, facture_id: int, path: str):
-    obj = get_facture_by_id(db, facture_id)
-    if not obj:
-        return None
-    obj.ded_file_path = path
-    db.commit()
-    db.refresh(obj)
-    return obj
-
-
-def set_ded_paths(
-    db: Session,
-    facture_id: int,
-    xlsx_path: Optional[str] = None,
-    pdf_path: Optional[str] = None,
-):
-    facture = get_facture_by_id(db, facture_id)
-    if not facture:
-        return None
-
-    if xlsx_path:
-        facture.ded_xlsx_path = xlsx_path
-        facture.ded_file_path = xlsx_path
-
-    if pdf_path:
-        facture.ded_pdf_path = pdf_path
-
-    db.commit()
-    db.refresh(facture)
-    return facture

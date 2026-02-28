@@ -49,12 +49,12 @@ router = APIRouter(prefix="/factures", tags=["pipeline"])
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTS = [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"]
+ALLOWED_EXTS = [".pdf", ".png", ".jpg", ".jpeg"]
 
 
-# ─────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Utilitaires Internes (Helpers)
+# ──────────────────────────────────────────────────────────────────────────
 
 def _save_file(upload: UploadFile) -> str:
     ext = Path(upload.filename or "").suffix.lower()
@@ -76,9 +76,6 @@ def _guess_mime(path: str) -> str:
         ".png": "image/png",
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
-        ".webp": "image/webp",
-        ".tif": "image/tiff",
-        ".tiff": "image/tiff",
     }.get(ext, "application/octet-stream")
 
 
@@ -101,9 +98,9 @@ def _get_facture_or_404(facture_id: int, db: Session) -> Facture:
     return f
 
 
-# ─────────────────────────────────────────────
-# Étape 1 — Upload
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Étape 1 : Téléversement (Upload)
+# ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/upload", response_model=dict)
 def upload_facture(
@@ -143,9 +140,9 @@ def upload_facture(
     }
 
 
-# ─────────────────────────────────────────────
-# Étape 2 — Extraction OCR + Gemini
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Étape 2 : Extraction intelligente (OCR + IA Gemini)
+# ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/extract", response_model=dict)
 def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
@@ -252,19 +249,37 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     societe = db.query(Societe).filter(Societe.id == facture.societe_id).first()
     invoice_type_from_gemini = header.get("invoice_type") or "ACHAT"
     
-    if societe and societe.raison_sociale:
-        raison_social_clean = _clean_name(societe.raison_sociale)
+    if societe:
+        societe_ice = str(societe.ice).strip() if societe.ice else ""
+        client_ice = str(facture.client_ice).strip() if facture.client_ice else ""
+        supplier_ice = str(facture.supplier_ice).strip() if facture.supplier_ice else ""
+        
+        raison_social_clean = _clean_name(societe.raison_sociale) if societe.raison_sociale else ""
         client_name_clean = _clean_name(facture.client_name)
         supplier_name_clean = _clean_name(facture.supplier_name)
         
-        # Si le client est notre société → c'est un ACHAT
-        if client_name_clean and raison_social_clean and raison_social_clean in client_name_clean:
-            facture.invoice_type = "ACHAT"
-        # Si le fournisseur est notre société → c'est une VENTE
-        elif supplier_name_clean and raison_social_clean and raison_social_clean in supplier_name_clean:
-            facture.invoice_type = "VENTE"
+        # 1. Comparaison prioritaire par ICE (très fiable)
+        if societe_ice:
+            if client_ice and societe_ice == client_ice:
+                facture.invoice_type = "ACHAT"
+            elif supplier_ice and societe_ice == supplier_ice:
+                facture.invoice_type = "VENTE"
+            # 2. Si l'ICE ne matche pas, on utilise la logique de la raison sociale
+            elif client_name_clean and raison_social_clean and raison_social_clean in client_name_clean:
+                facture.invoice_type = "ACHAT"
+            elif supplier_name_clean and raison_social_clean and raison_social_clean in supplier_name_clean:
+                facture.invoice_type = "VENTE"
+            else:
+                facture.invoice_type = invoice_type_from_gemini
+                
+        # 3. S'il n'y a pas d'ICE enregistré pour la société, on se base uniquement sur le nom
         else:
-            facture.invoice_type = invoice_type_from_gemini
+            if client_name_clean and raison_social_clean and raison_social_clean in client_name_clean:
+                facture.invoice_type = "ACHAT"
+            elif supplier_name_clean and raison_social_clean and raison_social_clean in supplier_name_clean:
+                facture.invoice_type = "VENTE"
+            else:
+                facture.invoice_type = invoice_type_from_gemini
     else:
         facture.invoice_type = invoice_type_from_gemini
 
@@ -388,9 +403,9 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     }
 
 
-# ─────────────────────────────────────────────
-# Étape 3 — Classification PCM
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Étape 3 : Classification automatique dans le Plan Comptable Marocain
+# ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/classify", response_model=dict)
 def classify_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
@@ -424,9 +439,9 @@ def classify_facture(facture_id: int, db: Session = Depends(get_db), session: di
     }
 
 
-# ─────────────────────────────────────────────
-# Étape 4 — Génération des écritures (brouillon)
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Étape 4 : Génération des écritures comptables (Brouillon)
+# ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/generate-entries", response_model=dict)
 def generate_entries(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
@@ -452,7 +467,7 @@ def generate_entries(facture_id: int, db: Session = Depends(get_db), session: di
         "message": "Écritures générées",
         "id": facture.id,
         "status": facture.status,
-        "journal_entry_id": entry.id,
+        "ecriture_id": entry.id,
         "balance": balance,
         "entry_lines": [
             {
@@ -641,7 +656,7 @@ def update_entry_line(
         raise HTTPException(404, "Ligne d'écriture introuvable")
     
     # Verify the entry owning this line's facture belongs to the current société
-    entry = db.query(JournalEntry).filter(JournalEntry.id == el.entry_id).first()
+    entry = db.query(JournalEntry).filter(JournalEntry.id == el.ecriture_journal_id).first()
     if not entry:
         raise HTTPException(404, "Écriture associée introuvable")
     facture = db.query(Facture).filter(Facture.id == entry.facture_id).first()
@@ -663,9 +678,9 @@ def update_entry_line(
     return {"message": "Ligne d'écriture mise à jour", "entry_line_id": entry_line_id}
 
 
-# ─────────────────────────────────────────────
-# Étape 5 — Validation définitive
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Étape 5 : Validation définitive et Feedback Loop (Apprentissage)
+# ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/validate", response_model=dict)
 def validate_facture(
@@ -701,7 +716,7 @@ def validate_facture(
         if not balance["is_balanced"]:
             raise HTTPException(422, {
                 "message": "Écriture non équilibrée — validation refusée",
-                "entry_id": entry.id,
+                "ecriture_id": entry.id,
                 "balance": balance,
             })
 

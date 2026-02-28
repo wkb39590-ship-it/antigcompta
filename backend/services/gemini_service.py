@@ -13,7 +13,7 @@ from google import genai
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
-def _client() -> genai.Client:
+def _client() -> genai.Client:      #crée l’objet qui va envoyer des requêtes à Gemini
     return genai.Client()
 
 
@@ -98,9 +98,9 @@ CLASSIFICATION_SCHEMA: Dict[str, Any] = {
 }
 
 
-# ─────────────────────────────────────────────
-# Extraction en-tête facture
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Extraction d'En-tête (Header)
+# ──────────────────────────────────────────────────────────────────────────
 
 HEADER_SYSTEM_PROMPT = """Tu es un moteur d'extraction de factures marocaines spécialisé dans les documents comptables.
 Ton objectif: extraire PRÉCISÉMENT tous les champs d'en-tête d'une facture.
@@ -148,14 +148,17 @@ ATTENTION: Ne renvoie RIEN d'autre que le JSON valide. Pas de commentaires, pas 
 
 
 def _extract_ice_from_text(text: str) -> Optional[str]:
-    """Extrait un ICE (15 chiffres) du texte."""
-    match = re.search(r'\b(\d{15})\b', text)
+    """
+    Extrait un ICE (Identifiant Commun de l'Entreprise) du texte.
+    Le format est de exactement 15 chiffres.
+    """
+    match = re.search(r'\b(\d{15})\b', text)    #Extrait ICE via regex
     if match:
         return match.group(1)
     return None
 
 
-def _parse_montant(text: str) -> Optional[float]:
+def _parse_montant(text: str) -> Optional[float]:         #Convertit montants français en float
     """Parse un montant au format français (10 000,00 ou 10.000,00)."""
     if not text:
         return None
@@ -169,7 +172,7 @@ def _parse_montant(text: str) -> Optional[float]:
         return None
 
 
-def _extract_invoice_header_fallback(ocr_text: str) -> Dict[str, Any]:
+def _extract_invoice_header_fallback(ocr_text: str) -> Dict[str, Any]:     #Extraction simple via OCR si IA échoue
     """Fallback: extrait l'en-tête facture via parsing du texte OCR."""
     print("[Fallback OCR] Extraction des champs de la facture...")
     
@@ -314,13 +317,15 @@ def _extract_invoice_header_fallback(ocr_text: str) -> Dict[str, Any]:
     return result
 
 
-def extract_invoice_header(
+def extract_invoice_header(    #Extraction IA des champs d’en-tête
     image_data: Any,  # bytes or List[bytes]
     mime_type: str = "image/png",
     model: str = DEFAULT_MODEL,
 ) -> Dict[str, Any]:
-    """Extrait les champs d'en-tête obligatoires de la facture (Tableau 1).
-    Essaie Gemini en premier, puis fallback OCR."""
+    """
+    Extrait les champs d'en-tête obligatoires de la facture (Tableau 1).
+    Utilise l'IA Multimodale Gemini pour comprendre la structure visuelle.
+    """
     if not image_data:
         raise ValueError("image_data is empty")
 
@@ -407,9 +412,9 @@ def extract_invoice_header(
         }
 
 
-# ─────────────────────────────────────────────
-# Extraction lignes produits
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Extraction des Lignes de Produits (Lines)
+# ──────────────────────────────────────────────────────────────────────────
 
 LINES_SYSTEM_PROMPT = """Tu es un moteur d'extraction de lignes de factures marocaines.
 Extrait TOUTES les lignes de produits/services présentes sur la facture.
@@ -425,7 +430,7 @@ IMPORTANT: Le document peut comporter plusieurs pages. Extrait TOUTES les lignes
 """
 
 
-def extract_invoice_lines(
+def extract_invoice_lines(                   #Etraction IA des lignes
     image_data: Any,  # bytes or List[bytes]
     mime_type: str = "image/png",
     model: str = DEFAULT_MODEL,
@@ -467,34 +472,7 @@ def extract_invoice_lines(
 # ─────────────────────────────────────────────
 
 CLASSIFICATION_SYSTEM_PROMPT = """Tu es un expert-comptable marocain spécialisé dans le Plan Comptable Marocain (PCM/CGNC).
-Pour la description de produit/service donnée, détermine:
-1. La classe PCM (1 à 8)
-2. Le compte PCM précis (4 chiffres minimum)
-3. Le libellé officiel du compte
-4. Un score de confiance (0.0 à 1.0)
-5. Une justification courte en français
-
-Règles PCM principales:
-- Classe 2: Immobilisations (biens durables > 5000 MAD ou amortissables)
-  - 2355: Matériel informatique
-  - 2340: Matériel de transport
-  - 2321: Bâtiments
-- Classe 6: Charges d'exploitation
-  - 6111: Achats de marchandises
-  - 6121: Achats de matières premières
-  - 6123: Fournitures de bureau
-  - 6132: Locations
-  - 6135: Entretien et réparations
-  - 6141: Primes d'assurance
-  - 6152: Honoraires
-  - 6161: Frais de transport
-  - 6171: Frais de déplacement
-- Classe 7: Produits
-  - 7111: Ventes de marchandises
-  - 7121: Ventes de produits finis
-  - 7161: Ventes de services
-
-Retourne UNIQUEMENT un JSON valide.
+Ton rôle est d'analyser une description de produit et de l'affecter au bon compte comptable.
 """
 
 
@@ -570,7 +548,7 @@ Règles:
 """
 
 
-def extract_invoice_fields_from_image_bytes(
+def extract_invoice_fields_from_image_bytes(           #Ancienne méthode compatible
     image_data: Any,  # bytes or List[bytes]
     mime_type: str = "image/png",
     model: str = DEFAULT_MODEL,

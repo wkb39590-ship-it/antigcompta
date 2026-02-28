@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { getAdminToken } from '../../utils/adminTokenDecoder';
+import apiService from '../../api';
+import { getAdminUser } from '../../utils/adminTokenDecoder';
 
 interface Agent {
   id: number;
@@ -33,7 +33,8 @@ export const AdminAssociations: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<number | ''>('');
   const [selectedSociete, setSelectedSociete] = useState<number | ''>('');
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
+  const adminUser = getAdminUser();
+  const isSuper = adminUser?.is_super_admin === true;
 
   useEffect(() => {
     fetchData();
@@ -46,29 +47,23 @@ export const AdminAssociations: React.FC = () => {
   };
 
   const fetchData = async () => {
-    const token = getAdminToken();
-    if (!token) {
-      setError('Session expirée');
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
-      const [cabRes, agRes, socRes] = await Promise.all([
-        axios.get(`${API_URL}/admin/cabinets`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/admin/agents`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/admin/societes`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+      const [cabData, agData, socData] = await Promise.all([
+        isSuper ? apiService.adminListCabinets() : Promise.resolve(JSON.parse(localStorage.getItem('cabinets') || '[]')),
+        apiService.adminListAgents(),
+        apiService.adminListSocietes()
       ]);
 
-      setCabinets(Array.isArray(cabRes.data) ? cabRes.data : []);
-      setAgents(Array.isArray(agRes.data) ? agRes.data : []);
-      setSocietes(Array.isArray(socRes.data) ? socRes.data : []);
+      const cabinetList = Array.isArray(cabData) ? cabData : [];
+      setCabinets(cabinetList);
+      setAgents(Array.isArray(agData) ? agData : []);
+      setSocietes(Array.isArray(socData) ? socData : []);
+
+      // Sélection automatique pour Admin simple
+      if (!isSuper && adminUser?.cabinet_id) {
+        setSelectedCabinet(adminUser.cabinet_id);
+      }
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -77,11 +72,6 @@ export const AdminAssociations: React.FC = () => {
   };
 
   const handleAssociate = async () => {
-    const token = getAdminToken();
-    if (!token) {
-      setError('Session expirée');
-      return;
-    }
     if (!selectedCabinet || !selectedAgent || !selectedSociete) {
       setError('Tous les champs sont requis');
       return;
@@ -89,10 +79,10 @@ export const AdminAssociations: React.FC = () => {
 
     try {
       setError('');
-      await axios.post(
-        `${API_URL}/admin/cabinets/${selectedCabinet}/agents/assign-societe?agent_id=${selectedAgent}&societe_id=${selectedSociete}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiService.adminAssignSocieteToAgent(
+        Number(selectedCabinet),
+        Number(selectedAgent),
+        Number(selectedSociete)
       );
 
       setMessage('Liaison établie avec succès');
@@ -104,7 +94,7 @@ export const AdminAssociations: React.FC = () => {
   };
 
   const filteredAgents = selectedCabinet
-    ? agents.filter(a => a.cabinet_id === Number(selectedCabinet))
+    ? agents.filter(a => a.cabinet_id === Number(selectedCabinet) && a.id !== adminUser?.id)
     : [];
 
   const filteredSocietes = selectedCabinet
@@ -138,18 +128,24 @@ export const AdminAssociations: React.FC = () => {
                 <div className="step-num">01</div>
                 <div className="aurora-input-group">
                   <label>Sélectionner le Cabinet</label>
-                  <select
-                    className="aurora-select"
-                    value={selectedCabinet}
-                    onChange={(e) => {
-                      setSelectedCabinet(e.target.value ? Number(e.target.value) : '');
-                      setSelectedAgent('');
-                      setSelectedSociete('');
-                    }}
-                  >
-                    <option value="">-- Choisir un partenaire --</option>
-                    {cabinets.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                  </select>
+                  {isSuper ? (
+                    <select
+                      className="aurora-select"
+                      value={selectedCabinet}
+                      onChange={(e) => {
+                        setSelectedCabinet(e.target.value ? Number(e.target.value) : '');
+                        setSelectedAgent('');
+                        setSelectedSociete('');
+                      }}
+                    >
+                      <option value="">-- Choisir un partenaire --</option>
+                      {cabinets.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                    </select>
+                  ) : (
+                    <div className="aurora-input-readonly">
+                      {cabinets.find(c => c.id === selectedCabinet)?.nom || (cabinets.length > 0 ? cabinets[0].nom : 'Chargement...')}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -247,6 +243,11 @@ export const AdminAssociations: React.FC = () => {
         .info-list li { padding: 12px; font-size: 13px; font-weight: 700; color: var(--admin-text); border-bottom: 1px solid var(--admin-glass-border); display: flex; align-items: center; justify-content: center; gap: 10px; }
         .info-list li:last-child { border-bottom: none; }
         .info-list li::before { content: '✓'; color: #10b981; }
+
+        .aurora-input-readonly {
+          padding: 15px; border-radius: 14px; border: 1px solid var(--admin-glass-border);
+          background: rgba(255, 255, 255, 0.02); color: var(--admin-accent); font-weight: 700;
+        }
 
         .aurora-fade-in { animation: fadeInScale 0.4s ease-out; }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }

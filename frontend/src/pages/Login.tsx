@@ -11,6 +11,7 @@ interface RoleAgent {
     nom?: string;
     prenom?: string;
     is_admin: boolean;
+    is_super_admin: boolean;
     cabinet_id: number;
 }
 
@@ -48,14 +49,16 @@ export default function Login() {
             const data: LoginResponse = await response.json()
 
             // 1. Stockage commun des informations de base
+            localStorage.removeItem('session_token') // Nettoyage critique
             localStorage.setItem('access_token', data.access_token)
             localStorage.setItem('username', data.agent.username)
             localStorage.setItem('is_admin', String(data.agent.is_admin))
+            localStorage.setItem('is_super_admin', String(data.agent.is_super_admin))
             localStorage.setItem('cabinets', JSON.stringify(data.cabinets))
 
             // 2. Logique de redirection selon le rôle
-            if (data.agent.is_admin) {
-                console.log('[Login] Connexion Administrateur détectée');
+            if (data.agent.is_admin || data.agent.is_super_admin) {
+                console.log('[Login] Connexion Administrateur ou Super-Admin détectée');
                 // Session Admin (nécessaire pour AdminProtectedRoute)
                 setAdminSession(data.access_token, data.agent);
                 navigate('/admin/dashboard');

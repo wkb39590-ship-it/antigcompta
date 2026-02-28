@@ -77,5 +77,6 @@ def classify_all_lines(facture: Facture, db: Session) -> List[dict]:
                 "error": str(e),
             })
 
+    # Sauvegarde des modifications en base de données
     db.commit()
     return results

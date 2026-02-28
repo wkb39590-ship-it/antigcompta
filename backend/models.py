@@ -48,6 +48,7 @@ class Agent(Base):
     
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)  # Admin du cabinet
+    is_super_admin = Column(Boolean, default=False)  # Super Admin système
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -56,16 +57,16 @@ class Agent(Base):
     # ManyToMany: Agent peut gérer plusieurs Sociétés
     societes = relationship(
         "Societe",
-        secondary="agent_societes",
-        back_populates="agents"
+        secondary="agents_societes",
+        back_populates="agents"  #relation dans les deux sens
     )
 
 
 # Table d'association Many-to-Many : Agent-Societe
-agent_societes = Table(
-    "agent_societes",
-    Base.metadata,
-    Column("agent_id", Integer, ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True),
+agents_societes = Table(
+    "agents_societes",
+    Base.metadata,    #Ajoute cette table au schéma global de la base
+    Column("agent_id", Integer, ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True),  #si l’agent est supprimé → la relation est supprimée aussi (CASCADE)
     Column("societe_id", Integer, ForeignKey("societes.id", ondelete="CASCADE"), primary_key=True)
 )
 
@@ -94,7 +95,7 @@ class Societe(Base):
     cabinet = relationship("Cabinet", back_populates="societes")
     agents = relationship(
         "Agent",
-        secondary="agent_societes",
+        secondary="agents_societes",
         back_populates="societes"
     )
     factures = relationship("Facture", back_populates="societe", foreign_keys="[Facture.societe_id]", cascade="all, delete-orphan")
@@ -124,11 +125,14 @@ class CompteurFacturation(Base):
     )
 
 
-# ─────────────────────────────────────────────
-# Facture — En-tête (Tableau 1)
-# Éléments obligatoires DGI
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# FACTURE - Entité centrale du traitement
+# ──────────────────────────────────────────────────────────────────────────
 class Facture(Base):
+    """
+    Représente un document fiscal (Facture d'achat ou vente).
+    Contient les données extraites par l'IA et le statut du traitement.
+    """
     __tablename__ = "factures"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -190,10 +194,6 @@ class Facture(Base):
     designation = Column(String(255), nullable=True)
     id_paie = Column(String(50), nullable=True)
     date_paie = Column(Date, nullable=True)
-    ded_file_path = Column(String(255), nullable=True)
-    ded_pdf_path = Column(String(255), nullable=True)
-    ded_xlsx_path = Column(String(255), nullable=True)
-
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=True, onupdate=func.now())
 
@@ -201,23 +201,42 @@ class Facture(Base):
     lines = relationship("InvoiceLine", back_populates="facture", cascade="all, delete-orphan")
     journal_entries = relationship("JournalEntry", back_populates="facture", cascade="all, delete-orphan")
 
+
+
+    # Cette méthode sert à récupérer les dgi_flags depuis la base de données.
+# En base, ils sont stockés sous forme de texte JSON.
+# On veut les transformer en liste Python pour pouvoir les utiliser facilement.
     def get_dgi_flags(self):
         if self.dgi_flags:
-            try:
+            try:    # On convertit le texte JSON en objet Python (ex: liste)
                 return json.loads(self.dgi_flags)
             except Exception:
                 return []
         return []
 
+
+
+
+   # Cette méthode sert à enregistrer des dgi_flags.
+# On reçoit une liste Python (ex: ["Erreur TVA", "ICE manquant"])
+# et on la transforme en texte JSON pour la stocker en base.
     def set_dgi_flags(self, flags: list):
+
+
+        # On convertit la liste Python en texte JSON
+    # ensure_ascii=False permet de garder les accents correctement
         self.dgi_flags = json.dumps(flags, ensure_ascii=False)
 
 
-# ─────────────────────────────────────────────
-# InvoiceLine — Lignes produits (Tableau 2)
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# LIGNES DE FACTURE - Tableau détaillé des produits/services
+# ──────────────────────────────────────────────────────────────────────────
 class InvoiceLine(Base):
-    __tablename__ = "invoice_lines"
+    """
+    Détail de chaque ligne de la facture (Désignation, Quantité, Prix, TVA).
+    C'est ici qu'on stocke la classification comptable (compte PCM).
+    """
+    __tablename__ = "lignes_factures"
 
     id = Column(Integer, primary_key=True, index=True)
     facture_id = Column(Integer, ForeignKey("factures.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -251,11 +270,15 @@ class InvoiceLine(Base):
     facture = relationship("Facture", back_populates="lines")
 
 
-# ─────────────────────────────────────────────
-# PcmAccount — Référentiel Plan Comptable Marocain
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# RÉFÉRENTIEL PCM - Plan Comptable Marocain
+# ──────────────────────────────────────────────────────────────────────────
 class PcmAccount(Base):
-    __tablename__ = "pcm_accounts"
+    """
+    Base de données des comptes comptables officiels au Maroc.
+    Utilisée pour suggérer des comptes lors de la classification.
+    """
+    __tablename__ = "comptes_pcm"
 
     code = Column(String(10), primary_key=True)
     label = Column(String(255), nullable=False)
@@ -270,7 +293,7 @@ class PcmAccount(Base):
 # SupplierMapping — Apprentissage par l'usage
 # ─────────────────────────────────────────────
 class SupplierMapping(Base):
-    __tablename__ = "supplier_mappings"
+    __tablename__ = "mappings_fournisseurs"
 
     id = Column(Integer, primary_key=True, index=True)
     cabinet_id = Column(Integer, ForeignKey("cabinets.id"), nullable=False, index=True)
@@ -290,7 +313,7 @@ class SupplierMapping(Base):
 # JournalEntry — En-tête écriture comptable
 # ─────────────────────────────────────────────
 class JournalEntry(Base):
-    __tablename__ = "journal_entries"
+    __tablename__ = "ecritures_journal"
 
     id = Column(Integer, primary_key=True, index=True)
     facture_id = Column(Integer, ForeignKey("factures.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -310,18 +333,17 @@ class JournalEntry(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
     facture = relationship("Facture", back_populates="journal_entries")
-    entry_lines = relationship("EntryLine", back_populates="journal_entry", cascade="all, delete-orphan")
+    entry_lines = relationship("EntryLine", back_populates="journal_entry", cascade="all, delete-orphan", foreign_keys="[EntryLine.ecriture_journal_id]")
 
 
 # ─────────────────────────────────────────────
 # EntryLine — Lignes débit/crédit
 # ─────────────────────────────────────────────
 class EntryLine(Base):
-    __tablename__ = "entry_lines"
+    __tablename__ = "lignes_ecritures"
 
     id = Column(Integer, primary_key=True, index=True)
-    journal_entry_id = Column(Integer, ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False, index=True)
-    invoice_line_id = Column(Integer, ForeignKey("invoice_lines.id", ondelete="SET NULL"), nullable=True)
+    ecriture_journal_id = Column(Integer, ForeignKey("ecritures_journal.id", ondelete="CASCADE"), nullable=False, index=True)
 
     line_order = Column(Integer, nullable=True)
     account_code = Column(String(10), nullable=False)
@@ -333,50 +355,28 @@ class EntryLine(Base):
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
-    journal_entry = relationship("JournalEntry", back_populates="entry_lines")
+    journal_entry = relationship("JournalEntry", back_populates="entry_lines", foreign_keys=[ecriture_journal_id])
 
 
 # ─────────────────────────────────────────────
-# Legacy: EcritureComptable + EcritureLigne
-# (conservés pour compatibilité)
+# ActionLog — Historique des actions d'administration
 # ─────────────────────────────────────────────
-class EcritureComptable(Base):
-    __tablename__ = "ecritures_comptables"
+class ActionLog(Base):
+    __tablename__ = "action_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    societe_id = Column(Integer, ForeignKey("societes.id"), nullable=False, index=True)
-    facture_id = Column(Integer, ForeignKey("factures.id", ondelete="CASCADE"), nullable=False, index=True)
-
-    operation = Column(String(50), nullable=False)
-    numero_piece = Column(String(50), nullable=False, index=True)
-    date_operation = Column(Date, nullable=False, index=True)
-    tiers_nom = Column(String(255), nullable=True)
-    journal = Column(String(10), nullable=False, server_default="OD", index=True)
-    statut = Column(String(50), nullable=False, server_default="brouillon")
+    cabinet_id = Column(Integer, ForeignKey("cabinets.id", ondelete="CASCADE"), nullable=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id", ondelete="SET NULL"), nullable=True)
+    
+    action_type = Column(String(50), nullable=False) # CREATE, UPDATE, DELETE, VALIDATE
+    entity_type = Column(String(50), nullable=False) # AGENT, SOCIETE, CABINET, FACTURE
+    entity_id = Column(Integer, nullable=True)
+    
+    details = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
-    validated_at = Column(DateTime, nullable=True)
-    libelle = Column(String(255), nullable=True)
-    total_debit = Column(Float, nullable=False, server_default="0")
-    total_credit = Column(Float, nullable=False, server_default="0")
 
-    societe = relationship("Societe")
-    facture = relationship("Facture")
-    lignes = relationship(
-        "EcritureLigne",
-        back_populates="ecriture",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    # Relations
+    cabinet = relationship("Cabinet")
+    agent = relationship("Agent")
 
-
-class EcritureLigne(Base):
-    __tablename__ = "ecritures_lignes"
-
-    id = Column(Integer, primary_key=True, index=True)
-    ecriture_id = Column(Integer, ForeignKey("ecritures_comptables.id", ondelete="CASCADE"), nullable=False, index=True)
-    compte = Column(String(20), nullable=False)
-    libelle = Column(String(255), nullable=True)
-    debit = Column(Float, nullable=False, server_default="0")
-    credit = Column(Float, nullable=False, server_default="0")
-
-    ecriture = relationship("EcritureComptable", back_populates="lignes")
+# Fin du fichier modèles.

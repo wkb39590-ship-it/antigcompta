@@ -2,6 +2,11 @@ from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 
+"""
+schemas.py — Modèles Pydantic pour la validation des données (entrée/sortie API).
+Ces schémas assurent que les données reçues et envoyées sont au bon format.
+"""
+
 
 # ─────────────────────────────────────────────
 # SOCIETE (compatible avec  ancien code)
@@ -22,7 +27,11 @@ class SocieteUpdate(BaseModel):
     adresse: Optional[str] = None
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# SCHÉMAS SOCIÉTÉ
+# ──────────────────────────────────────────────────────────────────────────
 class SocieteOut(BaseModel):
+    """Schéma de sortie pour une société cliente."""
     id: int
     cabinet_id: Optional[int] = None  # Peut être NULL pour compatibilité
     raison_sociale: str
@@ -79,10 +88,6 @@ class FactureOut(BaseModel):
     invoice_type: Optional[str] = None
     payment_mode: Optional[str] = None
 
-    ded_file_path: Optional[str] = None
-    ded_pdf_path: Optional[str] = None
-    ded_xlsx_path: Optional[str] = None
-
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -129,50 +134,8 @@ class FactureUpdate(BaseModel):
 
 
 # ─────────────────────────────────────────────
-# ECRITURES (HEADER + LIGNES)
-# ─────────────────────────────────────────────
-class EcritureLigneOut(BaseModel):
-    id: int
-    ecriture_id: int
-    compte: str
-    libelle: Optional[str] = None
-    debit: float
-    credit: float
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class EcritureOut(BaseModel):
-    id: int
-    societe_id: int
-    facture_id: int
-    operation: str
-    journal: str
-    numero_piece: str
-    date_operation: date
-    tiers_nom: Optional[str] = None
-    statut: str
-    created_at: datetime
-    validated_at: Optional[datetime] = None
-    libelle: Optional[str] = None
-    total_debit: float
-    total_credit: float
-    lignes: List[EcritureLigneOut] = []
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class GenererEcrituresResponse(BaseModel):
-    facture_id: int
-    journal: str
-    total_debit: float
-    total_credit: float
-    ecriture: EcritureOut
-
-
-# ═════════════════════════════════════════════
 # CABINET → AGENTS → SOCIÉTÉS (Multi-Cabinet)
-# ═════════════════════════════════════════════
+# ─────────────────────────────────────────────
 
 # ─────────────────────────────────────────────
 # CABINET SCHEMAS
@@ -213,6 +176,7 @@ class AgentCreate(BaseModel):
     nom: Optional[str] = None
     prenom: Optional[str] = None
     is_admin: bool = False
+    is_super_admin: bool = False
 
 
 class AgentUpdate(BaseModel):
@@ -231,6 +195,7 @@ class AgentOut(BaseModel):
     prenom: Optional[str] = None
     is_active: bool
     is_admin: bool
+    is_super_admin: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -248,10 +213,11 @@ class AgentLoginResponse(BaseModel):
     cabinets: List[CabinetOut] = []
 
 
-# ─────────────────────────────────────────────
-# SESSION / CONTEXT SCHEMAS
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# SCHÉMAS SESSION / CONTEXTE
+# ──────────────────────────────────────────────────────────────────────────
 class SessionContext(BaseModel):
+    """Contient les informations de la session active (Agent + Société sélectionnée)."""
     agent_id: int
     cabinet_id: int
     societe_id: int
@@ -309,5 +275,24 @@ class ActivityOut(BaseModel):
 
 class ActivitiesResponse(BaseModel):
     activities: List[ActivityOut]
+
+
+class ActionLogOut(BaseModel):
+    id: int
+    cabinet_id: Optional[int] = None
+    agent_id: Optional[int] = None
+    agent_username: Optional[str] = None # Pour faciliter l'affichage
+    action_type: str
+    entity_type: str
+    entity_id: Optional[int] = None
+    details: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActionLogResponse(BaseModel):
+    logs: List[ActionLogOut]
+    total: int
 
 

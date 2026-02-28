@@ -1,346 +1,170 @@
-# -*- coding: utf-8 -*-
+
+
 """
-gantt_pfe.py — Diagramme de Gantt PFE "Comptabilité Zéro Saisie"
-Stage de 4 mois : 02/02/2026 → 01/06/2026
-Aujourd'hui : Semaine 4 (24/02/2026)
-Scope : Fonctionnalités côté Agent uniquement (pas d'interface Admin)
+Diagramme de Gantt — PFE Zéro Saisie Comptable
+Période : 02/02/2026 → 31/05/2026
+Aujourd'hui : 27/02/2026
+(Sans Excel / Sans pandas)
 """
 
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import matplotlib.patches as mpatches
-from matplotlib.colors import Normalize
-from matplotlib.cm import ScalarMappable
-from datetime import datetime
+import matplotlib.dates as mdates
+from datetime import date, timedelta
 
-# ──────────────────────────────────────────
-# PARAMÈTRES PROJET
-# ──────────────────────────────────────────
-project_start = datetime(2026, 2, 2)   # Début de stage officiel
-project_end   = datetime(2026, 6, 1)   # Fin de stage officiel
-today         = datetime(2026, 2, 24)  # Semaine 4
+# ── CONFIG ────────────────────────────────────────────────────────────────
+TODAY = date(2026, 2, 27)   # ✅ AUJOURD'HUI
+START = date(2026, 2, 2)
+END   = date(2026, 5, 31)
 
-# ──────────────────────────────────────────
-# DÉFINITION DES PHASES ET COULEURS
-# ──────────────────────────────────────────
-PHASE_COLORS = {
-    "Analyse & Conception":  "#6C63FF",   # Violet
-    "Infrastructure":        "#3B82F6",   # Bleu
-    "Backend Auth":          "#0EA5E9",   # Bleu ciel
-    "Pipeline IA & OCR":     "#10B981",   # Vert
-    "Classification & IA":   "#34D399",   # Vert clair
-    "Frontend Agent":        "#F59E0B",   # Orange
-    "Validation Comptable":  "#EF4444",   # Rouge
-    "Tests & Stabilisation": "#8B5CF6",   # Violet foncé
-    "Mémoire & Soutenance":  "#6B7280",   # Gris
-}
-
-# ──────────────────────────────────────────
-# TÂCHES — Avancement basé sur S4 réelle
-# (✅ = terminé, 🔄 = en cours, ⏳ = à venir)
-# ──────────────────────────────────────────
-tasks = [
-    # ══════════════════════════════
-    # PHASE 1 — Analyse & Conception (S1–S3, 100%)
-    # ══════════════════════════════
-    {"phase": "Analyse & Conception",
-     "task": "Compréhension métier & processus comptable cabinet",
-     "start": "2026-02-02", "end": "2026-02-10", "progress": 100},
-
-    {"phase": "Analyse & Conception",
-     "task": "Étude PCM/CGNC + règles fiscales DGI (ICE, TVA, TTC)",
-     "start": "2026-02-04", "end": "2026-02-14", "progress": 100},
-
-    {"phase": "Analyse & Conception",
-     "task": "Conception architecture globale (React + FastAPI + PostgreSQL)",
-     "start": "2026-02-09", "end": "2026-02-18", "progress": 100},
-
-    {"phase": "Analyse & Conception",
-     "task": "Modélisation BDD multi-tenant (Cabinet, Agent, Société, Facture…)",
-     "start": "2026-02-11", "end": "2026-02-20", "progress": 100},
-
-    {"phase": "Analyse & Conception",
-     "task": "Diagrammes UML : Use Case, Séquence, Classes",
-     "start": "2026-02-12", "end": "2026-02-26", "progress": 65},
-
-    # ══════════════════════════════
-    # PHASE 2 — Infrastructure (S2–S3, 100%)
-    # ══════════════════════════════
-    {"phase": "Infrastructure",
-     "task": "Setup Docker + Docker Compose + PostgreSQL 15",
-     "start": "2026-02-10", "end": "2026-02-17", "progress": 100},
-
-    {"phase": "Infrastructure",
-     "task": "Init projet FastAPI + SQLAlchemy + Alembic (migrations)",
-     "start": "2026-02-12", "end": "2026-02-19", "progress": 100},
-
-    {"phase": "Infrastructure",
-     "task": "Init frontend React 18 + TypeScript + Vite",
-     "start": "2026-02-14", "end": "2026-02-21", "progress": 100},
-
-    # ══════════════════════════════
-    # PHASE 3 — Backend Auth (S2–S3, 100%)
-    # ══════════════════════════════
-    {"phase": "Backend Auth",
-     "task": "Auth JWT : login / logout / refresh token",
-     "start": "2026-02-10", "end": "2026-02-18", "progress": 100},
-
-    {"phase": "Backend Auth",
-     "task": "Gestion rôles : isolation Agent ↔ Société ↔ Cabinet",
-     "start": "2026-02-14", "end": "2026-02-22", "progress": 100},
-
-    {"phase": "Backend Auth",
-     "task": "CRUD : Agents, Sociétés, Cabinets + endpoints REST",
-     "start": "2026-02-16", "end": "2026-02-24", "progress": 100},
-
-    # ══════════════════════════════
-    # PHASE 4 — Pipeline IA & OCR (S2–S4, 100%)
-    # ══════════════════════════════
-    {"phase": "Pipeline IA & OCR",
-     "task": "Upload PDF/Image + validation format",
-     "start": "2026-02-13", "end": "2026-02-19", "progress": 100},
-
-    {"phase": "Pipeline IA & OCR",
-     "task": "Conversion multi-pages PDF → images (pdf2image, 10 pages max)",
-     "start": "2026-02-17", "end": "2026-02-24", "progress": 100},
-
-    {"phase": "Pipeline IA & OCR",
-     "task": "Extraction Gemini Vision : ICE, Date, HT, TVA, TTC, Fournisseur",
-     "start": "2026-02-14", "end": "2026-02-24", "progress": 100},
-
-    {"phase": "Pipeline IA & OCR",
-     "task": "Fallback OCR Tesseract (documents dégradés / scan faible qualité)",
-     "start": "2026-02-18", "end": "2026-02-24", "progress": 100},
-
-    # ══════════════════════════════
-    # PHASE 5 — Classification & IA Apprenante (S3–S4, 100%)
-    # ══════════════════════════════
-    {"phase": "Classification & IA",
-     "task": "Classification PCM automatique (mapping règles métier)",
-     "start": "2026-02-17", "end": "2026-02-24", "progress": 100},
-
-    {"phase": "Classification & IA",
-     "task": "Feedback Loop : SupplierMapping (apprentissage corrections agents)",
-     "start": "2026-02-19", "end": "2026-02-25", "progress": 100},
-
-    {"phase": "Classification & IA",
-     "task": "Détection doublons (ICE + Date + TTC) — Sécurité anti re-saisie",
-     "start": "2026-02-20", "end": "2026-02-25", "progress": 100},
-
-    # ══════════════════════════════
-    # PHASE 6 — Frontend Agent (S3–S5)
-    # ══════════════════════════════
-    {"phase": "Frontend Agent",
-     "task": "Design Glassmorphism Premium + système de couleurs Aurora",
-     "start": "2026-02-14", "end": "2026-02-22", "progress": 100},
-
-    {"phase": "Frontend Agent",
-     "task": "Interface : Login + sélection Cabinet/Société",
-     "start": "2026-02-15", "end": "2026-02-22", "progress": 100},
-
-    {"phase": "Frontend Agent",
-     "task": "Dashboard Agent : upload facture + affichage résultats extraction",
-     "start": "2026-02-18", "end": "2026-02-28", "progress": 90},
-
-    {"phase": "Frontend Agent",
-     "task": "Historique des factures : filtres, pagination, statuts",
-     "start": "2026-02-21", "end": "2026-03-05", "progress": 80},
-
-    {"phase": "Frontend Agent",
-     "task": "Page Profil Agent : stats personnelles + infos Cabinet",
-     "start": "2026-02-20", "end": "2026-02-28", "progress": 100},
-
-    {"phase": "Frontend Agent",
-     "task": "Interface Répertoire Fournisseurs (Feedback Loop UI)",
-     "start": "2026-02-22", "end": "2026-03-05", "progress": 100},
-
-    # ══════════════════════════════
-    # PHASE 7 — Validation Comptable (S5–S8)
-    # ══════════════════════════════
-    {"phase": "Validation Comptable",
-     "task": "Workflow facture : DRAFT → EXTRACTED → VALIDATED",
-     "start": "2026-02-28", "end": "2026-03-20", "progress": 0},
-
-    {"phase": "Validation Comptable",
-     "task": "Contrôles DGI : ICE valide, TVA cohérente, N° facture unique",
-     "start": "2026-03-10", "end": "2026-03-28", "progress": 0},
-
-    {"phase": "Validation Comptable",
-     "task": "Génération écriture comptable normalisée (débit / crédit PCM)",
-     "start": "2026-03-20", "end": "2026-04-10", "progress": 0},
-
-    {"phase": "Validation Comptable",
-     "task": "Export récapitulatif PDF par période (rapports mensuels)",
-     "start": "2026-04-05", "end": "2026-04-25", "progress": 0},
-
-    # ══════════════════════════════
-    # PHASE 8 — Tests & Stabilisation (S8–S14)
-    # ══════════════════════════════
-    {"phase": "Tests & Stabilisation",
-     "task": "Tests unitaires backend (pytest) — routes & services",
-     "start": "2026-04-20", "end": "2026-05-05", "progress": 0},
-
-    {"phase": "Tests & Stabilisation",
-     "task": "Tests E2E frontend + scénarios utilisateur complets",
-     "start": "2026-04-28", "end": "2026-05-15", "progress": 0},
-
-    {"phase": "Tests & Stabilisation",
-     "task": "Optimisation performance (requêtes BDD, prompts Gemini, cache)",
-     "start": "2026-05-01", "end": "2026-05-20", "progress": 0},
-
-    {"phase": "Tests & Stabilisation",
-     "task": "Correction bugs finaux + revue sécurité (JWT, injection SQL)",
-     "start": "2026-05-10", "end": "2026-05-25", "progress": 0},
-
-    # ══════════════════════════════
-    # PHASE 9 — Mémoire & Soutenance (S4→S16)
-    # ══════════════════════════════
-    {"phase": "Mémoire & Soutenance",
-     "task": "Rédaction mémoire PFE (état de l'art, conception, réalisation)",
-     "start": "2026-02-24", "end": "2026-05-25", "progress": 10},
-
-    {"phase": "Mémoire & Soutenance",
-     "task": "Finalisation documentation technique + fiches",
-     "start": "2026-05-10", "end": "2026-05-28", "progress": 0},
-
-    {"phase": "Mémoire & Soutenance",
-     "task": "Préparation présentation soutenance (slides + démonstration)",
-     "start": "2026-05-20", "end": "2026-06-01", "progress": 0},
+# ── DONNÉES (phases + tâches, % avancement) ───────────────────────────────
+PHASES = [
+    {
+        "name": "Phase 1 — Compréhension Métier & Cadrage",
+        "color": "#2E75B6",
+        "tasks": [
+            ("1.1", "Réunion lancement & recueil des besoins",          date(2026,2,2),  date(2026,2,4),  100),
+            ("1.2", "Étude domaine comptable marocain (PCM, DGI, TVA)", date(2026,2,2),  date(2026,2,9),  100),
+            ("1.3", "Analyse des processus existants (As-Is)",          date(2026,2,9),  date(2026,2,13), 100),
+            ("1.4", "Définition périmètre fonctionnel",                date(2026,2,13), date(2026,2,18), 100),
+            ("1.5", "Rédaction cahier des charges",                    date(2026,2,16), date(2026,2,20), 100),
+        ],
+    },
+    {
+        "name": "Phase 2 — Analyse & Conception",
+        "color": "#70AD47",
+        "tasks": [
+            ("2.1", "Cas d'utilisation (Use Cases)",                   date(2026,2,20), date(2026,2,23), 100),
+            ("2.2", "UML — Diagramme de classes",                      date(2026,2,20), date(2026,2,24), 100),
+            ("2.3", "UML — Diagrammes de séquence",                    date(2026,2,23), date(2026,2,25), 100),
+            ("2.4", "Architecture multi-tenant (DB & API)",            date(2026,2,23), date(2026,2,25), 100),
+            ("2.5", "Maquettes UI/UX — Wireframes & Figma",            date(2026,2,24), date(2026,2,25), 100),
+            ("2.6", "Validation conception avec tuteur",               date(2026,2,25), date(2026,2,25), 100),
+        ],
+    },
+    {
+        "name": "Phase 3 — Développement Backend & IA",
+        "color": "#ED7D31",
+        "tasks": [
+            ("3.1", "Setup Docker, FastAPI, PostgreSQL",               date(2026,2,26), date(2026,2,27), 100),
+            ("3.2", "Modèles DB multi-tenant & JWT Auth",              date(2026,3,4),  date(2026,3,13), 0),
+            ("3.3", "Pipeline PDF → images (conversion auto)",         date(2026,3,11), date(2026,3,18), 0),
+            ("3.4", "Intégration Gemini — Extraction IA",              date(2026,3,16), date(2026,3,27), 0),
+            ("3.5", "Fallback Tesseract OCR",                          date(2026,3,25), date(2026,4,1),  0),
+            ("3.6", "Classification PCM (Supplier Mapping)",           date(2026,3,30), date(2026,4,9),  0),
+            ("3.7", "Feedback Loop & apprentissage continu",           date(2026,4,7),  date(2026,4,15), 0),
+            ("3.8", "Validation fiscale : ICE, TVA, anti-doublons",    date(2026,4,14), date(2026,4,22), 0),
+        ],
+    },
+    {
+        "name": "Phase 4 — Développement Frontend",
+        "color": "#FFC000",
+        "tasks": [
+            ("4.1", "Setup React + Tailwind + Design System",          date(2026,3,18), date(2026,3,20), 0),
+            ("4.2", "Interface Agent : import, validation",            date(2026,3,20), date(2026,4,3),  0),
+            ("4.3", "Interface Admin Cabinet",                         date(2026,4,1),  date(2026,4,10), 0),
+            ("4.4", "Interface Super-Admin",                           date(2026,4,9),  date(2026,4,16), 0),
+            ("4.5", "Module export données (CSV / Excel)",             date(2026,4,15), date(2026,4,22), 0),
+        ],
+    },
+    {
+        "name": "Phase 5 — Tests & Validation",
+        "color": "#C00000",
+        "tasks": [
+            ("5.1", "Tests unitaires Backend (API, modèles)",          date(2026,4,22), date(2026,4,29), 0),
+            ("5.2", "Tests intégration Pipeline IA (factures réelles)",date(2026,4,27), date(2026,5,6),  0),
+            ("5.3", "Tests UI/UX & recette fonctionnelle",             date(2026,5,4),  date(2026,5,11), 0),
+            ("5.4", "Tests sécurité isolation multi-tenant",           date(2026,5,6),  date(2026,5,13), 0),
+            ("5.5", "Corrections bugs & optimisation",                 date(2026,5,11), date(2026,5,19), 0),
+        ],
+    },
+    {
+        "name": "Phase 6 — Déploiement & Documentation",
+        "color": "#7030A0",
+        "tasks": [
+            ("6.1", "Déploiement Docker Compose (prod)",               date(2026,5,18), date(2026,5,22), 0),
+            ("6.2", "Documentation technique (API, UML)",              date(2026,4,28), date(2026,5,20), 0),
+            ("6.3", "Rédaction rapport PFE complet",                   date(2026,5,11), date(2026,5,26), 0),
+            ("6.4", "Préparation présentation soutenance",             date(2026,5,25), date(2026,5,29), 0),
+            ("6.5", "Livraison finale & Soutenance",                   date(2026,5,29), date(2026,5,31), 0),
+        ],
+    },
 ]
 
-# ──────────────────────────────────────────
-# PRÉPARATION DES DONNÉES
-# ──────────────────────────────────────────
-for t in tasks:
-    t["start_dt"] = datetime.fromisoformat(t["start"])
-    t["end_dt"]   = datetime.fromisoformat(t["end"])
+# ── APLATIR LES LIGNES (phase + tâches) ────────────────────────────────────
+rows = []  # (label, start, end, pct or None, color, is_phase)
+for ph in PHASES:
+    ph_s = min(t[2] for t in ph["tasks"])
+    ph_e = max(t[3] for t in ph["tasks"])
+    rows.append((ph["name"], ph_s, ph_e, None, ph["color"], True))
+    for num, name, ts, te, pct in ph["tasks"]:
+        rows.append((f"  {num}  {name}", ts, te, pct, ph["color"], False))
 
-# NE PAS trier pour garder l'ordre des phases
-n = len(tasks)
+n_rows = len(rows)
 
-# ──────────────────────────────────────────
-# FIGURE
-# ──────────────────────────────────────────
-fig, ax = plt.subplots(figsize=(18, 12))
-fig.patch.set_facecolor("#0F172A")
-ax.set_facecolor("#1E293B")
+# ── FIGURE (fond blanc) ────────────────────────────────────────────────────
+fig_h = max(10, n_rows * 0.33 + 2.5)
+fig, ax = plt.subplots(figsize=(20, fig_h))
+fig.patch.set_facecolor("white")
+ax.set_facecolor("white")
 
-# Colormap avancement : Rouge → Jaune → Vert
-cmap = plt.cm.RdYlGn
-norm = Normalize(vmin=0, vmax=100)
+# Axe temps
+ax.set_xlim(mdates.date2num(START), mdates.date2num(END + timedelta(days=1)))
+ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO, interval=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=8)
 
-for i, t in enumerate(tasks):
-    start = mdates.date2num(t["start_dt"])
-    end   = mdates.date2num(t["end_dt"])
-    width = end - start
-
-    phase_color = PHASE_COLORS.get(t["phase"], "#888888")
-    progress    = t["progress"]
-
-    # Barre fond (grisé = non fait)
-    ax.barh(i, width, left=start, height=0.55,
-            color="#334155", edgecolor="#1E293B", linewidth=0.5)
-
-    # Barre pleine (progression)
-    if progress > 0:
-        ax.barh(i, width * (progress / 100), left=start, height=0.55,
-                color=phase_color, edgecolor="#1E293B", linewidth=0.5,
-                alpha=0.9)
-
-    # Pourcentage affiché dans la barre
-    if progress == 100:
-        label = "✓ 100%"
-    elif progress > 0:
-        label = f"{progress}%"
-    else:
-        label = ""
-    if label:
-        center = start + (width * (progress / 100)) / 2
-        ax.text(center, i, label, va="center", ha="center",
-                fontsize=6.5, color="white", fontweight="bold")
-
-# ──────────────────────────────────────────
-# AXES
-# ──────────────────────────────────────────
-ax.set_yticks(range(n))
-ax.set_yticklabels([t["task"] for t in tasks], fontsize=8.5, color="#E2E8F0")
+# Axe y
+ax.set_ylim(-0.5, n_rows - 0.5)
+ax.set_yticks(range(n_rows))
+ax.set_yticklabels([r[0] for r in rows], fontsize=8)
 ax.invert_yaxis()
 
-ax.xaxis_date()
-ax.set_xlim(mdates.date2num(project_start), mdates.date2num(project_end))
-ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=0, interval=2))  # tous les 14 jours
-ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
-ax.tick_params(axis="x", colors="#94A3B8", labelsize=8)
-plt.setp(ax.get_xticklabels(), rotation=35, ha="right")
+# Grille
+ax.xaxis.grid(True, linestyle="--", linewidth=0.5, alpha=0.35)
+ax.yaxis.grid(False)
+ax.set_axisbelow(True)
 
-ax.spines["top"].set_visible(False)
-ax.spines["right"].set_visible(False)
-ax.spines["left"].set_color("#334155")
-ax.spines["bottom"].set_color("#334155")
+# Barres
+for i, (label, ts, te, pct, color, is_phase) in enumerate(rows):
+    x_s = mdates.date2num(ts)
+    x_e = mdates.date2num(te + timedelta(days=1))
+    width = x_e - x_s
+    h = 0.55 if is_phase else 0.48
 
-# ──────────────────────────────────────────
-# LIGNE "AUJOURD'HUI" — Semaine 4
-# ──────────────────────────────────────────
-today_num = mdates.date2num(today)
-ax.axvline(today_num, color="#F97316", linewidth=2, linestyle="--", zorder=5)
-ax.text(today_num + 0.3, -0.8, "← Auj. S4", color="#F97316",
-        fontsize=8.5, fontweight="bold", va="center")
+    if is_phase:
+        ax.barh(i, width, left=x_s, height=h, color=color, alpha=0.18, linewidth=0)
+        ax.barh(i, width, left=x_s, height=h, color="none", edgecolor=color, linewidth=1.5)
+    else:
+        ax.barh(i, width, left=x_s, height=h, color=color, alpha=0.15, linewidth=0)
+        done_w = width * (pct / 100.0)
+        ax.barh(i, done_w, left=x_s, height=h, color=color, alpha=0.70, linewidth=0)
+        ax.text(x_e + 0.2, i, f"{pct}%", va="center", fontsize=8)
 
-# ──────────────────────────────────────────
-# GRILLE
-# ──────────────────────────────────────────
-ax.grid(axis="x", linestyle=":", alpha=0.25, color="#94A3B8")
-ax.grid(axis="y", linestyle=":", alpha=0.10, color="#94A3B8")
+# Ligne aujourd’hui
+today_x = mdates.date2num(TODAY)
+ax.axvline(today_x, color="red", linewidth=2)
+ax.text(today_x + 0.3, -0.35, f"Aujourd'hui {TODAY.strftime('%d/%m/%Y')}",
+        color="red", fontsize=9, fontweight="bold", va="top")
 
-# ──────────────────────────────────────────
-# LÉGENDE DES PHASES
-# ──────────────────────────────────────────
-legend_patches = [
-    mpatches.Patch(color=color, label=phase)
-    for phase, color in PHASE_COLORS.items()
-]
-ax.legend(handles=legend_patches, loc="lower right",
-          fontsize=7.5, framealpha=0.2,
-          facecolor="#1E293B", edgecolor="#334155",
-          labelcolor="#E2E8F0", ncol=2)
-
-# ──────────────────────────────────────────
-# TITRES
-# ──────────────────────────────────────────
+# Titre
 ax.set_title(
-    "Diagramme de Gantt — PFE · Comptabilité Zéro Saisie\n"
-    "Stage 4 mois : 02 Fév → 01 Juin 2026  |  Scope : Interface Agent (hors Admin)",
-    fontsize=13, color="white", fontweight="bold", pad=15
+    "Diagramme de Gantt — PFE Zéro Saisie Comptable (02 Fév → 31 Mai 2026)",
+    fontsize=14, fontweight="bold", loc="left"
 )
-ax.set_xlabel("Calendrier (par semaine)", fontsize=9, color="#94A3B8", labelpad=8)
 
-# ──────────────────────────────────────────
-# COLORBAR AVANCEMENT
-# ──────────────────────────────────────────
-sm = ScalarMappable(norm=norm, cmap=cmap)
-sm.set_array([])
-cbar = plt.colorbar(sm, ax=ax, pad=0.01, fraction=0.012)
-cbar.set_label("Avancement (%)", color="#94A3B8", fontsize=8)
-cbar.ax.yaxis.set_tick_params(color="#94A3B8")
-plt.setp(cbar.ax.yaxis.get_ticklabels(), color="#94A3B8", fontsize=7.5)
-
-# ──────────────────────────────────────────
-# ANNOTATION SEMAINES
-# ──────────────────────────────────────────
-week_starts = [
-    datetime(2026, 2,  2),   # S1
-    datetime(2026, 2,  9),   # S2
-    datetime(2026, 2, 16),   # S3
-    datetime(2026, 2, 23),   # S4  ← maintenant
-    datetime(2026, 3,  2),   # S5
+# Légende
+legend_elements = [
+    mpatches.Patch(facecolor="gray", alpha=0.15, label="Planifié"),
+    mpatches.Patch(facecolor="gray", alpha=0.70, label="Avancement"),
 ]
-for i, ws in enumerate(week_starts, 1):
-    ax.axvline(mdates.date2num(ws), color="#334155", linewidth=0.8, linestyle="-", alpha=0.5)
-    ax.text(mdates.date2num(ws) + 0.2, n - 0.3,
-            f"S{i}", fontsize=6.5, color="#64748B", va="bottom")
+ax.legend(handles=legend_elements, loc="lower right", frameon=True)
 
 plt.tight_layout()
-plt.savefig("gantt_pfe_semaine4.png", dpi=150, bbox_inches="tight",
-            facecolor=fig.get_facecolor())
-print("✅ Gantt sauvegardé : gantt_pfe_semaine4.png")
+
+# Sauvegarde (dans le même dossier que le script)
+out_file = "gantt_pfe.png"
+plt.savefig(out_file, dpi=200, bbox_inches="tight")
+print(f"✅ Diagramme sauvegardé : {out_file}")
+
 plt.show()

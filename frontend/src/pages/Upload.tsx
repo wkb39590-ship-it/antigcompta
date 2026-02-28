@@ -126,7 +126,7 @@ export default function Upload() {
                         <input
                             ref={fileRef}
                             type="file"
-                            accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff"
+                            accept=".pdf,.png,.jpg,.jpeg"
                             style={{ display: 'none' }}
                             onChange={e => setFile(e.target.files?.[0] || null)}
                         />

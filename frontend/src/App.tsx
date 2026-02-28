@@ -23,8 +23,15 @@ import { AdminSocietes } from './pages/admin/AdminSocietes'
 import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminAssociations } from './pages/admin/AdminAssociations'
 import { AdminProfile } from './pages/admin/AdminProfile'
+import { AdminHistory } from './pages/admin/AdminHistory'
 
-// Composant de protection de route pour utilisateurs normaux
+// ──────────────────────────────────────────────────────────────────────────
+// COMPOSANTS DE PROTECTION (Security Guards)
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Empêche l'accès aux pages si l'agent n'est pas connecté.
+ */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const session = getSessionContext()
     if (!session) {
@@ -33,7 +40,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <>{children}</>
 }
 
-// Composant de protection de route pour les administrateurs
+/**
+ * Empêche l'accès aux pages d'administration si l'utilisateur n'est pas admin.
+ */
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
     if (!isAdminLoggedIn()) {
         return <Navigate to="/login" replace />
@@ -246,6 +255,10 @@ function Sidebar() {
     )
 }
 
+/**
+ * Composant racine de l'application.
+ * Définit la structure des routes et les dépendances globales.
+ */
 export default function App() {
     return (
         <Routes>
@@ -300,6 +313,16 @@ export default function App() {
                     <AdminProtectedRoute>
                         <AdminLayout currentPage="associations">
                             <AdminAssociations />
+                        </AdminLayout>
+                    </AdminProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/history"
+                element={
+                    <AdminProtectedRoute>
+                        <AdminLayout currentPage="history">
+                            <AdminHistory />
                         </AdminLayout>
                     </AdminProtectedRoute>
                 }

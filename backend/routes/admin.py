@@ -8,15 +8,49 @@ from datetime import datetime
 from typing import List
 
 from database import get_db
-from models import Cabinet, Agent, Societe, CompteurFacturation, agent_societes, Facture
+from models import Cabinet, Agent, Societe, CompteurFacturation, agents_societes, Facture, ActionLog
 from schemas import (
     CabinetCreate, CabinetUpdate, CabinetOut,
     AgentOut, AgentCreate, AgentUpdate, SocieteOut, SocieteCreateUpdate,
-    CompteurFacturationOut, GlobalStats, ActivityOut, ActivitiesResponse
+    CompteurFacturationOut, GlobalStats, ActivityOut, ActivitiesResponse,
+    ActionLogOut, ActionLogResponse
 )
 from routes.auth import get_current_agent, hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+# ─────────────────────────────────────────────
+# UTILITAIRES DE PERMISSION
+# ─────────────────────────────────────────────
+
+def is_system_admin(agent: Agent):
+    """Vérifie si l'agent est Super Admin (avec fallback explicite pour wissal)"""
+    result = agent.is_super_admin or agent.username == "wissal" or agent.id == 1
+    print(f"[DEBUG PERMS] User: {agent.username}, ID: {agent.id}, Super: {agent.is_super_admin}, Result: {result}")
+    return result
+
+def check_system_admin(agent: Agent, detail: str = "Accès réservé au Super Admin"):
+    """Lève une exception si pas Super Admin"""
+    if not is_system_admin(agent):
+        print(f"[DEBUG PERMS] DENIED For {agent.username} - Detail: {detail}")
+        raise HTTPException(status_code=403, detail=detail)
+
+def log_action(db: Session, agent: Agent, action_type: str, entity_type: str, entity_id: int = None, details: str = None):
+    """Enregistre une action dans l'historique"""
+    try:
+        log = ActionLog(
+            cabinet_id=agent.cabinet_id,
+            agent_id=agent.id,
+            action_type=action_type,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details
+        )
+        db.add(log)
+        db.commit()
+    except Exception as e:
+        print(f"[ERROR LOGGING] {str(e)}")
+        db.rollback()
 
 # ─────────────────────────────────────────────
 # CABINETS
@@ -27,10 +61,8 @@ async def list_all_cabinets(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Liste tous les cabinets (Super-Admin only)"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé: Réservé aux administrateurs")
-    
+    """Liste tous les cabinets (Super-Admin uniquement)"""
+    check_system_admin(agent, "Accès réservé au Super Admin (LIST)")
     return db.query(Cabinet).all()
 
 
@@ -40,9 +72,8 @@ async def create_cabinet(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Crée un nouveau cabinet (Super-Admin only)"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    """Crée un nouveau cabinet (Super-Admin uniquement)"""
+    check_system_admin(agent, "Accès réservé au Super Admin (CREATE)")
     
     cabinet = Cabinet(
         nom=payload.nom,
@@ -55,6 +86,8 @@ async def create_cabinet(
     db.commit()
     db.refresh(cabinet)
     
+    log_action(db, agent, "CREATE", "CABINET", cabinet.id, f"Cabinet {cabinet.nom} créé")
+    
     return cabinet
 
 
@@ -65,8 +98,8 @@ async def get_cabinet(
     db: Session = Depends(get_db)
 ):
     """Récupère un cabinet par ID"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    if not is_system_admin(agent) and agent.cabinet_id != cabinet_id:
+        raise HTTPException(status_code=403, detail="Vous n'avez pas accès à ce cabinet")
         
     cabinet = db.query(Cabinet).filter(Cabinet.id == cabinet_id).first()
     if not cabinet:
@@ -81,8 +114,8 @@ async def update_cabinet(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Met à jour un cabinet (admin uniquement)"""
-    if not agent.is_admin:
+    """Met à jour un cabinet (Super-Admin ou Admin de ce cabinet)"""
+    if not is_system_admin(agent) and (not agent.is_admin or agent.cabinet_id != cabinet_id):
         raise HTTPException(status_code=403, detail="Accès refusé")
 
     cabinet = db.query(Cabinet).filter(Cabinet.id == cabinet_id).first()
@@ -91,9 +124,8 @@ async def update_cabinet(
     
     # Un admin de cabinet ne peut modifier que son propre cabinet
     # Un "super-admin" (ex: id=4) pourrait tout modifier. Pour l'instant on check is_admin.
-    if agent.cabinet_id != cabinet_id and agent.id != 4: # On laisse l'id 4 passer comme super-admin
-         # Note: Idéalement on aurait un flag is_super_admin, mais is_admin + check id 4 ou cabinet_id fera l'affaire.
-         pass 
+    if not agent.is_super_admin:
+        raise HTTPException(status_code=403, detail="Réservé au Super Admin")
 
     if payload.nom:
         cabinet.nom = payload.nom
@@ -115,9 +147,8 @@ async def delete_cabinet(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Supprime un cabinet (Super-Admin only)"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    """Supprime un cabinet (Super-Admin uniquement)"""
+    check_system_admin(agent, "Accès réservé au Super Admin (DELETE)")
     
     cabinet = db.query(Cabinet).filter(Cabinet.id == cabinet_id).first()
     if not cabinet:
@@ -137,10 +168,13 @@ async def list_all_agents(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Liste tous les agents (Super-Admin only)"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
-    return db.query(Agent).all()
+    """Liste les agents (Super-Admin pour tous, Admin pour son cabinet)"""
+    if is_system_admin(agent):
+        return db.query(Agent).all()
+    elif agent.is_admin:
+        return db.query(Agent).filter(Agent.cabinet_id == agent.cabinet_id).all()
+    else:
+        raise HTTPException(status_code=403, detail="Accès refusé (LIST_AGENTS)")
 
 
 @router.get("/cabinets/{cabinet_id}/agents", response_model=List[AgentOut])
@@ -150,7 +184,7 @@ async def list_cabinet_agents(
     db: Session = Depends(get_db)
 ):
     """Liste les agents d'un cabinet"""
-    if not agent.is_admin:
+    if not (agent.is_admin or is_system_admin(agent)):
         raise HTTPException(status_code=403, detail="Accès refusé")
     
     agents = db.query(Agent).filter(Agent.cabinet_id == cabinet_id).all()
@@ -164,9 +198,9 @@ async def create_agent_global(
     admin_agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Crée un agent dans un cabinet spécifique (Admin only)"""
-    if not admin_agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    """Crée un agent (Super-Admin peut tout, Admin restreint à son cabinet)"""
+    if not is_system_admin(admin_agent) and (not admin_agent.is_admin or admin_agent.cabinet_id != cabinet_id):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer d'agent pour ce cabinet")
     
     # Vérifier doublon
     existing = db.query(Agent).filter((Agent.username == payload.username) | (Agent.email == payload.email)).first()
@@ -185,6 +219,9 @@ async def create_agent_global(
     db.add(new_agent)
     db.commit()
     db.refresh(new_agent)
+    
+    log_action(db, admin_agent, "CREATE", "AGENT", new_agent.id, f"Agent {new_agent.username} créé")
+    
     return new_agent
 
 
@@ -196,9 +233,9 @@ async def assign_agent_to_societe(
     admin_agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Assigne une société à un agent (admin uniquement)"""
-    if not admin_agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    """Assigne une société à un agent (Super-Admin ou Admin du cabinet)"""
+    if not is_system_admin(admin_agent) and (not admin_agent.is_admin or admin_agent.cabinet_id != cabinet_id):
+        raise HTTPException(status_code=403, detail="Accès refusé (ASSIGN)")
     
     # Vérifier que l'agent et la société existent et appartiennent au cabinet
     agent = db.query(Agent).filter(Agent.id == agent_id, Agent.cabinet_id == cabinet_id).first()
@@ -210,9 +247,9 @@ async def assign_agent_to_societe(
         raise HTTPException(status_code=404, detail=f"Société ID {societe_id} introuvable dans ce cabinet")
     
     # Vérifier si l'association existe déjà
-    existing = db.query(agent_societes).filter(
-        agent_societes.c.agent_id == agent_id,
-        agent_societes.c.societe_id == societe_id
+    existing = db.query(agents_societes).filter(
+        agents_societes.c.agent_id == agent_id,
+        agents_societes.c.societe_id == societe_id
     ).first()
     
     if existing:
@@ -220,9 +257,10 @@ async def assign_agent_to_societe(
 
     # Assigner
     try:
-        stmt = agent_societes.insert().values(agent_id=agent_id, societe_id=societe_id)
+        stmt = agents_societes.insert().values(agent_id=agent_id, societe_id=societe_id)
         db.execute(stmt)
         db.commit()
+        log_action(db, admin_agent, "ASSOCIATION", "AGENT_SOCIETE", agent_id, f"Agent {agent.username} associé à {societe.raison_sociale}")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Erreur lors de l'assignation: {str(e)}")
@@ -239,10 +277,13 @@ async def list_all_societes(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Liste toutes les sociétés (Super-Admin only)"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
-    return db.query(Societe).all()
+    """Liste les sociétés (Super-Admin pour toutes, Admin pour son cabinet)"""
+    if is_system_admin(agent):
+        return db.query(Societe).all()
+    elif agent.is_admin:
+        return db.query(Societe).filter(Societe.cabinet_id == agent.cabinet_id).all()
+    else:
+        raise HTTPException(status_code=403, detail="Accès refusé (LIST_SOC)")
 
 
 @router.post("/societes", response_model=SocieteOut)
@@ -252,9 +293,9 @@ async def create_societe_global(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Crée une nouvelle société dans un cabinet spécifique"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    """Crée une société (Super-Admin peut tout, Admin restreint à son cabinet)"""
+    if not is_system_admin(agent) and (not agent.is_admin or agent.cabinet_id != cabinet_id):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de société pour ce cabinet")
     
     societe = Societe(
         cabinet_id=cabinet_id,
@@ -277,6 +318,8 @@ async def create_societe_global(
     db.commit()
     db.refresh(societe)
     
+    log_action(db, agent, "CREATE", "SOCIETE", societe.id, f"Société {societe.raison_sociale} créée")
+    
     return societe
 
 
@@ -288,12 +331,16 @@ async def update_societe(
     db: Session = Depends(get_db)
 ):
     """Met à jour une société"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    if not (agent.is_admin or is_system_admin(agent)):
+        raise HTTPException(status_code=403, detail="Accès refusé (SOC_UPDATE_CHECK)")
 
     societe = db.query(Societe).filter(Societe.id == societe_id).first()
     if not societe:
         raise HTTPException(status_code=404, detail="Société introuvable")
+    
+    # Restriction par cabinet pour les Admins
+    if not is_system_admin(agent) and agent.cabinet_id != societe.cabinet_id:
+        raise HTTPException(status_code=403, detail="Vous n'avez pas accès à cette société")
     
     if payload.raison_sociale: societe.raison_sociale = payload.raison_sociale
     if payload.ice: societe.ice = payload.ice
@@ -307,6 +354,33 @@ async def update_societe(
     return societe
 
 
+@router.get("/logs", response_model=ActionLogResponse)
+async def get_admin_logs(
+    agent: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db),
+    limit: int = 50,
+    offset: int = 0
+):
+    """Récupère l'historique des actions (filtré par cabinet pour les admins)"""
+    query = db.query(ActionLog)
+    
+    if not is_system_admin(agent):
+        query = query.filter(ActionLog.cabinet_id == agent.cabinet_id)
+    
+    total = query.count()
+    logs = query.order_by(ActionLog.created_at.desc()).offset(offset).limit(limit).all()
+    
+    # Enrichir avec les usernames
+    result = []
+    for log in logs:
+        out = ActionLogOut.model_validate(log)
+        if log.agent:
+            out.agent_username = log.agent.username
+        result.append(out)
+        
+    return {"logs": result, "total": total}
+
+
 # ─────────────────────────────────────────────
 # PROFIL & STATS GLOBALES
 # ─────────────────────────────────────────────
@@ -316,16 +390,24 @@ async def get_global_stats(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Retourne les statistiques globales du système (Admin only)"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
-    
-    return {
-        "total_cabinets": db.query(Cabinet).count(),
-        "total_agents": db.query(Agent).count(),
-        "total_societes": db.query(Societe).count(),
-        "total_factures": db.query(Facture).count()
-    }
+    """Stats globales pour Super Admin, stats filtrées pour Admin"""
+    if is_system_admin(agent):
+        return {
+            "total_cabinets": db.query(Cabinet).count(),
+            "total_agents": db.query(Agent).count(),
+            "total_societes": db.query(Societe).count(),
+            "total_factures": db.query(Facture).count()
+        }
+    elif agent.is_admin:
+        cab_id = agent.cabinet_id
+        return {
+            "total_cabinets": 1,
+            "total_agents": db.query(Agent).filter(Agent.cabinet_id == cab_id, Agent.is_admin == False).count(),
+            "total_societes": db.query(Societe).filter(Societe.cabinet_id == cab_id).count(),
+            "total_factures": db.query(Facture).join(Societe).filter(Societe.cabinet_id == cab_id).count()
+        }
+    else:
+        raise HTTPException(status_code=403, detail="Accès refusé (STATS)")
 
 
 @router.put("/profile", response_model=AgentOut)
@@ -335,8 +417,8 @@ async def update_admin_profile(
     db: Session = Depends(get_db)
 ):
     """Met à jour le profil de l'administrateur connecté"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    if not (agent.is_admin or is_system_admin(agent)):
+        raise HTTPException(status_code=403, detail="Accès refusé (PROFILE_UPDATE)")
     
     if payload.email:
         agent.email = payload.email
@@ -367,8 +449,8 @@ async def get_compteurs(
     if not societe:
         raise HTTPException(status_code=404, detail="Société introuvable")
     
-    if agent.cabinet_id != societe.cabinet_id:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    if not is_system_admin(agent) and agent.cabinet_id != societe.cabinet_id:
+        raise HTTPException(status_code=403, detail="Accès refusé (COMPTEUR)")
     
     compteurs = db.query(CompteurFacturation).filter(
         CompteurFacturation.societe_id == societe_id
@@ -389,8 +471,8 @@ async def get_compteur_by_annee(
     if not societe:
         raise HTTPException(status_code=404, detail="Société introuvable")
     
-    if agent.cabinet_id != societe.cabinet_id:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    if not is_system_admin(agent) and agent.cabinet_id != societe.cabinet_id:
+        raise HTTPException(status_code=403, detail="Accès refusé (COMPTEUR_Y)")
     
     compteur = db.query(CompteurFacturation).filter(
         CompteurFacturation.societe_id == societe_id,
@@ -447,46 +529,99 @@ async def get_recent_activities(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Retourne les activités récentes du système pour le Dashboard Admin"""
-    if not agent.is_admin:
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    """Activités globales pour Super Admin, filtrées par cabinet pour Admin"""
+    if not is_system_admin(agent) and not agent.is_admin:
+        raise HTTPException(status_code=403, detail="Accès refusé (ACTIVITIES)")
     
     activities = []
     
-    # 1. Nouveaux cabinets (3 derniers)
-    cabinets = db.query(Cabinet).order_by(Cabinet.created_at.desc()).limit(3).all()
-    for cab in cabinets:
-        # Calcul temps simplifié
-        activities.append(ActivityOut(
-            id=f"cab_{cab.id}",
-            type="CABINET",
-            title=f"Nouveau cabinet **{cab.nom}** ajouté au système",
-            time="Récemment",
-            dot_color="blue"
-        ))
+    # 1. Nouveaux cabinets (Seulement pour Super Admin)
+    if is_system_admin(agent):
+        cabinets = db.query(Cabinet).order_by(Cabinet.created_at.desc()).limit(5).all()
+        for cab in cabinets:
+            activities.append({
+                "id": f"cab_{cab.id}",
+                "type": "CABINET",
+                "title": f"Nouveau cabinet **{cab.nom}** ajouté au système",
+                "time": cab.created_at,
+                "dot_color": "blue"
+            })
     
-    # 2. Factures validées récemment (3 dernières)
-    factures_validees = db.query(Facture).filter(Facture.status == "VALIDATED").order_by(Facture.validated_at.desc()).limit(3).all()
+    # 2. Factures validées récemment
+    query_factures = db.query(Facture).filter(Facture.status == "VALIDATED")
+    if not is_system_admin(agent):
+        query_factures = query_factures.join(Societe).filter(Societe.cabinet_id == agent.cabinet_id)
+    
+    factures_validees = query_factures.order_by(Facture.validated_at.desc()).limit(5).all()
     for f in factures_validees:
-        # On essaie de trouver le nom de la société
         soc_nom = f.societe.raison_sociale if f.societe else "Inconnue"
-        activities.append(ActivityOut(
-            id=f"fac_{f.id}",
-            type="VALIDATION",
-            title=f"Agent **{f.validated_by or 'Système'}** a validé la facture **{f.numero_facture or 'Sans N°'}** pour **{soc_nom}**",
-            time="Aujourd'hui",
-            dot_color="purple"
+        activities.append({
+            "id": f"fac_{f.id}",
+            "type": "VALIDATION",
+            "title": f"Agent **{f.validated_by or 'Système'}** a validé la facture **{f.numero_facture or 'Sans N°'}** pour **{soc_nom}**",
+            "time": f.validated_at or datetime.now(),
+            "dot_color": "purple"
+        })
+
+    # 3. Nouvelles Sociétés
+    query_soc = db.query(Societe)
+    if not is_system_admin(agent):
+        query_soc = query_soc.filter(Societe.cabinet_id == agent.cabinet_id)
+    
+    new_societes = query_soc.order_by(Societe.id.desc()).limit(5).all()
+    for s in new_societes:
+        activities.append({
+            "id": f"soc_{s.id}",
+            "type": "SOCIETE",
+            "title": f"Nouvelle société **{s.raison_sociale}** ajoutée",
+            "time": datetime.now(), # Idéalement s.created_at si existait
+            "dot_color": "blue"
+        })
+
+    # 4. Nouveaux Agents / Administrateurs
+    query_agents = db.query(Agent).filter(Agent.id != agent.id)
+    if not is_system_admin(agent):
+        query_agents = query_agents.filter(Agent.cabinet_id == agent.cabinet_id)
+    else:
+        # Super Admin voit les nouveaux admins de cabinets
+        query_agents = query_agents.filter(Agent.is_admin == True, Agent.is_super_admin == False)
+    
+    new_agents = query_agents.order_by(Agent.id.desc()).limit(5).all()
+    for a in new_agents:
+        role = "Administrateur" if a.is_admin else "Agent"
+        activities.append({
+            "id": f"agent_{a.id}",
+            "type": "AGENT",
+            "title": f"Nouveau {role} **{a.username}** créé",
+            "time": a.created_at or datetime.now(),
+            "dot_color": "orange"
+        })
+
+    # Conversion des objets time en strings pour le frontend et tri
+    # Pour le moment, on trie par ID/Time simulé si pas de created_at parfait
+    activities.sort(key=lambda x: x["time"] if isinstance(x["time"], datetime) else datetime.now(), reverse=True)
+    
+    final_activities = []
+    for act in activities[:10]: # Top 10
+        # Formater le temps en texte lisible
+        t = act["time"]
+        time_str = "Récemment"
+        if isinstance(t, datetime):
+            now = datetime.now()
+            diff = now - t
+            if diff.days == 0:
+                time_str = "Aujourd'hui"
+            elif diff.days == 1:
+                time_str = "Hier"
+            else:
+                time_str = f"Il y a {diff.days} jours"
+        
+        final_activities.append(ActivityOut(
+            id=act["id"],
+            type=act["type"],
+            title=act["title"],
+            time=time_str,
+            dot_color=act["dot_color"]
         ))
         
-    # 3. Alertes (Factures en attente)
-    en_attente = db.query(Facture).filter(Facture.status.in_(["IMPORTED", "EXTRACTED"])).count()
-    if en_attente > 0:
-        activities.append(ActivityOut(
-            id="alert_pending",
-            type="ALERT",
-            title=f"Alerte: {en_attente} factures en attente de traitement",
-            time="Live",
-            dot_color="orange"
-        ))
-        
-    return {"activities": activities}
+    return {"activities": final_activities}

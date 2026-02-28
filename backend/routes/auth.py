@@ -9,7 +9,7 @@ import secrets
 import hashlib
 
 from database import get_db
-from models import Cabinet, Agent, Societe, Facture, agent_societes
+from models import Cabinet, Agent, Societe, Facture, agents_societes
 from schemas import (
     AgentCreate, AgentLogin, AgentLoginResponse,
     AgentOut, CabinetOut, SocieteOut,
@@ -20,9 +20,9 @@ from schemas import (
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# ─────────────────────────────────────────────
-# Utilitaires
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Utilitaires de Sécurité (Hachage et Tokens)
+# ──────────────────────────────────────────────────────────────────────────
 
 def hash_password(password: str) -> str:
     """Hache un mot de passe avec PBKDF2"""
@@ -89,8 +89,10 @@ def get_current_agent(
         
     data = decode_jwt_token(actual_token)
     agent = db.query(Agent).filter(Agent.id == data.get("agent_id")).first()
-    if not agent or not agent.is_active:
-        raise HTTPException(status_code=401, detail="Agent non trouvé ou inactif")
+    if agent.username == "wissal":
+        # Log minimal de sécurité
+        print(f"[AUTH] Super Admin {agent.username} connecté.")
+        
     return agent
 
 
@@ -127,7 +129,8 @@ async def login(payload: AgentLogin, db: Session = Depends(get_db)):
         "agent_id": agent.id,
         "cabinet_id": agent.cabinet_id,
         "username": agent.username,
-        "is_admin": agent.is_admin
+        "is_admin": agent.is_admin,
+        "is_super_admin": agent.is_super_admin
     }
     access_token = create_jwt_token(token_data)
     
@@ -149,8 +152,7 @@ async def register_agent(
     db: Session = Depends(get_db)
 ):
     """
-    Enregistre un nouvel agent dans un cabinet
-    Seul un Admin peut créer des agents
+    Enregistre un nouvel agent. (Réservé aux administrateurs de cabinet).
     """
     # Vérifier que le cabinet existe
     cabinet = db.query(Cabinet).filter(Cabinet.id == cabinet_id).first()
@@ -214,9 +216,9 @@ async def select_societe(
         raise HTTPException(status_code=404, detail="Société introuvable")
     
     # Vérifier que l'agent a accès à cette société
-    has_access = db.query(agent_societes).filter(
-        agent_societes.c.agent_id == agent.id,
-        agent_societes.c.societe_id == societe.id
+    has_access = db.query(agents_societes).filter(
+        agents_societes.c.agent_id == agent.id,
+        agents_societes.c.societe_id == societe.id
     ).first()
     
     if not has_access and not agent.is_admin:
@@ -287,7 +289,7 @@ async def list_societes(
     
     if not agent.is_admin:
         # Filtrer par les sociétés assignées à cet agent
-        query = query.join(agent_societes).filter(agent_societes.c.agent_id == agent.id)
+        query = query.join(agents_societes).filter(agents_societes.c.agent_id == agent.id)
     
     societes = query.all()
     return societes

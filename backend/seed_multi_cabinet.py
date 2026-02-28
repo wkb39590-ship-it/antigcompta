@@ -52,9 +52,15 @@ def seed_data():
                 password_hash=hash_password("password123"),
                 nom="Bennani",
                 prenom="Wissal",
-                is_admin=False
+                is_admin=False,
+                is_super_admin=True
             )
             db.add(agent1)
+        else:
+            # Forcer la mise à jour pour les tests
+            agent1.is_admin = False
+            agent1.is_super_admin = True
+            print("   → Mise à jour des rôles pour wissal (Super Admin uniquement)")
 
         
         agent2 = db.query(Agent).filter(Agent.username == "fatima").first()
@@ -66,7 +72,8 @@ def seed_data():
                 password_hash=hash_password("password123"),
                 nom="El Oujdi",
                 prenom="Fatima",
-                is_admin=False
+                is_admin=False,
+                is_super_admin=False
             )
             db.add(agent2)
         
@@ -80,9 +87,14 @@ def seed_data():
                 password_hash=hash_password("password123"),
                 nom="Ahmed",
                 prenom="Kabil",
-                is_admin=False
+                is_admin=True,
+                is_super_admin=False
             )
             db.add(agent3)
+        else:
+            agent3.is_admin = True
+            agent3.is_super_admin = False
+            print("   → Mise à jour des rôles pour ahmed (Admin Cabinet)")
 
             
         db.flush()
@@ -186,11 +198,8 @@ def seed_data():
 
 👤 Agents:
    Cabinet 1:
-   - wissal / password123 (ADMIN)
-   - fatima / password123 (USER)
-   
-   Cabinet 2:
-   - ahmed / password123 (ADMIN)
+   - ahmed / password123 (ADMIN CABINET)
+   - wissal / password123 (SUPER ADMIN)
 
 🏢 Sociétés:
    Cabinet 1:

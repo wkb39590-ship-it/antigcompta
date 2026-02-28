@@ -12,6 +12,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
   const adminUser = getAdminUser();
   const adminName = adminUser ? `${adminUser.prenom || adminUser.username}` : 'Admin';
 
+  // Récupérer le nom du cabinet pour les admins simples
+  const cabinets = JSON.parse(localStorage.getItem('cabinets') || '[]');
+  const currentCabinet = cabinets.find((c: any) => c.id === adminUser?.cabinet_id);
+  const cabinetLabel = !adminUser?.is_super_admin && currentCabinet ? currentCabinet.nom : '';
+
   const handleLogout = () => {
     clearAdminSession();
     navigate('/login');
@@ -19,12 +24,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
 
   const navItems = [
     { label: 'Dashboard', path: '/admin/dashboard', id: 'dashboard', icon: '📊' },
-    { label: 'Cabinets', path: '/admin/cabinets', id: 'cabinets', icon: '🏢' },
-    { label: 'Sociétés', path: '/admin/societes', id: 'societes', icon: '🏬' },
+    { label: 'Cabinets', path: '/admin/cabinets', id: 'cabinets', icon: '🏢', superOnly: true },
+    { label: 'Sociétés', path: '/admin/societes', id: 'societes', icon: '🏬', adminOnly: true },
     { label: 'Agents', path: '/admin/agents', id: 'agents', icon: '👥' },
-    { label: 'Associations', path: '/admin/associations', id: 'associations', icon: '🔗' },
+    { label: 'Associations', path: '/admin/associations', id: 'associations', icon: '🔗', adminOnly: true },
+    { label: 'Historique', path: '/admin/history', id: 'history', icon: '📜' },
     { label: 'Profil', path: '/admin/profile', id: 'profile', icon: '👤' },
-  ];
+  ].filter(item => {
+    if (item.superOnly && !adminUser?.is_super_admin) return false;
+    if (item.adminOnly && adminUser?.is_super_admin) return false;
+    return true;
+  });
 
   return (
     <div className="admin-layout aurora-bg">
@@ -44,7 +54,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
             <div className="mini-avatar">{adminName[0].toUpperCase()}</div>
             <div className="mini-info">
               <span className="mini-name">{adminName}</span>
-              <span className="mini-status">En ligne</span>
+              <span className="mini-status">{cabinetLabel || 'En ligne'}</span>
             </div>
           </div>
 
@@ -77,7 +87,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
       <main className="aurora-main admin-scroll">
         <header className="aurora-header">
           <div className="header-breadcrumbs">
-            Admin / <span className="current-page-text">{navItems.find(i => i.id === currentPage)?.label || currentPage}</span>
+            {adminUser?.is_super_admin ? 'Système' : (cabinetLabel || 'Admin')} / <span className="current-page-text">{navItems.find(i => i.id === currentPage)?.label || currentPage}</span>
           </div>
           <div className="header-actions">
             <div className="header-time">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>

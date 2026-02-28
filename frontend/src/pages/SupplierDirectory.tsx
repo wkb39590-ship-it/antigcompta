@@ -1,21 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../api';
-import {
-    Users,
-    Trash2,
-    Search,
-    RefreshCw,
-    ShieldCheck,
-    Database,
-    Plus,
-    Zap,
-    Download,
-    ChevronDown,
-    MoreHorizontal,
-    Edit2,
-    Pause,
-    Play
-} from 'lucide-react';
+import { Search, Plus, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface Mapping {
     id: number;
@@ -29,7 +14,6 @@ const SupplierDirectory: React.FC = () => {
     const [mappings, setMappings] = useState<Mapping[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [lastSync] = useState<string>('2 min');
 
     useEffect(() => {
         fetchMappings();
@@ -48,7 +32,7 @@ const SupplierDirectory: React.FC = () => {
     };
 
     const handleDelete = async (id: number) => {
-        if (!window.confirm('Voulez-vous vraiment supprimer cette règle ?')) return;
+        if (!window.confirm('Voulez-vous vraiment supprimer cette correspondance ?')) return;
         try {
             await apiService.deleteMapping(id);
             setMappings(mappings.filter(m => m.id !== id));
@@ -60,175 +44,268 @@ const SupplierDirectory: React.FC = () => {
     const filteredMappings = mappings.filter(m =>
         m.supplier_ice.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.pcm_account_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.pcm_account_label.toLowerCase().includes(searchTerm.toLowerCase())
+        (m.pcm_account_label && m.pcm_account_label.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     return (
-        <div className="container-pro animate-in fade-in duration-500 space-y-8 pb-12">
-
-            {/* --- HEADER --- */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-white">Référentiel Fournisseurs</h1>
-                    <p className="text-zinc-500 text-sm">Gestion des schémas d'imputation automatique et des mappings tiers.</p>
+        <div className="sd-page">
+            <header className="sd-header">
+                <div className="sd-title-area">
+                    <h1 className="sd-title">Référentiel Fournisseurs</h1>
+                    <p className="sd-subtitle text-zinc-400">Automatisation des affectations comptables.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={fetchMappings}
-                        className="btn btn-ghost"
-                        title="Actualiser les données"
-                    >
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                        <span>Synchroniser</span>
+                <div className="sd-actions">
+                    <button onClick={fetchMappings} className="sd-btn-icon" title="Synchroniser">
+                        <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
-                    <button className="btn btn-primary">
+                    <button className="sd-btn-primary">
                         <Plus size={18} />
-                        <span>Nouvelle règle</span>
+                        <span>Ajouter Règle</span>
                     </button>
                 </div>
             </header>
 
-            {/* --- KPI GRID --- */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    { label: 'Tiers Référencés', value: mappings.length, diff: '+12%', icon: Users },
-                    { label: 'Règles Actives', value: mappings.length + 8, diff: '+2.4%', icon: Zap },
-                    { label: 'Taux Auto', value: '88.4%', diff: '+5.7%', icon: ShieldCheck },
-                    { label: 'État Système', value: 'OK', diff: 'Optimal', icon: Database }
-                ].map((stat, i) => (
-                    <div key={i} className="card p-6 flex flex-col justify-between hover:border-blue-500/30 transition-all group">
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="stat-label text-[10px] font-bold tracking-widest">{stat.label}</span>
-                            <stat.icon size={18} className="text-zinc-700 group-hover:text-blue-500/50 transition-colors" />
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                            <div className="stat-value text-3xl font-bold text-white tracking-tight">{stat.value}</div>
-                            <span className={`text-[10px] font-bold ${stat.diff.includes('+') ? 'text-emerald-500' : 'text-zinc-500'}`}>
-                                {stat.diff}
-                            </span>
-                        </div>
-                    </div>
-                ))}
-            </section>
-
-            {/* --- TOOLBAR CARD --- */}
-            <div className="card p-4">
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                    <div className="relative flex-[6] w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher par ICE, libellé ou compte..."
-                            className="form-input pl-10 h-11"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex flex-[4] items-center gap-2 w-full">
-                        <select className="form-input h-11 flex-1">
-                            <option>Tous les statuts</option>
-                            <option>Actif</option>
-                            <option>Pause</option>
-                        </select>
-                        <select className="form-input h-11 flex-1">
-                            <option>Tous les types</option>
-                            <option>Automatique</option>
-                            <option>Manuel</option>
-                        </select>
-                        <button className="btn btn-ghost h-11 px-4" title="Exporter en Excel">
-                            <Download size={18} />
-                        </button>
-                    </div>
-                </div>
+            <div className="sd-search-container">
+                <Search size={18} className="text-zinc-500" />
+                <input
+                    type="text"
+                    placeholder="Rechercher par ICE ou compte (ex: 6111)..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="sd-search-input"
+                />
             </div>
 
-            {/* --- TABLE CARD --- */}
-            <div className="card p-0 overflow-hidden">
-                <div className="table-wrap">
-                    <table className="w-full text-sm text-left border-collapse">
+            <div className="sd-glass-card">
+                {loading ? (
+                    <div className="sd-empty">
+                        <RefreshCw className="animate-spin text-blue-500 mb-2" size={24} />
+                        <p className="text-zinc-400">Chargement du référentiel...</p>
+                    </div>
+                ) : filteredMappings.length === 0 ? (
+                    <div className="sd-empty text-zinc-500">
+                        <AlertCircle size={32} className="mb-3 opacity-50" />
+                        <p>Aucun mapping fournisseur trouvé.</p>
+                        <span className="text-xs opacity-50 block mt-1">L'IA créera des règles automatiquement lors de la validation des factures.</span>
+                    </div>
+                ) : (
+                    <table className="sd-table">
                         <thead>
-                            <tr className="bg-zinc-900/50 border-b border-zinc-800">
-                                <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-zinc-500">Fournisseur & ICE</th>
-                                <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-zinc-500">Mapping PCM</th>
-                                <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-zinc-500">Statut</th>
-                                <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-zinc-500 text-right">Actions</th>
+                            <tr>
+                                <th>Identifiant (ICE)</th>
+                                <th>Imputation (PCM)</th>
+                                <th>Dernière Maj.</th>
+                                <th className="text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-24 text-center">
-                                        <div className="loading"><div className="spinner" /> Synchronisation...</div>
+                        <tbody>
+                            {filteredMappings.map((m) => (
+                                <tr key={m.id} className="sd-tr">
+                                    <td>
+                                        <div className="font-mono text-white tracking-widest bg-white/5 py-1 px-3 rounded-md inline-block border border-white/5">{m.supplier_ice}</div>
+                                    </td>
+                                    <td>
+                                        <div className="flex items-center gap-3">
+                                            <span className="sd-badge font-mono">{m.pcm_account_code}</span>
+                                            <span className="text-sm text-zinc-300">{m.pcm_account_label || 'Compte Fournisseur'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="text-sm text-zinc-500">
+                                        {m.updated_at ? new Date(m.updated_at).toLocaleDateString('fr-FR') : 'Récent'}
+                                    </td>
+                                    <td className="text-right">
+                                        <button
+                                            onClick={() => handleDelete(m.id)}
+                                            className="sd-btn-delete"
+                                            title="Supprimer la règle"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </td>
                                 </tr>
-                            ) : filteredMappings.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-24 text-center text-zinc-600 italic">
-                                        Aucun résultat pour cette recherche.
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredMappings.map((m, idx) => (
-                                    <tr key={m.id} className="group hover:bg-white/[0.02] transition-colors">
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-white group-hover:text-blue-400 transition-colors">Fournisseur {idx + 1}</span>
-                                                <span className="text-[10px] font-mono text-zinc-600 mt-0.5">{m.supplier_ice}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="px-2 py-0.5 bg-zinc-800 text-blue-400 rounded text-xs font-mono font-bold">
-                                                        {m.pcm_account_code}
-                                                    </span>
-                                                    <span className="text-xs text-zinc-400">{m.pcm_account_label || '—'}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5 text-sm">
-                                            {idx % 3 === 0 ? (
-                                                <span className="badge badge-validated">Actif</span>
-                                            ) : idx % 3 === 1 ? (
-                                                <span className="badge badge-draft" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' }}>Pause</span>
-                                            ) : (
-                                                <span className="badge badge-imported">Inactif</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <div className="flex items-center justify-end gap-1 opacity-10 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button className="btn btn-ghost p-2 rounded-lg hover:text-white" title="Modifier">
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button className="btn btn-ghost p-2 rounded-lg hover:text-white" title="Mettre en pause">
-                                                    {idx % 3 === 1 ? <Play size={16} /> : <Pause size={16} />}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(m.id)}
-                                                    className="btn btn-ghost p-2 rounded-lg hover:text-danger"
-                                                    title="Supprimer la règle"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                            <div className="group-hover:hidden transition-all text-zinc-700">
-                                                <MoreHorizontal size={18} />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
+                            ))}
                         </tbody>
                     </table>
+                )}
+            </div>
+
+            {/* SYNC DISCRETE */}
+            <div className="mt-8 flex justify-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Synchronisation active
                 </div>
             </div>
 
-            {/* --- DISCRETE SYNC STATE (REPLACED TECHNICAL FOOTER) --- */}
-            <div className="flex items-center justify-center gap-4 text-[10px] font-bold uppercase tracking-widest text-zinc-700">
-                <span className="flex items-center gap-1.5"><div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse"></div> Flux Sécurisé</span>
-                <div className="h-1 w-1 bg-zinc-800 rounded-full"></div>
-                <span>Sync v2.4-stable</span>
-            </div>
+            <style>{`
+                .sd-page {
+                    max-width: 1000px;
+                    margin: 0 auto;
+                    padding: 2rem 0;
+                    animation: fadeUp 0.6s ease-out;
+                }
+                
+                @keyframes fadeUp {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                .sd-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    margin-bottom: 2.5rem;
+                }
+
+                .sd-title {
+                    font-size: 2rem;
+                    font-weight: 800;
+                    color: white;
+                    letter-spacing: -0.5px;
+                    margin: 0 0 0.4rem 0;
+                }
+                
+                .sd-actions {
+                    display: flex;
+                    gap: 1rem;
+                }
+
+                .sd-btn-icon {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 12px;
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: white;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .sd-btn-icon:hover {
+                    background: rgba(255, 255, 255, 0.08);
+                }
+
+                .sd-btn-primary {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0 1.5rem;
+                    height: 42px;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg, #3b82f6, #6366f1);
+                    border: none;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+                }
+                .sd-btn-primary:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+                }
+
+                .sd-search-container {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    padding: 0 1.25rem;
+                    border-radius: 16px;
+                    margin-bottom: 1.5rem;
+                    backdrop-filter: blur(10px);
+                }
+
+                .sd-search-input {
+                    flex: 1;
+                    background: transparent;
+                    border: none;
+                    color: white;
+                    height: 54px;
+                    font-size: 0.95rem;
+                    outline: none;
+                }
+                .sd-search-input::placeholder {
+                    color: rgba(255, 255, 255, 0.3);
+                }
+
+                .sd-glass-card {
+                    background: rgba(15, 15, 20, 0.6);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 20px;
+                    overflow: hidden;
+                    backdrop-filter: blur(12px);
+                }
+
+                .sd-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+
+                .sd-table th {
+                    text-align: left;
+                    padding: 1.25rem 1.5rem;
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    color: rgba(255, 255, 255, 0.4);
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                }
+
+                .sd-tr {
+                    transition: all 0.2s;
+                }
+                .sd-tr:hover {
+                    background: rgba(255, 255, 255, 0.02);
+                }
+                
+                .sd-tr td {
+                    padding: 1.25rem 1.5rem;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+                }
+
+                .sd-badge {
+                    background: rgba(59, 130, 246, 0.15);
+                    color: #60a5fa;
+                    border: 1px solid rgba(59, 130, 246, 0.3);
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                }
+
+                .sd-btn-delete {
+                    background: transparent;
+                    border: none;
+                    color: rgba(244, 63, 94, 0.5);
+                    padding: 0.5rem;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .sd-btn-delete:hover {
+                    background: rgba(244, 63, 94, 0.1);
+                    color: #f43f5e;
+                }
+
+                .sd-empty {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 4rem 2rem;
+                    text-align: center;
+                }
+
+                @media (max-width: 768px) {
+                    .sd-header { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+                    .sd-actions { width: 100%; justify-content: space-between; }
+                }
+            `}</style>
         </div>
     );
 };

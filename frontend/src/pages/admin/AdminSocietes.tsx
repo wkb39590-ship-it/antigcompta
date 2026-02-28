@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { getAdminToken } from '../../utils/adminTokenDecoder';
+import { useNavigate } from 'react-router-dom';
+import apiService from '../../api';
+import { getAdminUser } from '../../utils/adminTokenDecoder';
+import { API_CONFIG } from '../../config/apiConfig';
 
 interface Societe {
   id: number;
@@ -18,6 +20,7 @@ interface Cabinet {
 }
 
 export const AdminSocietes: React.FC = () => {
+  const navigate = useNavigate();
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +36,8 @@ export const AdminSocietes: React.FC = () => {
     cabinet_id: '',
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
+  const adminUser = getAdminUser();
+  const isSuper = adminUser?.is_super_admin === true;
 
   const getErrorMessage = (err: any) => {
     const detail = err.response?.data?.detail;
@@ -46,24 +50,19 @@ export const AdminSocietes: React.FC = () => {
   }, []);
 
   const fetchData = async () => {
-    const token = getAdminToken();
-    if (!token) {
-      setError('Session expirée');
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
-      const [socRes, cabRes] = await Promise.all([
-        axios.get(`${API_URL}/admin/societes`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/admin/cabinets`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+      const [socData, cabData] = await Promise.all([
+        apiService.adminListSocietes(),
+        isSuper ? apiService.adminListCabinets() : Promise.resolve(JSON.parse(localStorage.getItem('cabinets') || '[]'))
       ]);
-      setSocietes(Array.isArray(socRes.data) ? socRes.data : []);
-      setCabinets(Array.isArray(cabRes.data) ? cabRes.data : []);
+      setSocietes(Array.isArray(socData) ? socData : []);
+      setCabinets(Array.isArray(cabData) ? cabData : []);
+
+      // Si Admin simple, pré-sélectionner son cabinet
+      if (!isSuper && adminUser?.cabinet_id) {
+        setFormData((prev) => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
+      }
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -73,11 +72,6 @@ export const AdminSocietes: React.FC = () => {
 
   const handleCreateSociete = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = getAdminToken();
-    if (!token) {
-      setError('Session expirée');
-      return;
-    }
     if (!formData.cabinet_id) {
       setError('Veuillez sélectionner un cabinet');
       return;
@@ -93,17 +87,9 @@ export const AdminSocietes: React.FC = () => {
       };
 
       if (editingSociete) {
-        await axios.put(
-          `${API_URL}/admin/societes/${editingSociete.id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await apiService.adminUpdateSociete(editingSociete.id, payload);
       } else {
-        await axios.post(
-          `${API_URL}/admin/societes?cabinet_id=${formData.cabinet_id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await apiService.adminCreateSociete(payload, formData.cabinet_id);
       }
       setFormData({
         raison_sociale: '',
@@ -136,17 +122,47 @@ export const AdminSocietes: React.FC = () => {
 
   const deleteSociete = async (id: number) => {
     if (!window.confirm('Supprimer cette société ?')) return;
-    const token = getAdminToken();
-    if (!token) return;
     try {
-      await axios.delete(`${API_URL}/admin/societes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiService.adminDeleteSociete(id);
       fetchData();
     } catch (err: any) {
       setError("Erreur de suppression");
     }
   }
+
+  const handleManageSociete = async (societe: Societe) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('access_token');
+      if (!token) throw new Error('Token manquant');
+
+      // Appel à select-societe pour générer le session_token
+      const response = await fetch(`${API_CONFIG.AUTH.SELECT_SOCIETE}?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cabinet_id: societe.cabinet_id,
+          societe_id: societe.id
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('session_token', data.session_token);
+        localStorage.setItem('current_societe_id', String(societe.id));
+        localStorage.setItem('current_cabinet_id', String(societe.cabinet_id));
+
+        // Rediriger vers le dashboard utilisateur
+        window.location.href = '/dashboard';
+      } else {
+        throw new Error('Échec du basculement vers la société');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="aurora-page">
@@ -171,6 +187,10 @@ export const AdminSocietes: React.FC = () => {
               });
             } else {
               setShowForm(true);
+              // Pré-remplir pour Admin simple
+              if (!isSuper && adminUser?.cabinet_id) {
+                setFormData((prev) => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
+              }
             }
             setError('');
           }}
@@ -188,17 +208,23 @@ export const AdminSocietes: React.FC = () => {
             <div className="aurora-form-grid">
               <div className="aurora-input-group span-2">
                 <label>Cabinet de rattachement</label>
-                <select
-                  className="aurora-select"
-                  value={formData.cabinet_id}
-                  onChange={(e) => setFormData({ ...formData, cabinet_id: e.target.value })}
-                  required
-                >
-                  <option value="">Sélectionner un cabinet...</option>
-                  {cabinets.map(cab => (
-                    <option key={cab.id} value={cab.id}>{cab.nom}</option>
-                  ))}
-                </select>
+                {isSuper ? (
+                  <select
+                    className="aurora-select"
+                    value={formData.cabinet_id}
+                    onChange={(e) => setFormData({ ...formData, cabinet_id: e.target.value })}
+                    required
+                  >
+                    <option value="">Sélectionner un cabinet...</option>
+                    {cabinets.map((cab: Cabinet) => (
+                      <option key={cab.id} value={cab.id}>{cab.nom}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="aurora-input-readonly">
+                    {cabinets.find((c: Cabinet) => String(c.id) === formData.cabinet_id)?.nom || (cabinets.length > 0 ? cabinets[0].nom : 'Chargement...')}
+                  </div>
+                )}
               </div>
               <div className="aurora-input-group">
                 <label>Raison Sociale</label>
@@ -276,7 +302,7 @@ export const AdminSocietes: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {societes.map((societe) => (
+                    {societes.map((societe: Societe) => (
                       <tr key={societe.id} className="aurora-tr">
                         <td>
                           <div className="aurora-td-soc">
@@ -286,7 +312,7 @@ export const AdminSocietes: React.FC = () => {
                         </td>
                         <td>
                           <span className="aurora-tag purple">
-                            {cabinets.find(c => c.id === societe.cabinet_id)?.nom || 'Inconnu'}
+                            {cabinets.find((c: Cabinet) => c.id === societe.cabinet_id)?.nom || 'Inconnu'}
                           </span>
                         </td>
                         <td>
@@ -296,6 +322,13 @@ export const AdminSocietes: React.FC = () => {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="aurora-btn-manage"
+                            title="Gérer les factures"
+                            onClick={() => handleManageSociete(societe)}
+                          >
+                            📑 Gérer
+                          </button>
                           <button className="aurora-btn-icon" onClick={() => handleEditClick(societe)}>✏️</button>
                           <button className="aurora-btn-icon delete" onClick={() => deleteSociete(societe.id)}>🗑️</button>
                         </td>
@@ -350,6 +383,11 @@ export const AdminSocietes: React.FC = () => {
           border-color: var(--admin-accent); background: rgba(255, 255, 255, 0.06);
         }
 
+        .aurora-input-readonly {
+          padding: 15px; border-radius: 14px; border: 1px solid var(--admin-glass-border);
+          background: rgba(255, 255, 255, 0.02); color: var(--admin-accent); font-weight: 700;
+        }
+
         .aurora-btn-submit {
           padding: 15px 30px; border-radius: 14px; border: none;
           background: var(--admin-gradient); color: white; font-weight: 800;
@@ -380,6 +418,24 @@ export const AdminSocietes: React.FC = () => {
 
         .aurora-btn-icon { background: transparent; border: none; padding: 8px; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
         .aurora-btn-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        
+        .aurora-btn-manage {
+          background: rgba(99, 102, 241, 0.1);
+          color: var(--admin-accent);
+          border: 1px solid rgba(99, 102, 241, 0.2);
+          padding: 6px 12px;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          margin-right: 10px;
+          transition: all 0.2s;
+        }
+        .aurora-btn-manage:hover {
+          background: var(--admin-accent);
+          color: white;
+          transform: translateY(-1px);
+        }
 
         .aurora-loader-inline { padding: 50px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
         .spinner-aurora { width: 30px; height: 30px; border: 3px solid var(--admin-glass-border); border-top-color: var(--admin-accent); border-radius: 50%; animation: spin 1s linear infinite; }

@@ -96,7 +96,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         client_ice = facture.client_ice
 
         el = EntryLine(
-            journal_entry_id=entry.id,
+            ecriture_journal_id=entry.id,
             line_order=line_order,
             account_code="3421",
             account_label="Clients",
@@ -129,8 +129,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
             el_ht = EntryLine(
-                journal_entry_id=entry.id,
-                invoice_line_id=line.id,
+                ecriture_journal_id=entry.id,
                 line_order=line_order,
                 account_code=account_code,
                 account_label=account_label,
@@ -146,8 +145,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
 
             if tva > 0:
                 el_tva = EntryLine(
-                    journal_entry_id=entry.id,
-                    invoice_line_id=line.id,
+                    ecriture_journal_id=entry.id,
                     line_order=line_order,
                     account_code="4455",
                     account_label="TVA facturée",
@@ -167,7 +165,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         ttc_total = _d(facture.montant_ttc)
 
         el = EntryLine(
-            journal_entry_id=entry.id,
+            ecriture_journal_id=entry.id,
             line_order=line_order,
             account_code="4411",
             account_label="Fournisseurs",
@@ -193,8 +191,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
             tva_account = _get_tva_account(line.pcm_class, invoice_type)
 
             el_ht = EntryLine(
-                journal_entry_id=entry.id,
-                invoice_line_id=line.id,
+                ecriture_journal_id=entry.id,
                 line_order=line_order,
                 account_code=account_code,
                 account_label=account_label,
@@ -210,8 +207,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
 
             if tva > 0:
                 el_tva = EntryLine(
-                    journal_entry_id=entry.id,
-                    invoice_line_id=line.id,
+                    ecriture_journal_id=entry.id,
                     line_order=line_order,
                     account_code=tva_account,
                     account_label="TVA récupérable",
@@ -250,8 +246,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
             tva_account = _get_tva_account(line.pcm_class, invoice_type)
 
             el_ht = EntryLine(
-                journal_entry_id=entry.id,
-                invoice_line_id=line.id,
+                ecriture_journal_id=entry.id,
                 line_order=line_order,
                 account_code=account_code,
                 account_label=account_label,
@@ -267,8 +262,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
 
             if tva > 0:
                 el_tva = EntryLine(
-                    journal_entry_id=entry.id,
-                    invoice_line_id=line.id,
+                    ecriture_journal_id=entry.id,
                     line_order=line_order,
                     account_code=tva_account,
                     account_label="TVA récupérable",
@@ -285,7 +279,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         # Crédit 4411 (Fournisseur) pour le TTC total
         ttc_total = _d(facture.montant_ttc)
         el = EntryLine(
-            journal_entry_id=entry.id,
+            ecriture_journal_id=entry.id,
             line_order=line_order,
             account_code="4411",
             account_label="Fournisseurs",
@@ -303,23 +297,6 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     entry.total_debit = total_debit
     entry.total_credit = total_credit
 
-    # Backfill: si une ligne d'écriture référence une invoice_line_id et que
-    # l'InvoiceLine n'a pas de pcm_account_code, copier l'account_code généré
-    for el in entry_lines:
-        try:
-            if getattr(el, "invoice_line_id", None) and getattr(el, "account_code", None):
-                inv = db.query(InvoiceLine).filter(InvoiceLine.id == el.invoice_line_id).first()
-                if inv:
-                    # n'écrase pas une correction manuelle
-                    if not inv.corrected_account_code and not inv.pcm_account_code:
-                        inv.pcm_account_code = el.account_code
-                        # copier aussi le libellé si absent
-                        if not inv.pcm_account_label and getattr(el, "account_label", None):
-                            inv.pcm_account_label = el.account_label
-                        db.add(inv)
-        except Exception:
-            # Ne pas stopper la génération d'écritures si le backfill échoue
-            pass
 
     db.commit()
     db.refresh(entry)

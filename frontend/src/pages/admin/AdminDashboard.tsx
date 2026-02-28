@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiService from '../../api';
 import { useNavigate } from 'react-router-dom';
-import { getAdminToken } from '../../utils/adminTokenDecoder';
+import { getAdminUser } from '../../utils/adminTokenDecoder';
 
 interface Stats {
   total_agents: number;
@@ -30,8 +30,6 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
-
   const getErrorMessage = (err: any) => {
     const detail = err.response?.data?.detail;
     if (typeof detail === 'string') return detail;
@@ -40,24 +38,13 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = getAdminToken();
-      if (!token) {
-        setError('Session expirée');
-        setLoading(false);
-        return;
-      }
-
       try {
-        const [statsRes, activitiesRes] = await Promise.all([
-          axios.get(`${API_URL}/admin/stats/global`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          axios.get(`${API_URL}/admin/activities`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+        const [statsData, activitiesData] = await Promise.all([
+          apiService.adminGetGlobalStats(),
+          apiService.adminGetActivities()
         ]);
-        setStats(statsRes.data);
-        setActivities(activitiesRes.data.activities);
+        setStats(statsData);
+        setActivities(activitiesData.activities);
       } catch (err: any) {
         setError(getErrorMessage(err));
       } finally {
@@ -66,7 +53,7 @@ export const AdminDashboard: React.FC = () => {
     };
 
     fetchData();
-  }, [API_URL]);
+  }, []);
 
   const AuroraWidget = ({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) => (
     <div className="aurora-widget aurora-card">
@@ -90,10 +77,18 @@ export const AdminDashboard: React.FC = () => {
     });
   };
 
+  const cabinets = JSON.parse(localStorage.getItem('cabinets') || '[]');
+  const isSuper = localStorage.getItem('is_super_admin') === 'true';
+  const cabinetId = getAdminUser()?.cabinet_id;
+  const currentCabinet = cabinets.find((c: any) => c.id === cabinetId);
+  const cabinetName = currentCabinet ? currentCabinet.nom : '';
+
   return (
     <div className="admin-dashboard-aurora">
       <div className="dashboard-welcome">
-        <h1 className="glass-text">Vue d'ensemble</h1>
+        <h1 className="glass-text">
+          {isSuper ? "Vue d'ensemble" : `Dashboard - ${cabinetName}`}
+        </h1>
         <p>Bienvenue dans votre centre de commande Aurora.</p>
       </div>
 
@@ -106,12 +101,26 @@ export const AdminDashboard: React.FC = () => {
         </div>
       ) : (
         <div className="dashboard-grid-aurora">
-          <AuroraWidget title="Cabinets" value={stats.total_cabinets} icon="🏢" color="#6366f1" />
-          <AuroraWidget title="Sociétés" value={stats.total_societes} icon="🏬" color="#a855f7" />
-          <AuroraWidget title="Agents" value={stats.total_agents} icon="👥" color="#ec4899" />
-          <AuroraWidget title="Factures" value={stats.total_factures} icon="📄" color="#f59e0b" />
+          {isSuper && (
+            <AuroraWidget title="Cabinets" value={stats.total_cabinets} icon="🏢" color="#6366f1" />
+          )}
 
-          <div className="aurora-wide-card aurora-card span-2">
+          {/* Masquer Sociétés et Factures pour le Super Admin */}
+          {!isSuper && (
+            <>
+              <AuroraWidget title="Sociétés" value={stats.total_societes} icon="🏬" color="#a855f7" />
+              <AuroraWidget title="Factures" value={stats.total_factures} icon="📄" color="#f59e0b" />
+            </>
+          )}
+
+          <AuroraWidget
+            title={isSuper ? "Administrateurs" : "Agents"}
+            value={stats.total_agents}
+            icon="👥"
+            color="#ec4899"
+          />
+
+          <div className={`aurora-wide-card aurora-card ${isSuper ? 'span-3' : 'span-2'}`}>
             <div className="card-header-premium">
               <h2 className="glass-text">Activités Récentes</h2>
               <span className="live-status">LIVE</span>
@@ -136,9 +145,17 @@ export const AdminDashboard: React.FC = () => {
           <div className="aurora-info-card aurora-card">
             <h2 className="glass-text">Raccourcis</h2>
             <div className="shortcut-grid">
-              <button className="shortcut-btn" onClick={() => navigate('/admin/cabinets')}>Ajouter Cabinet</button>
-              <button className="shortcut-btn" onClick={() => navigate('/admin/agents')}>Nouvel Agent</button>
-              <button className="shortcut-btn" onClick={() => alert('Fonctionnalité de rapports PDF bientôt disponible !')}>Rapports PDF</button>
+              <button className="shortcut-btn" onClick={() => navigate(isSuper ? '/admin/cabinets' : '/admin/societes')}>
+                {isSuper ? 'Gérer Cabinets' : 'Gérer Sociétés'}
+              </button>
+              <button className="shortcut-btn" onClick={() => navigate('/admin/agents')}>
+                {isSuper ? 'Gérer Admins' : 'Nouvel Agent'}
+              </button>
+              {!isSuper && (
+                <button className="shortcut-btn" onClick={() => alert('Fonctionnalité de rapports PDF bientôt disponible !')}>
+                  Rapports PDF
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,30 +1,37 @@
 import axios from 'axios'
 import { getSessionContext } from './utils/tokenDecoder'
 
+// Force /api to use Vite's proxy - DO NOT use VITE_API_URL environment variable
+// because Vite variables are build-time embedded, and the Docker env var might
+// be resolving to 'http://backend:8000' which is an internal Docker hostname
+// not accessible from the browser.
 const API_BASE = '/api'
 
 console.log('[API] Initializing with base URL:', API_BASE)
 
 const api = axios.create({
     baseURL: API_BASE,
-    timeout: 60000,  // Increased from 15s to 60s for generic calls
+    timeout: 60000,
 })
 
-// Attach session_token (if present) as Authorization Bearer for all requests
+/**
+ * Intercepteur de requêtes pour injecter le token d'authentification.
+ * Gère deux types de tokens :
+ * - access_token : Token principal de l'agent.
+ * - session_token : Token spécifique à la société sélectionnée (contexte cabinet).
+ */
 api.interceptors.request.use((config) => {
     try {
         const session = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
         const access = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
         const tokenToUse = session || access
+        const tokenType = session ? 'SESSION' : (access ? 'ACCESS' : 'NONE')
 
-        console.log('[Axios Interceptor] Request to:', config.url, 'Token found:', tokenToUse ? 'YES' : 'NONE')
+        console.log(`[Axios Interceptor] Request to: ${config.url} | Token: ${tokenType}`)
 
         if (tokenToUse) {
             config.headers = config.headers || {}
             config.headers['Authorization'] = `Bearer ${tokenToUse}`
-            console.log('[Axios Interceptor] ✅ Added Authorization header')
-        } else {
-            console.warn('[Axios Interceptor] ⚠️ No token found')
         }
     } catch (e) {
         console.error('[Axios Interceptor] Error:', e)
@@ -127,19 +134,26 @@ export interface JournalEntry {
 
 // ── API calls ──────────────────────────────────────────────
 
+/**
+ * Service central pour tous les appels vers l'API Backend.
+ * Chaque méthode correspond à un endpoint FastAPI.
+ */
 export const apiService = {
     // Liste des factures
     listFactures: (status?: string) =>
         api.get('/factures/', { params: { status } }).then(r => r.data),
 
     // Upload
+    /**
+     * Téléverse une facture vers le serveur.
+     * @param file Fichier image ou PDF sélectionné par l'utilisateur.
+     */
     uploadFacture: (file: File) => {
         const form = new FormData()
         form.append('file', file)
-        // session_token is sent automatically via Authorization header interceptor
-        return api.post(`/factures/upload-facture/`, form, {
+        return api.post(`/factures/upload`, form, {
             headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 120000  // 2 minutes for upload + OCR
+            timeout: 120000
         }).then(r => r.data)
     },
 
@@ -223,6 +237,36 @@ export const apiService = {
     // Mise à jour profil (Agent)
     updateProfile: (data: any) =>
         api.put('/auth/profile', data).then(r => r.data),
+
+    // ── Admin Routes ──────────────────────────────────────────
+    adminListAgents: () => api.get('/admin/agents').then(r => r.data),
+    adminCreateAgent: (data: any, cabinetId: string) =>
+        api.post(`/admin/agents?cabinet_id=${cabinetId}`, data).then(r => r.data),
+    adminUpdateAgent: (id: number, data: any) =>
+        api.put(`/admin/agents/${id}`, data).then(r => r.data),
+    adminDeleteAgent: (id: number) =>
+        api.delete(`/admin/agents/${id}`).then(r => r.data),
+
+    adminListCabinets: () => api.get('/admin/cabinets').then(r => r.data),
+    adminCreateCabinet: (data: any) => api.post('/admin/cabinets', data).then(r => r.data),
+    adminUpdateCabinet: (id: number, data: any) => api.put(`/admin/cabinets/${id}`, data).then(r => r.data),
+    adminDeleteCabinet: (id: number) => api.delete(`/admin/cabinets/${id}`).then(r => r.data),
+    adminListSocietes: () => api.get('/admin/societes').then(r => r.data),
+    adminCreateSociete: (data: any, cabinetId: string) =>
+        api.post(`/admin/societes?cabinet_id=${cabinetId}`, data).then(r => r.data),
+    adminUpdateSociete: (id: number, data: any) =>
+        api.put(`/admin/societes/${id}`, data).then(r => r.data),
+    adminDeleteSociete: (id: number) =>
+        api.delete(`/admin/societes/${id}`).then(r => r.data),
+
+    adminGetProfile: () => api.get('/admin/profile').then(r => r.data),
+    adminUpdateProfile: (data: any) => api.put('/admin/profile', data).then(r => r.data),
+    adminGetGlobalStats: () => api.get('/admin/stats/global').then(r => r.data),
+    adminGetActivities: () => api.get('/admin/activities').then(r => r.data),
+    adminAssignSocieteToAgent: (cabinetId: number, agentId: number, societeId: number) =>
+        api.post(`/admin/cabinets/${cabinetId}/agents/assign-societe?agent_id=${agentId}&societe_id=${societeId}`).then(r => r.data),
+    adminGetLogs: (offset: number = 0, limit: number = 50) =>
+        api.get('/admin/logs', { params: { offset, limit } }).then(r => r.data),
 }
 
 

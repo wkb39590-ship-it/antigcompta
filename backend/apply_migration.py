@@ -30,9 +30,12 @@ def apply_migration():
             prenom VARCHAR(255),
             is_active BOOLEAN DEFAULT TRUE,
             is_admin BOOLEAN DEFAULT FALSE,
+            is_super_admin BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""",
+        
+        "ALTER TABLE agents ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE",
         
         "CREATE INDEX IF NOT EXISTS ix_agents_cabinet_id ON agents(cabinet_id)",
         
@@ -42,15 +45,29 @@ def apply_migration():
         "ALTER TABLE societes ADD COLUMN IF NOT EXISTS patente VARCHAR(50)",
         "ALTER TABLE societes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
         
+        # Mettre à jour la table Factures (Correction Erreur 500 Profil)
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS validated_by VARCHAR(255)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS validated_at TIMESTAMP",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS reject_reason TEXT",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS fournisseur VARCHAR(255)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS operation_type VARCHAR(50)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS if_frs VARCHAR(50)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS ice_frs VARCHAR(50)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS designation VARCHAR(255)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS id_paie VARCHAR(50)",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS date_paie DATE",
+        
         # Créer table d'association Agent-Societe
-        """CREATE TABLE IF NOT EXISTS agent_societes (
+        """CREATE TABLE IF NOT EXISTS agents_societes (
             agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
             societe_id INTEGER NOT NULL REFERENCES societes(id) ON DELETE CASCADE,
             PRIMARY KEY (agent_id, societe_id)
         )""",
         
-        "CREATE INDEX IF NOT EXISTS ix_agent_societes_agent_id ON agent_societes(agent_id)",
-        "CREATE INDEX IF NOT EXISTS ix_agent_societes_societe_id ON agent_societes(societe_id)",
+        "CREATE INDEX IF NOT EXISTS ix_agents_societes_agent_id ON agents_societes(agent_id)",
+        "CREATE INDEX IF NOT EXISTS ix_agents_societes_societe_id ON agents_societes(societe_id)",
         
         # Créer table CompteurFacturation
         """CREATE TABLE IF NOT EXISTS compteurs_facturation (

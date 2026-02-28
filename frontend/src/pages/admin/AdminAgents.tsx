@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { getAdminToken } from '../../utils/adminTokenDecoder';
+import apiService from '../../api';
+import { getAdminToken, getAdminUser } from '../../utils/adminTokenDecoder';
 
 interface Agent {
   id: number;
@@ -10,12 +10,19 @@ interface Agent {
   nom: string;
   prenom: string;
   is_admin: boolean;
+  is_super_admin: boolean;
   is_active: boolean;
 }
 
 interface Cabinet {
   id: number;
   nom: string;
+}
+
+interface Societe {
+  id: number;
+  raison_sociale: string;
+  cabinet_id: number;
 }
 
 export const AdminAgents: React.FC = () => {
@@ -33,9 +40,14 @@ export const AdminAgents: React.FC = () => {
     prenom: '',
     is_admin: false,
     cabinet_id: '',
+    societe_id: '', // Nouveau champ
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
+  const [societes, setSocietes] = useState<Societe[]>([]);
+
+
+  const adminUser = getAdminUser();
+  const isSuper = adminUser?.is_super_admin === true;
 
   const getErrorMessage = (err: any) => {
     const detail = err.response?.data?.detail;
@@ -48,24 +60,33 @@ export const AdminAgents: React.FC = () => {
   }, []);
 
   const fetchData = async () => {
-    const token = getAdminToken();
-    if (!token) {
-      setError('Session expirée');
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
-      const [agentsRes, cabsRes] = await Promise.all([
-        axios.get(`${API_URL}/admin/agents`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/admin/cabinets`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+      const [agentsData, cabsData, socData] = await Promise.all([
+        apiService.adminListAgents(),
+        isSuper ? apiService.adminListCabinets() : Promise.resolve(JSON.parse(localStorage.getItem('cabinets') || '[]')),
+        apiService.adminListSocietes()
       ]);
-      setAgents(Array.isArray(agentsRes.data) ? agentsRes.data : []);
-      setCabinets(Array.isArray(cabsRes.data) ? cabsRes.data : []);
+
+      // Filtrage des agents
+      const filteredAgents = (Array.isArray(agentsData) ? agentsData : [])
+        .filter((a: any) => {
+          // Si Super Admin, on ne montre que les administrateurs de cabinets (is_admin=true ET is_super_admin=false)
+          if (isSuper) {
+            return a.is_admin && !a.is_super_admin;
+          }
+          // Si Admin simple, on ne montre que les autres membres du cabinet
+          return a.id !== adminUser?.id;
+        });
+
+      setAgents(filteredAgents);
+      setCabinets(Array.isArray(cabsData) ? cabsData : []);
+      setSocietes(Array.isArray(socData) ? socData : []);
+
+      // Pré-remplir Cabinet pour Admin simple
+      if (!isSuper && adminUser?.cabinet_id) {
+        setFormData(prev => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
+      }
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -75,11 +96,6 @@ export const AdminAgents: React.FC = () => {
 
   const handleCreateAgent = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = getAdminToken();
-    if (!token) {
-      setError('Session expirée');
-      return;
-    }
     if (!formData.cabinet_id) {
       setError('Sélectionnez un cabinet');
       return;
@@ -90,7 +106,7 @@ export const AdminAgents: React.FC = () => {
         email: formData.email,
         nom: formData.nom,
         prenom: formData.prenom,
-        is_admin: formData.is_admin,
+        is_admin: isSuper ? true : formData.is_admin, // Forcer is_admin si Super Admin crée
       };
 
       if (formData.password) {
@@ -98,21 +114,22 @@ export const AdminAgents: React.FC = () => {
       }
 
       if (editingAgent) {
-        await axios.put(
-          `${API_URL}/admin/agents/${editingAgent.id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await apiService.adminUpdateAgent(editingAgent.id, payload);
       } else {
         if (!formData.password) {
           setError('Le mot de passe est obligatoire pour un nouvel agent');
           return;
         }
-        await axios.post(
-          `${API_URL}/admin/agents?cabinet_id=${formData.cabinet_id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const newAgent = await apiService.adminCreateAgent(payload, formData.cabinet_id);
+
+        // Nouvelle fonctionnalité: Assignation immédiate si société choisie
+        if (formData.societe_id) {
+          await apiService.adminAssignSocieteToAgent(
+            Number(formData.cabinet_id),
+            newAgent.id,
+            Number(formData.societe_id)
+          );
+        }
       }
       setFormData({
         username: '',
@@ -121,7 +138,8 @@ export const AdminAgents: React.FC = () => {
         nom: '',
         prenom: '',
         is_admin: false,
-        cabinet_id: '',
+        cabinet_id: isSuper ? '' : String(adminUser?.cabinet_id || ''),
+        societe_id: '',
       });
       setShowForm(false);
       setEditingAgent(null);
@@ -136,23 +154,20 @@ export const AdminAgents: React.FC = () => {
     setFormData({
       username: agent.username,
       email: agent.email,
-      password: '', // On ne remplit pas le mot de passe par sécurité
+      password: '',
       nom: agent.nom,
       prenom: agent.prenom,
       is_admin: agent.is_admin,
       cabinet_id: String(agent.cabinet_id),
+      societe_id: '', // On ne touche pas aux associations existantes ici
     });
     setShowForm(true);
   };
 
   const handleDeleteAgent = async (id: number) => {
     if (!window.confirm('Supprimer cet agent ?')) return;
-    const token = getAdminToken();
-    if (!token) return;
     try {
-      await axios.delete(`${API_URL}/admin/agents/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiService.adminDeleteAgent(id);
       fetchData();
     } catch (err: any) {
       setError(getErrorMessage(err));
@@ -163,8 +178,8 @@ export const AdminAgents: React.FC = () => {
     <div className="aurora-page">
       <div className="aurora-page-header">
         <div>
-          <h1 className="glass-text">Équipe Agents</h1>
-          <p className="aurora-subtitle">Gérez les collaborateurs et leurs accès.</p>
+          <h1 className="glass-text">{isSuper ? 'Administrateurs' : 'Agents de Comptabilité'}</h1>
+          <p className="aurora-subtitle">{isSuper ? 'Gérez les administrateurs de tous les cabinets partenaires.' : 'Gérez les membres de votre équipe et leurs accès.'}</p>
         </div>
         <button
           className={`aurora-fab ${showForm ? 'active' : ''}`}
@@ -179,10 +194,15 @@ export const AdminAgents: React.FC = () => {
                 nom: '',
                 prenom: '',
                 is_admin: false,
-                cabinet_id: '',
+                cabinet_id: isSuper ? '' : String(adminUser?.cabinet_id || ''),
+                societe_id: '',
               });
             } else {
               setShowForm(true);
+              // Pré-remplir Cabinet pour Admin simple
+              if (!isSuper && adminUser?.cabinet_id) {
+                setFormData(prev => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
+              }
             }
             setError('');
           }}
@@ -200,18 +220,43 @@ export const AdminAgents: React.FC = () => {
             <div className="aurora-form-grid">
               <div className="aurora-input-group span-2">
                 <label>Cabinet d'affectation</label>
-                <select
-                  className="aurora-select"
-                  value={formData.cabinet_id}
-                  onChange={(e) => setFormData({ ...formData, cabinet_id: e.target.value })}
-                  required
-                >
-                  <option value="">Choisir un cabinet...</option>
-                  {cabinets.map(cab => (
-                    <option key={cab.id} value={cab.id}>{cab.nom}</option>
-                  ))}
-                </select>
+                {isSuper ? (
+                  <select
+                    className="aurora-select"
+                    value={formData.cabinet_id}
+                    onChange={(e) => setFormData({ ...formData, cabinet_id: e.target.value, societe_id: '' })}
+                    required
+                  >
+                    <option value="">Choisir un cabinet...</option>
+                    {cabinets.map(cab => (
+                      <option key={cab.id} value={cab.id}>{cab.nom}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="aurora-input-readonly">
+                    {cabinets.find(c => String(c.id) === formData.cabinet_id)?.nom || (cabinets.length > 0 ? cabinets[0].nom : 'Chargement...')}
+                  </div>
+                )}
               </div>
+
+              {!editingAgent && (
+                <div className="aurora-input-group span-2">
+                  <label>Assigner à une société (Optionnel)</label>
+                  <select
+                    className="aurora-select"
+                    value={formData.societe_id}
+                    onChange={(e) => setFormData({ ...formData, societe_id: e.target.value })}
+                  >
+                    <option value="">-- Aucune société pour le moment --</option>
+                    {societes
+                      .filter(s => String(s.cabinet_id) === formData.cabinet_id)
+                      .map(soc => (
+                        <option key={soc.id} value={soc.id}>{soc.raison_sociale}</option>
+                      ))
+                    }
+                  </select>
+                </div>
+              )}
               <div className="aurora-input-group">
                 <label>Prénom</label>
                 <input
@@ -328,8 +373,8 @@ export const AdminAgents: React.FC = () => {
                         </td>
                         <td>
                           <div className="aurora-status-pills">
-                            <span className={`aurora-pill ${agent.is_admin ? 'gold' : 'silver'}`}>
-                              {agent.is_admin ? 'Admin' : 'Agent'}
+                            <span className={`aurora-pill ${agent.is_super_admin ? 'gold' : (agent.is_admin ? 'gold' : 'silver')}`}>
+                              {agent.is_super_admin ? 'Super-Admin' : (agent.is_admin ? 'Admin' : 'Agent')}
                             </span>
                             <span className={`aurora-pill ${agent.is_active ? 'active' : 'inactive'}`}>
                               {agent.is_active ? 'Actif' : 'Bloqué'}
@@ -389,6 +434,11 @@ export const AdminAgents: React.FC = () => {
         }
         .aurora-input-group input:focus, .aurora-select:focus {
           border-color: var(--admin-accent); background: rgba(255, 255, 255, 0.06);
+        }
+
+        .aurora-input-readonly {
+          padding: 15px; border-radius: 14px; border: 1px solid var(--admin-glass-border);
+          background: rgba(255, 255, 255, 0.02); color: var(--admin-accent); font-weight: 700;
         }
 
         .aurora-checkbox-group { display: flex; align-items: center; padding: 10px 0; }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { getAdminToken, getAdminUser, setAdminSession } from '../../utils/adminTokenDecoder';
+import apiService from '../../api';
+import { getAdminUser, setAdminSession } from '../../utils/adminTokenDecoder';
 
 interface GlobalStats {
   total_cabinets: number;
@@ -24,20 +24,14 @@ export const AdminProfile: React.FC = () => {
     password: '',
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
-
   useEffect(() => {
     fetchStats();
   }, []);
 
   const fetchStats = async () => {
-    const token = getAdminToken();
-    if (!token) return;
     try {
-      const res = await axios.get(`${API_URL}/admin/stats/global`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStats(res.data);
+      const data = await apiService.adminGetGlobalStats();
+      setStats(data);
     } catch (err) {
       console.error('Erreur stats globales:', err);
     } finally {
@@ -47,17 +41,16 @@ export const AdminProfile: React.FC = () => {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = getAdminToken();
-    if (!token) return;
-
     try {
       setError('');
       setMessage('');
-      const res = await axios.put(`${API_URL}/admin/profile`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const data = await apiService.adminUpdateProfile(formData);
 
-      setAdminSession(token, res.data);
+      // Le token est déjà géré par l'intercepteur pour les requêtes suivantes
+      // Mais on doit mettre à jour les infos utilisateur en local (localStorage via setAdminSession)
+      const token = localStorage.getItem('admin_token') || '';
+      setAdminSession(token, data);
+
       setMessage('Profil synchronisé avec succès !');
       setIsEditing(false);
       setFormData(prev => ({ ...prev, password: '' }));

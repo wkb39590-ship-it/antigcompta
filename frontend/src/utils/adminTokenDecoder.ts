@@ -9,6 +9,7 @@ export interface AdminUser {
   nom?: string
   prenom?: string
   is_admin: boolean
+  is_super_admin: boolean
   cabinet_id: number
 }
 
@@ -78,6 +79,8 @@ export function setAdminSession(token: string, user: AdminUser): void {
 export function clearAdminSession(): void {
   localStorage.removeItem('admin_token')
   localStorage.removeItem('admin_user')
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('session_token')
 }
 
 /**
@@ -86,5 +89,5 @@ export function clearAdminSession(): void {
 export function isAdminLoggedIn(): boolean {
   const token = getAdminToken()
   const user = getAdminUser()
-  return !!(token && user && user.is_admin)
+  return !!(token && user && (user.is_admin || user.is_super_admin))
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiService from '../../api';
 
 interface Cabinet {
   id: number;
@@ -22,8 +22,6 @@ export const AdminCabinets: React.FC = () => {
     adresse: '',
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8888';
-
   useEffect(() => {
     fetchCabinets();
   }, []);
@@ -35,18 +33,10 @@ export const AdminCabinets: React.FC = () => {
   };
 
   const fetchCabinets = async () => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      setError('Session expirée');
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/admin/cabinets`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCabinets(Array.isArray(response.data) ? response.data : []);
+      const data = await apiService.adminListCabinets();
+      setCabinets(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -56,25 +46,14 @@ export const AdminCabinets: React.FC = () => {
 
   const handleCreateCabinet = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      setError('Session expirée');
-      return;
-    }
     try {
       setError('');
       if (editingCabinet) {
-        await axios.put(
-          `${API_URL}/admin/cabinets/${editingCabinet.id}`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        // Note: adminUpdateCabinet not yet in apiService, let's add it if needed or use a generic put
+        // For now I only added adminListAgents/Cabinets. Let's add the rest to api.ts properly.
+        await apiService.adminUpdateCabinet(editingCabinet.id, formData);
       } else {
-        await axios.post(
-          `${API_URL}/admin/cabinets`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await apiService.adminCreateCabinet(formData);
       }
       setFormData({ nom: '', email: '', telephone: '', adresse: '' });
       setShowForm(false);
@@ -98,13 +77,8 @@ export const AdminCabinets: React.FC = () => {
 
   const handleDeleteCabinet = async (id: number) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce cabinet ?')) return;
-    const token = localStorage.getItem('admin_token');
-    if (!token) return;
-
     try {
-      await axios.delete(`${API_URL}/admin/cabinets/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiService.adminDeleteCabinet(id);
       fetchCabinets();
     } catch (err: any) {
       setError(getErrorMessage(err));

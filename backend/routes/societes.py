@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import get_db
-from models import Societe, Agent, agent_societes
+from models import Societe, Agent, agents_societes
 from routes.auth import get_current_agent
 
 router = APIRouter(prefix="/societes", tags=["societes"])
@@ -26,7 +26,7 @@ def list_societes(agent: Agent = Depends(get_current_agent), db: Session = Depen
     """Liste les sociétés du cabinet. Si non-admin, retourne seulement celles assignées à l'agent."""
     query = db.query(Societe).filter(Societe.cabinet_id == agent.cabinet_id)
     if not agent.is_admin:
-        query = query.join(agent_societes).filter(agent_societes.c.agent_id == agent.id)
+        query = query.join(agents_societes).filter(agents_societes.c.agent_id == agent.id)
     societes = query.all()
     return [
         {
