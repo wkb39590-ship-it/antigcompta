@@ -100,6 +100,8 @@ class Societe(Base):
     )
     factures = relationship("Facture", back_populates="societe", foreign_keys="[Facture.societe_id]", cascade="all, delete-orphan")
     compteurs = relationship("CompteurFacturation", back_populates="societe", cascade="all, delete-orphan")
+    immobilisations = relationship("Immobilisation", back_populates="societe", cascade="all, delete-orphan")
+    employes = relationship("Employe", back_populates="societe", cascade="all, delete-orphan")
 
 
 # ─────────────────────────────────────────────
@@ -316,7 +318,7 @@ class JournalEntry(Base):
     __tablename__ = "ecritures_journal"
 
     id = Column(Integer, primary_key=True, index=True)
-    facture_id = Column(Integer, ForeignKey("factures.id", ondelete="CASCADE"), nullable=False, index=True)
+    facture_id = Column(Integer, ForeignKey("factures.id", ondelete="CASCADE"), nullable=True, index=True)
 
     journal_code = Column(String(10), nullable=False)  # ACH/VTE/OD/BQ/CAIS
     entry_date = Column(Date, nullable=True)
@@ -380,3 +382,193 @@ class ActionLog(Base):
     agent = relationship("Agent")
 
 # Fin du fichier modèles.
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# IMMOBILISATION — Actifs immobilisés (corporels, incorporels, financiers)
+# ──────────────────────────────────────────────────────────────────────────
+class Immobilisation(Base):
+    """
+    Représente un bien immobilisé acquis par la société.
+    Supporte le calcul du plan d'amortissement (linéaire ou dégressif).
+    """
+    __tablename__ = "immobilisations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    societe_id = Column(Integer, ForeignKey("societes.id"), nullable=False, index=True)
+    facture_id = Column(Integer, ForeignKey("factures.id"), nullable=True, index=True)  # Lien optionnel à la facture source
+
+    # Description
+    designation = Column(String(500), nullable=False)
+    categorie = Column(String(30), nullable=True, server_default="CORPORELLE")
+    # CORPORELLE (matériel, véhicule) / INCORPORELLE (logiciel, brevet) / FINANCIERE (titres)
+
+    # Acquisition
+    date_acquisition = Column(Date, nullable=False)
+    valeur_acquisition = Column(Numeric(15, 2), nullable=False)  # HT
+    tva_acquisition = Column(Numeric(15, 2), nullable=True)      # TVA récupérable
+
+    # Amortissement
+    duree_amortissement = Column(Integer, nullable=False)         # En années
+    taux_amortissement = Column(Numeric(6, 4), nullable=True)     # Calculé automatiquement
+    methode = Column(String(20), nullable=False, server_default="LINEAIRE")  # LINEAIRE / DEGRESSIF
+
+    # Comptes PCM associés
+    compte_actif_pcm = Column(String(10), nullable=True)          # ex: 2355 (Matériel informatique)
+    compte_amort_pcm = Column(String(10), nullable=True)          # ex: 2835 (Amort. matériel info)
+    compte_dotation_pcm = Column(String(10), nullable=True)       # ex: 6193 (Dotations)
+
+    # Statut
+    statut = Column(String(20), nullable=False, server_default="ACTIF")
+    # ACTIF / CEDE / MIS_EN_REBUT / TOTALEMENT_AMORTI
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # Relations
+    societe = relationship("Societe", back_populates="immobilisations")
+    facture = relationship("Facture")
+    lignes_amortissement = relationship("LigneAmortissement", back_populates="immobilisation", cascade="all, delete-orphan")
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# LIGNE D'AMORTISSEMENT — Plan d'amortissement annuel
+# ──────────────────────────────────────────────────────────────────────────
+class LigneAmortissement(Base):
+    """
+    Représente une ligne du plan d'amortissement pour une immobilisation.
+    Une ligne par année de la durée d'amortissement.
+    """
+    __tablename__ = "lignes_amortissement"
+
+    id = Column(Integer, primary_key=True, index=True)
+    immobilisation_id = Column(Integer, ForeignKey("immobilisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    annee = Column(Integer, nullable=False)                              # Année comptable
+    dotation_annuelle = Column(Numeric(15, 2), nullable=False)           # Dotation de l'année
+    amortissement_cumule = Column(Numeric(15, 2), nullable=False)        # Cumul des dotations
+    valeur_nette_comptable = Column(Numeric(15, 2), nullable=False)      # VNC = Valeur - Cumul
+
+    # Écriture comptable générée pour cet exercice
+    ecriture_generee = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # Relations
+    immobilisation = relationship("Immobilisation", back_populates="lignes_amortissement")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODULE PAIE — Gestion de la rémunération du personnel
+# ══════════════════════════════════════════════════════════════════════════════
+
+class Employe(Base):
+    """
+    Représente un employé d'une société cliente.
+    Contient les données servant au calcul du bulletin de paie.
+    """
+    __tablename__ = "employes"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    societe_id     = Column(Integer, ForeignKey("societes.id"), nullable=False, index=True)
+
+    # Identité
+    nom            = Column(String(100), nullable=False)
+    prenom         = Column(String(100), nullable=True)
+    cin            = Column(String(20), nullable=True, unique=False)
+    date_naissance = Column(Date, nullable=True)
+
+    # Emploi
+    poste          = Column(String(200), nullable=True)
+    date_embauche  = Column(Date, nullable=False)
+    type_contrat   = Column(String(20), nullable=True, server_default="CDI")  # CDI / CDD / INTERIM
+
+    # Salaire
+    salaire_base   = Column(Numeric(12, 2), nullable=False)    # Salaire de base brut (MAD)
+    nb_enfants     = Column(Integer, nullable=False, default=0) # Pour déduction IR
+    anciennete_pct = Column(Numeric(5, 2), nullable=True, default=0)  # Prime d'ancienneté %
+
+    # CNSS
+    numero_cnss    = Column(String(30), nullable=True)
+    affiliee_cnss  = Column(Boolean, default=True)
+
+    # Statut
+    statut         = Column(String(20), nullable=False, server_default="ACTIF")  # ACTIF / SUSPENDU / REVOQUE
+
+    created_at     = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at     = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # Relations
+    societe   = relationship("Societe", back_populates="employes")
+    bulletins = relationship("BulletinPaie", back_populates="employe", cascade="all, delete-orphan")
+
+
+class BulletinPaie(Base):
+    """
+    Bulletin de paie mensuel d'un employé.
+    Stocke le résultat du calcul (brut, cotisations, net).
+    """
+    __tablename__ = "bulletins_paie"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    employe_id     = Column(Integer, ForeignKey("employes.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    mois           = Column(Integer, nullable=False)   # 1-12
+    annee          = Column(Integer, nullable=False)
+
+    # Salaire brut
+    salaire_base   = Column(Numeric(12, 2), nullable=False)
+    prime_anciennete = Column(Numeric(12, 2), nullable=True, default=0)
+    autres_gains   = Column(Numeric(12, 2), nullable=True, default=0)  # Primes, heures sup...
+    salaire_brut   = Column(Numeric(12, 2), nullable=False)  # = base + ancienneté + primes
+
+    # Cotisations salariales
+    cnss_salarie   = Column(Numeric(10, 2), nullable=False, default=0)  # 4.48% plafonné
+    amo_salarie    = Column(Numeric(10, 2), nullable=False, default=0)  # 2.26%
+    ir_retenu      = Column(Numeric(10, 2), nullable=False, default=0)  # Barème progressif
+    total_retenues = Column(Numeric(10, 2), nullable=False, default=0)
+
+    # Cotisations patronales (charge de l'entreprise)
+    cnss_patronal  = Column(Numeric(10, 2), nullable=False, default=0)  # 10.64% plafonné
+    amo_patronal   = Column(Numeric(10, 2), nullable=False, default=0)  # 3.94%
+    total_patronal = Column(Numeric(10, 2), nullable=False, default=0)
+
+    # Net
+    salaire_net    = Column(Numeric(12, 2), nullable=False)  # Brut - cotisations salariales
+    cout_total_employeur = Column(Numeric(12, 2), nullable=True)  # Brut + cotisations patronales
+
+    # Écriture comptable liée
+    journal_entry_id = Column(Integer, ForeignKey("ecritures_journal.id"), nullable=True)
+
+    statut         = Column(String(20), nullable=False, server_default="BROUILLON")  # BROUILLON / VALIDE
+    valide_par     = Column(String(100), nullable=True)
+    valide_at      = Column(DateTime, nullable=True)
+
+    created_at     = Column(DateTime, nullable=False, server_default=func.now())
+
+    # Relations
+    employe        = relationship("Employe", back_populates="bulletins")
+    lignes         = relationship("LignePaie", back_populates="bulletin", cascade="all, delete-orphan")
+    journal_entry  = relationship("JournalEntry")
+
+
+class LignePaie(Base):
+    """
+    Ligne de détail d'un bulletin de paie.
+    Chaque ligne représente un GAIN (positif) ou une RETENUE (négatif).
+    """
+    __tablename__ = "lignes_paie"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    bulletin_id    = Column(Integer, ForeignKey("bulletins_paie.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    libelle        = Column(String(300), nullable=False)   # ex: "Salaire de base", "CNSS salarié"
+    type_ligne     = Column(String(10), nullable=False)    # GAIN / RETENUE
+    montant        = Column(Numeric(12, 2), nullable=False)
+    taux           = Column(Numeric(6, 4), nullable=True)  # ex: 0.0448 pour CNSS
+    base_calcul    = Column(Numeric(12, 2), nullable=True) # Sur quelle assiette est calculé ce montant
+
+    ordre          = Column(Integer, nullable=True, default=0)  # Ordre d'affichage
+
+    # Relations
+    bulletin       = relationship("BulletinPaie", back_populates="lignes")

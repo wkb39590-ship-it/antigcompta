@@ -8,6 +8,10 @@ import Profile from './pages/Profile'
 import History from './pages/History'
 import SupplierDirectory from './pages/SupplierDirectory'
 import Login from './pages/Login'
+import Avoirs from './pages/Avoirs'
+import Immobilisations from './pages/Immobilisations'
+import JournalComptable from './pages/JournalComptable'
+import Paie from './pages/Paie'
 
 import CabinetSelector from './pages/CabinetSelector'
 import { getSessionContext } from './utils/tokenDecoder'
@@ -59,12 +63,16 @@ function Sidebar() {
     const societeDisplay = session?.societe_raison_sociale || 'Société non sélectionnée'
 
     const navItems = [
-        { to: '/dashboard', label: 'Tableau de bord' },
-        { to: '/upload', label: 'Transmission' },
-        { to: '/pcm', label: 'Plan Comptable' },
-        { to: '/history', label: 'Historique' },
-        { to: '/mappings', label: 'Répertoire' },
-        { to: '/profile', label: 'Mon Profil' },
+        { to: '/dashboard', label: '🏠 Tableau de bord' },
+        { to: '/upload', label: '📤 Transmission' },
+        { to: '/history', label: '📋 Historique' },
+        { to: '/avoirs', label: '📄 Avoirs' },
+        { to: '/immobilisations', label: '🏗️ Immobilisations' },
+        { to: '/journal', label: '📒 Journal Comptable' },
+        { to: '/paie', label: '💳 Paie & Salaires' },
+        { to: '/pcm', label: '📑 Plan Comptable' },
+        { to: '/mappings', label: '🗂️ Répertoire' },
+        { to: '/profile', label: '👤 Mon Profil' },
     ]
 
     useEffect(() => {
@@ -358,6 +366,10 @@ export default function App() {
                 <Route path="history" element={<ProtectedRoute><History /></ProtectedRoute>} />
                 <Route path="mappings" element={<ProtectedRoute><SupplierDirectory /></ProtectedRoute>} />
                 <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="avoirs" element={<ProtectedRoute><Avoirs /></ProtectedRoute>} />
+                <Route path="immobilisations" element={<ProtectedRoute><Immobilisations /></ProtectedRoute>} />
+                <Route path="journal" element={<ProtectedRoute><JournalComptable /></ProtectedRoute>} />
+                <Route path="paie" element={<ProtectedRoute><Paie /></ProtectedRoute>} />
             </Route>
 
 

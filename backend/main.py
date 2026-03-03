@@ -9,12 +9,17 @@ import os
 from pathlib import Path
 
 # ── Importation des routeurs (Logique métier par domaine) ────────────────
-from routes.auth import router as auth_router      # Authentification et session
-from routes.admin import router as admin_router    # Administration des cabinets/sociétés
-from routes.pipeline import router as pipeline_router # Traitement des factures (OCR, IA)
-from routes.pcm import router as pcm_router           # Plan Comptable Marocain
-from routes.societes import router as societes_router # Gestion des sociétés clientes
-from routes.mappings import router as mappings_router # Apprentissage des mappings fournisseurs
+from routes.auth import router as auth_router
+from routes.admin import router as admin_router
+from routes.pipeline import router as pipeline_router
+from routes.pcm import router as pcm_router
+from routes.societes import router as societes_router
+from routes.mappings import router as mappings_router
+from routes.avoirs import router as avoirs_router
+from routes.immobilisations import router as immobilisations_router
+from routes.journaux import router as journaux_router
+from routes.paie import router as paie_router
+from routes.employes import router as employes_router
 
 # Legacy routers (conservés pour compatibilité)
 try:
@@ -45,11 +50,16 @@ app.add_middleware(
 app.include_router(auth_router)   # /auth/login, /auth/register, /auth/select-societe
 app.include_router(admin_router)  # /admin/cabinets, /admin/agents, /admin/societes
 
-# ── Routers principaux ──────────────────────────────────────
-app.include_router(pipeline_router)   # /factures/* pipeline complet
-app.include_router(pcm_router)        # /pcm/accounts, /pcm/tva-rates
-app.include_router(societes_router)   # /societes/*
-app.include_router(mappings_router)   # /mappings/*
+# ── Routers principaux ──────────────────────────────────────────────
+app.include_router(pipeline_router)         # /factures/* pipeline complet
+app.include_router(pcm_router)              # /pcm/accounts, /pcm/tva-rates
+app.include_router(societes_router)         # /societes/*
+app.include_router(mappings_router)         # /mappings/*
+app.include_router(avoirs_router)           # /avoirs/*
+app.include_router(immobilisations_router)  # /immobilisations/*
+app.include_router(journaux_router)         # /journaux/*
+app.include_router(paie_router)             # /paie/*
+app.include_router(employes_router)         # /employes/*
 
 # ── Routers legacy ──────────────────────────────────────────
 if _has_factures:

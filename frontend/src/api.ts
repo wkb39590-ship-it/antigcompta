@@ -132,6 +132,52 @@ export interface JournalEntry {
     entry_lines: EntryLine[]
 }
 
+export interface LignePaie {
+    id: number
+    libelle: string
+    type_ligne: 'GAIN' | 'RETENUE'
+    montant: number
+    taux: number | null
+    base_calcul: number | null
+    ordre: number
+}
+
+export interface BulletinPaie {
+    id: number
+    employe_id: number
+    employe_nom?: string
+    mois: number
+    annee: number
+    salaire_base: number
+    prime_anciennete: number
+    autres_gains: number
+    salaire_brut: number
+    cnss_salarie: number
+    amo_salarie: number
+    ir_retenu: number
+    total_retenues: number
+    cnss_patronal: number
+    amo_patronal: number
+    total_patronal: number
+    salaire_net: number
+    cout_total_employeur: number | null
+    statut: 'BROUILLON' | 'VALIDE'
+    created_at: string
+    lignes: LignePaie[]
+}
+
+export interface Employe {
+    id: number
+    nom: string
+    prenom: string | null
+    cin: string | null
+    poste: string | null
+    date_embauche: string
+    salaire_base: number
+    nb_enfants: number
+    anciennete_pct: number
+}
+
 // ── API calls ──────────────────────────────────────────────
 
 /**
@@ -267,6 +313,21 @@ export const apiService = {
         api.post(`/admin/cabinets/${cabinetId}/agents/assign-societe?agent_id=${agentId}&societe_id=${societeId}`).then(r => r.data),
     adminGetLogs: (offset: number = 0, limit: number = 50) =>
         api.get('/admin/logs', { params: { offset, limit } }).then(r => r.data),
+
+    // ── Paie Routes ──────────────────────────────────────────
+    listBulletins: () => api.get('/paie/').then(r => r.data),
+    getBulletin: (id: number) => api.get(`/paie/${id}`).then(r => r.data),
+    calculateBulletin: (data: { employe_id: number; mois: number; annee: number; primes?: number; heures_sup?: number }) =>
+        api.post('/paie/calcul', data).then(r => r.data),
+    saveBulletin: (data: { employe_id: number; mois: number; annee: number; primes?: number; heures_sup?: number }) =>
+        api.post('/paie/', data).then(r => r.data),
+    validateBulletin: (id: number) => api.post(`/paie/${id}/validate`).then(r => r.data),
+
+    // ── Employés Routes ────────────────────────────────────────
+    listEmployes: (statut?: string) => api.get('/employes/', { params: { statut } }).then(r => r.data),
+    getEmploye: (id: number) => api.get(`/employes/${id}`).then(r => r.data),
+    createEmploye: (data: any) => api.post('/employes/', data).then(r => r.data),
+    updateEmploye: (id: number, data: any) => api.put(`/employes/${id}`, data).then(r => r.data),
 }
 
 

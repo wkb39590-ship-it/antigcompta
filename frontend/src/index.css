@@ -742,6 +742,18 @@ tbody tr:last-child td {
   animation: float 6s ease-in-out infinite;
 }
 
+.aurora-bg-page {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+.neon-glow-indigo {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
 /* Scrollbar Admin Custom */
 .admin-scroll::-webkit-scrollbar {
   width: 5px;

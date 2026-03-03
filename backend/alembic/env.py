@@ -129,8 +129,6 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
         compare_server_default=True,
-        include_schemas=True,   # public + autres schemas si un jour
-        version_table_schema="public",
     )
 
     with context.begin_transaction():
@@ -139,8 +137,14 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in online mode."""
+    # Use DATABASE_URL environment variable if set, otherwise use config from alembic.ini
+    db_url = os.getenv("DATABASE_URL")
+    alembic_config = config.get_section(config.config_ini_section, {})
+    if db_url:
+        alembic_config["sqlalchemy.url"] = db_url
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        alembic_config,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
@@ -151,8 +155,6 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             compare_type=True,
             compare_server_default=True,
-            include_schemas=True,
-            version_table_schema="public",
         )
 
         with context.begin_transaction():

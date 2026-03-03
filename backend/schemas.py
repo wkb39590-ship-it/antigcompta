@@ -296,3 +296,51 @@ class ActionLogResponse(BaseModel):
     total: int
 
 
+
+# ──────────────────────────────────────────────────────────────────────────
+# SCHÉMAS PAIE
+# ──────────────────────────────────────────────────────────────────────────
+class LignePaieOut(BaseModel):
+    id: int = 0
+    libelle: str
+    type_ligne: str
+    montant: float
+    taux: Optional[float] = None
+    base_calcul: Optional[float] = None
+    ordre: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BulletinPaieCreate(BaseModel):
+    employe_id: int
+    mois: int
+    annee: int
+    primes: Optional[float] = 0
+    heures_sup: Optional[float] = 0
+
+
+class BulletinPaieOut(BaseModel):
+    id: int
+    employe_id: int
+    employe_nom: Optional[str] = None
+    mois: int
+    annee: int
+    salaire_base: float
+    prime_anciennete: float
+    autres_gains: float
+    salaire_brut: float
+    cnss_salarie: float
+    amo_salarie: float
+    ir_retenu: float
+    total_retenues: float
+    cnss_patronal: float
+    amo_patronal: float
+    total_patronal: float
+    salaire_net: float
+    cout_total_employeur: Optional[float] = None
+    statut: str
+    created_at: datetime
+    lignes: List[LignePaieOut] = []
+
+    model_config = ConfigDict(from_attributes=True)
