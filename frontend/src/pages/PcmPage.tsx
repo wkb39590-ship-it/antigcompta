@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import apiService from '../api'
+import { Search, Book, Tag, Info, Filter } from 'lucide-react'
 
 export default function PcmPage() {
     const [accounts, setAccounts] = useState<any[]>([])
@@ -50,13 +51,16 @@ export default function PcmPage() {
             {/* Filters */}
             <div className="card" style={{ marginBottom: '24px' }}>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <input
-                        className="form-input"
-                        style={{ flex: 1, minWidth: '200px' }}
-                        placeholder="🔍 Rechercher par code ou libellé..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                    />
+                    <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
+                        <input
+                            className="form-input"
+                            style={{ width: '100%', paddingLeft: '36px' }}
+                            placeholder="Rechercher par code ou libellé..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                    </div>
                     <select className="form-input" style={{ width: 'auto' }} value={filterClass} onChange={e => setFilterClass(e.target.value)}>
                         <option value="">Toutes les classes</option>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map(c => (
@@ -77,7 +81,7 @@ export default function PcmPage() {
                     <div className="loading"><div className="spinner" /> Chargement du PCM...</div>
                 ) : filtered.length === 0 ? (
                     <div className="empty-state">
-                        <div className="empty-icon">📒</div>
+                        <div className="empty-icon"><Book size={48} color="var(--text3)" opacity={0.5} /></div>
                         <div className="empty-title">Aucun compte trouvé</div>
                         <div className="empty-subtitle">Modifiez vos filtres ou lancez le seed PCM</div>
                     </div>
@@ -121,8 +125,8 @@ export default function PcmPage() {
                                         </td>
                                         <td>
                                             {a.is_tva_account ? (
-                                                <span style={{ fontSize: '11px', color: 'var(--warning)' }}>
-                                                    🏷️ {a.tva_type}
+                                                <span style={{ fontSize: '11px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Tag size={12} /> {a.tva_type}
                                                 </span>
                                             ) : '—'}
                                         </td>

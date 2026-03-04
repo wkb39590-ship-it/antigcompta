@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_CONFIG } from '../config/apiConfig'
 import { setAdminSession } from '../utils/adminTokenDecoder'
+import { Zap, AlertTriangle, Lock } from 'lucide-react'
 import '../styles/auth.css'
 
 interface RoleAgent {
@@ -79,7 +80,7 @@ export default function Login() {
                 <div className="login-glow"></div>
 
                 <div className="login-header">
-                    <div className="logo-icon">⚡</div>
+                    <div className="logo-icon"><Zap size={42} color="var(--login-accent)" fill="var(--login-accent)" opacity={0.8} /></div>
                     <h1>comptafacile</h1>
                     <p className="subtitle">Solution d'automatisation et de dématérialisation comptable</p>
                 </div>
@@ -111,7 +112,7 @@ export default function Login() {
 
                     {error && (
                         <div className="login-error">
-                            <span className="error-icon">⚠️</span>
+                            <span className="error-icon"><AlertTriangle size={18} /></span>
                             {error}
                         </div>
                     )}
@@ -127,7 +128,10 @@ export default function Login() {
                                 <span>Authentification...</span>
                             </div>
                         ) : (
-                            <span>Se connecter 🔐</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                <span>Se connecter</span>
+                                <Lock size={18} />
+                            </div>
                         )}
                     </button>
                 </form>

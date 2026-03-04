@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Facture, InvoiceLine, JournalEntry, EntryLine, Societe
+from models import Facture, InvoiceLine, JournalEntry, EntryLine, Societe, Immobilisation
 from routes.deps import get_current_session
 
 from services import ocr_service
@@ -258,21 +258,21 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
         client_name_clean = _clean_name(facture.client_name)
         supplier_name_clean = _clean_name(facture.supplier_name)
         
-        # 1. Comparaison prioritaire par ICE (très fiable)
-        if societe_ice:
+        # 1. Si Gemini détecte IMMOBILISATION explicitement, on le respecte en priorité
+        if invoice_type_from_gemini == "IMMOBILISATION":
+            facture.invoice_type = "IMMOBILISATION"
+        # 2. Comparaison prioritaire par ICE pour ACHAT/VENTE
+        elif societe_ice:
             if client_ice and societe_ice == client_ice:
                 facture.invoice_type = "ACHAT"
             elif supplier_ice and societe_ice == supplier_ice:
                 facture.invoice_type = "VENTE"
-            # 2. Si l'ICE ne matche pas, on utilise la logique de la raison sociale
             elif client_name_clean and raison_social_clean and raison_social_clean in client_name_clean:
                 facture.invoice_type = "ACHAT"
             elif supplier_name_clean and raison_social_clean and raison_social_clean in supplier_name_clean:
                 facture.invoice_type = "VENTE"
             else:
                 facture.invoice_type = invoice_type_from_gemini
-                
-        # 3. S'il n'y a pas d'ICE enregistré pour la société, on se base uniquement sur le nom
         else:
             if client_name_clean and raison_social_clean and raison_social_clean in client_name_clean:
                 facture.invoice_type = "ACHAT"
@@ -295,7 +295,9 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     facture.fournisseur = facture.supplier_name
     facture.ice_frs = facture.supplier_ice
     facture.if_frs = facture.supplier_if
-    facture.operation_type = "vente" if facture.invoice_type == "VENTE" else "achat"
+    # Mappage operation_type (pour filtrages frontend)
+    _op_map = {"VENTE": "vente", "IMMOBILISATION": "IMMOBILISATION", "AVOIR": "avoir", "NOTE_FRAIS": "note_frais"}
+    facture.operation_type = _op_map.get(facture.invoice_type, "achat")
     facture.operation_confidence = 0.9
     facture.extraction_source = "GEMINI"
 
@@ -824,6 +826,9 @@ def list_factures(
         query = query.filter(Facture.status == status)
     
     factures = query.order_by(Facture.id.desc()).all()
+    # Récupérer les IDs des factures qui ont déjà une immobilisation
+    immo_facture_ids = {immo.facture_id for immo in db.query(Immobilisation.facture_id).filter(Immobilisation.societe_id == societe_id, Immobilisation.facture_id != None).all()}
+
     return [
         {
             "id": f.id,
@@ -831,9 +836,13 @@ def list_factures(
             "numero_facture": f.numero_facture,
             "date_facture": str(f.date_facture) if f.date_facture else None,
             "supplier_name": f.supplier_name,
+            "montant_ht": float(f.montant_ht) if f.montant_ht else 0,
+            "montant_tva": float(f.montant_tva) if f.montant_tva else 0,
             "montant_ttc": float(f.montant_ttc) if f.montant_ttc else 0,
             "invoice_type": f.invoice_type,
+            "operation_type": f.operation_type,
             "devise": f.devise,
+            "has_immobilisation": f.id in immo_facture_ids,
         }
         for f in factures
     ]

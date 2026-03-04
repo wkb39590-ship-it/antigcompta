@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_CONFIG } from '../config/apiConfig'
+import {
+    FileText,
+    RefreshCcw,
+    CheckCircle2,
+    X,
+    Clock,
+    AlertCircle,
+    Store,
+    Calendar,
+    Zap,
+    Search,
+    ChevronRight,
+    ArrowLeft
+} from 'lucide-react'
 
 interface Avoir {
     id: number
@@ -103,10 +117,10 @@ export default function Avoirs() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
                 <div>
-                    <h1 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-                        📄 Avoirs
+                    <h1 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text)', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <FileText size={32} color="var(--accent)" /> Avoirs
                     </h1>
-                    <p style={{ color: 'var(--text2)', margin: '4px 0 0' }}>
+                    <p style={{ color: 'var(--text2)', margin: '4px 0 0 44px' }}>
                         Gestion des avoirs fournisseurs et clients
                     </p>
                 </div>
@@ -119,8 +133,11 @@ export default function Avoirs() {
                     </span>
                     <button onClick={load} style={{
                         background: 'var(--accent)', color: 'white', border: 'none',
-                        padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px'
-                    }}>Actualiser</button>
+                        padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
+                        display: 'flex', alignItems: 'center', gap: '8px'
+                    }}>
+                        <RefreshCcw size={16} /> Actualiser
+                    </button>
                 </div>
             </div>
 
@@ -129,10 +146,14 @@ export default function Avoirs() {
                     background: msg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
                     border: `1px solid ${msg.startsWith('✅') ? '#10b981' : '#ef4444'}`,
                     borderRadius: '10px', padding: '12px 20px', marginBottom: '20px',
-                    color: msg.startsWith('✅') ? '#10b981' : '#ef4444', fontSize: '14px'
+                    color: msg.startsWith('✅') ? '#10b981' : '#ef4444', fontSize: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                 }}>
-                    {msg}
-                    <button onClick={() => setMsg('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {msg.startsWith('✅') ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                        {msg.replace(/^[✅❌]\s*/, '')}
+                    </div>
+                    <button onClick={() => setMsg('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}><X size={18} /></button>
                 </div>
             )}
 
@@ -141,7 +162,7 @@ export default function Avoirs() {
                 <div>
                     {loading ? (
                         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text2)' }}>
-                            <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
+                            <div style={{ fontSize: '32px', marginBottom: '12px' }}><Clock size={32} /></div>
                             Chargement...
                         </div>
                     ) : avoirs.length === 0 ? (
@@ -149,7 +170,9 @@ export default function Avoirs() {
                             background: 'var(--card)', border: '1px solid var(--border)',
                             borderRadius: '16px', padding: '60px', textAlign: 'center'
                         }}>
-                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                                <FileText size={48} color="var(--text3)" opacity={0.5} />
+                            </div>
                             <h3 style={{ color: 'var(--text)', margin: '0 0 8px' }}>Aucun avoir</h3>
                             <p style={{ color: 'var(--text2)', margin: 0 }}>
                                 Les avoirs apparaissent automatiquement lors du traitement des factures
@@ -188,11 +211,11 @@ export default function Avoirs() {
                                                 {a.status}
                                             </span>
                                         </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text2)', display: 'flex', gap: '16px' }}>
-                                            <span>🏪 {a.fournisseur || a.client || '—'}</span>
-                                            <span>📅 {a.date_avoir || '—'}</span>
-                                            {a.has_draft_entries && <span style={{ color: '#f59e0b' }}>⚡ Écritures en attente</span>}
-                                            {a.has_entries && !a.has_draft_entries && <span style={{ color: '#10b981' }}>✅ Validé</span>}
+                                        <div style={{ fontSize: '13px', color: 'var(--text2)', display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Store size={14} /> {a.fournisseur || a.client || '—'}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> {a.date_avoir || '—'}</span>
+                                            {a.has_draft_entries && <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={14} /> Écritures en attente</span>}
+                                            {a.has_entries && !a.has_draft_entries && <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14} /> Validé</span>}
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
@@ -226,8 +249,9 @@ export default function Avoirs() {
                                 </p>
                             </div>
                             <button onClick={() => setSelected(null)} style={{
-                                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: '18px'
-                            }}>✕</button>
+                                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: '18px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                            }}><X size={20} /></button>
                         </div>
 
                         {/* Montants */}
@@ -258,21 +282,24 @@ export default function Avoirs() {
                                 <button onClick={() => generateEntries(selected.id)} style={{
                                     flex: 1, background: 'rgba(99,102,241,0.15)', color: '#818cf8',
                                     border: '1px solid rgba(99,102,241,0.3)', padding: '9px', borderRadius: '8px',
-                                    cursor: 'pointer', fontSize: '12px', fontWeight: 600
-                                }}>⚡ Générer écritures</button>
+                                    cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}><Zap size={14} /> Générer écritures</button>
                             )}
                             {selected.has_draft_entries && selected.status !== 'VALIDATED' && (
                                 <button onClick={() => validate(selected.id)} style={{
                                     flex: 1, background: 'rgba(16,185,129,0.15)', color: '#10b981',
                                     border: '1px solid rgba(16,185,129,0.3)', padding: '9px', borderRadius: '8px',
-                                    cursor: 'pointer', fontSize: '12px', fontWeight: 600
-                                }}>✅ Valider</button>
+                                    cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}><CheckCircle2 size={14} /> Valider</button>
                             )}
                             <button onClick={() => navigate(`/factures/${selected.id}`)} style={{
                                 flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--text2)',
                                 border: '1px solid var(--border)', padding: '9px', borderRadius: '8px',
-                                cursor: 'pointer', fontSize: '12px'
-                            }}>🔍 Ouvrir facture</button>
+                                cursor: 'pointer', fontSize: '12px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                            }}><Search size={14} /> Ouvrir facture</button>
                         </div>
 
                         {/* Écritures comptables */}
@@ -293,8 +320,8 @@ export default function Avoirs() {
                                                 background: 'rgba(99,102,241,0.2)', color: '#818cf8',
                                                 padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700
                                             }}>{e.journal_code}</span>
-                                            <span style={{ fontSize: '11px', color: e.is_validated ? '#10b981' : '#f59e0b' }}>
-                                                {e.is_validated ? '✅ Validé' : '⏳ Brouillon'}
+                                            <span style={{ fontSize: '11px', color: e.is_validated ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                {e.is_validated ? <><CheckCircle2 size={12} /> Validé</> : <><Clock size={12} /> Brouillon</>}
                                             </span>
                                         </div>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>

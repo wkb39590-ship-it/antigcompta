@@ -2,6 +2,17 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../api'
 import { getCurrentSociete } from '../utils/tokenDecoder'
+import {
+    Upload as UploadIcon,
+    FileText,
+    CheckCircle2,
+    AlertTriangle,
+    AlertCircle,
+    ArrowLeft,
+    Zap,
+    UploadCloud,
+    Check
+} from 'lucide-react'
 
 export default function Upload() {
     const [file, setFile] = useState<File | null>(null)
@@ -47,25 +58,25 @@ export default function Upload() {
             const uploaded = await apiService.uploadFacture(file)
             const id = uploaded.id
             console.log('[Upload] ✅ Upload successful, facture ID:', id)
-            setSuccess(`✅ Facture #${id} uploadée. Extraction en cours...`)
+            setSuccess(`Facture #${id} uploadée. Extraction en cours...`)
 
             // Étape 2: Extraction automatique
             console.log('[Upload] Step 2: Extracting...')
             await apiService.extractFacture(id)
             console.log('[Upload] ✅ Extraction done')
-            setSuccess(`✅ Extraction terminée. Classification PCM en cours...`)
+            setSuccess(`Extraction terminée. Classification PCM en cours...`)
 
             // Étape 3: Classification automatique
             console.log('[Upload] Step 3: Classifying...')
             await apiService.classifyFacture(id)
             console.log('[Upload] ✅ Classification done')
-            setSuccess(`✅ Classification terminée. Génération des écritures...`)
+            setSuccess(`Classification terminée. Génération des écritures...`)
 
             // Étape 4: Génération des écritures
             console.log('[Upload] Step 4: Generating entries...')
             await apiService.generateEntries(id)
             console.log('[Upload] ✅ All steps done!')
-            setSuccess(`✅ Pipeline complet! Redirection vers la facture #${id}...`)
+            setSuccess(`Pipeline complet! Redirection vers la facture #${id}...`)
 
             setTimeout(() => navigate(`/factures/${id}`), 1500)
         } catch (e: any) {
@@ -80,7 +91,7 @@ export default function Upload() {
             }
 
             const msg = e.response?.data?.detail || e.message || 'Erreur inconnue'
-            setError(`❌ Erreur: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
+            setError(`Erreur: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
         } finally {
             setLoading(false)
         }
@@ -132,7 +143,7 @@ export default function Upload() {
                         />
                         {file ? (
                             <>
-                                <div className="upload-icon">📄</div>
+                                <div className="upload-icon"><FileText size={48} color="var(--accent)" /></div>
                                 <div className="upload-title">{file.name}</div>
                                 <div className="upload-subtitle">
                                     {(file.size / 1024).toFixed(1)} KB — Modifier le document
@@ -140,7 +151,7 @@ export default function Upload() {
                             </>
                         ) : (
                             <>
-                                <div className="upload-icon">📥</div>
+                                <div className="upload-icon"><UploadCloud size={48} color="var(--text3)" opacity={0.5} /></div>
                                 <div className="upload-title">Déposez vos documents ici</div>
                                 <div className="upload-subtitle">ou sélectionnez un fichier sur votre poste</div>
                             </>
@@ -157,27 +168,35 @@ export default function Upload() {
                     <div className="form-group">
                         <label className="form-label">Société de destination</label>
                         <div className="form-input" style={{ background: 'var(--bg2)', cursor: 'default', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ color: 'var(--success)' }}>✔</span>
+                            <CheckCircle2 size={16} color="var(--success)" />
                             <span>{currentSociete?.raison_sociale || 'Société non chargée'}</span>
                         </div>
                         {!currentSociete && (
                             <div>
-                                <div style={{ fontSize: '12px', color: 'var(--error)', marginTop: '8px' }}>
-                                    ⚠️ Session de société requise
+                                <div style={{ fontSize: '12px', color: 'var(--error)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <AlertTriangle size={14} /> Session de société requise
                                 </div>
                                 <button
                                     className="btn btn-secondary"
-                                    style={{ width: '100%', marginTop: '12px', padding: '10px', fontSize: '12px' }}
-                                    onClick={() => navigate('/cabinets')}
+                                    style={{ width: '100%', marginTop: '12px', padding: '10px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                    onClick={() => navigate('/ cabinents')}
                                 >
-                                    ← Sélectionner une société
+                                    <ArrowLeft size={14} /> Sélectionner une société
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {error && <div className="alert alert-error" style={{ marginTop: '16px' }}>{error}</div>}
-                    {success && <div className="alert alert-success" style={{ marginTop: '16px' }}>{success}</div>}
+                    {error && (
+                        <div className="alert alert-error" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertCircle size={18} /> {error}
+                        </div>
+                    )}
+                    {success && (
+                        <div className="alert alert-success" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={18} /> {success}
+                        </div>
+                    )}
 
                     <button
                         className="btn btn-primary"
@@ -188,7 +207,7 @@ export default function Upload() {
                         {loading ? (
                             <><div className="spinner" /> Traitement en cours...</>
                         ) : (
-                            'Lancer le Traitement'
+                            <><Zap size={18} /> Lancer le Traitement</>
                         )}
                     </button>
                 </div>

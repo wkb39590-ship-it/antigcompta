@@ -8,40 +8,40 @@
 }
 
 :root {
-  --bg: #0a0e1a;
-  --bg2: #111827;
-  --bg3: #1a2235;
-  --card: #141d2e;
-  --border: #1e2d45;
+  --bg: #f1f5f9;
+  --bg2: #ffffff;
+  --bg3: #e2e8f0;
+  --card: #ffffff;
+  --border: #cbd5e1;
   --accent: #3b82f6;
   --accent2: #6366f1;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --text: #e2e8f0;
-  --text2: #94a3b8;
-  --text3: #64748b;
+  --text: #0f172a;
+  --text2: #475569;
+  --text3: #94a3b8;
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 48px rgba(0, 0, 0, 0.6);
+  --shadow: 0 2px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 40px rgba(15, 23, 42, 0.12);
   --glow: 0 0 20px rgba(59, 130, 246, 0.15);
-  --glass: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(148, 163, 184, 0.3);
   --blur: blur(12px);
 
-  /* Aurora Premium Theme */
-  --admin-bg: #0f172a;
-  --admin-card: rgba(30, 41, 59, 0.7);
+  /* Aurora Premium Theme — Light */
+  --admin-bg: #f8fafc;
+  --admin-card: rgba(255, 255, 255, 0.85);
   --admin-accent: #6366f1;
-  --admin-accent-glow: rgba(99, 102, 241, 0.5);
+  --admin-accent-glow: rgba(99, 102, 241, 0.25);
   --admin-secondary: #a855f7;
-  --admin-text: #f8fafc;
-  --admin-text-dim: #94a3b8;
-  --admin-glass: rgba(255, 255, 255, 0.03);
-  --admin-glass-border: rgba(255, 255, 255, 0.08);
+  --admin-text: #0f172a;
+  --admin-text-dim: #64748b;
+  --admin-glass: rgba(255, 255, 255, 0.7);
+  --admin-glass-border: rgba(99, 102, 241, 0.15);
   --admin-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  --admin-surface: rgba(15, 23, 42, 0.8);
+  --admin-surface: rgba(248, 250, 252, 0.9);
 }
 
 
@@ -270,38 +270,38 @@ body {
 }
 
 .badge-imported {
-  background: rgba(100, 116, 139, 0.2);
-  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
 }
 
 .badge-extracted {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
 }
 
 .badge-classified {
-  background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
 }
 
 .badge-draft {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
 }
 
 .badge-validated {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
 }
 
 .badge-error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
 }
 
 .badge-exported {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
 }
 
 /* ── Tables ──────────────────────────────────────────────── */
@@ -330,12 +330,12 @@ thead th {
 
 tbody td {
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(30, 45, 69, 0.5);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
   color: var(--text);
 }
 
 tbody tr:hover {
-  background: rgba(59, 130, 246, 0.04);
+  background: rgba(59, 130, 246, 0.05);
 }
 
 tbody tr:last-child td {
@@ -425,15 +425,15 @@ tbody tr:last-child td {
 }
 
 .dgi-flag.error {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  color: #dc2626;
 }
 
 .dgi-flag.warning {
-  background: rgba(245, 158, 11, 0.1);
+  background: rgba(245, 158, 11, 0.08);
   border: 1px solid rgba(245, 158, 11, 0.2);
-  color: #fcd34d;
+  color: #d97706;
 }
 
 .dgi-flag-icon {
@@ -630,21 +630,21 @@ tbody tr:last-child td {
 }
 
 .alert-success {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #059669;
 }
 
 .alert-error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #dc2626;
 }
 
 .alert-info {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #2563eb;
 }
 
 /* ── Confidence bar ──────────────────────────────────────── */
@@ -691,26 +691,26 @@ tbody tr:last-child td {
 
 /* ── Aurora Premium Styles ───────────────────────────────── */
 .aurora-bg {
-  background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+  background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
     var(--admin-bg) !important;
   color: var(--admin-text) !important;
 }
 
 .aurora-card {
-  background: var(--admin-card);
+  background: #ffffff;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--admin-glass-border);
+  border: 1px solid rgba(99, 102, 241, 0.15);
   border-radius: 24px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .aurora-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-3px);
   border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 20px 60px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.12);
 }
 
 .glass-text {
@@ -744,8 +744,8 @@ tbody tr:last-child td {
 
 .aurora-bg-page {
   background:
-    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 40%),
     var(--bg);
   min-height: 100vh;
 }

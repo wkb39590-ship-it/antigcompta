@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_CONFIG } from '../config/apiConfig'
+import { Building2, Search, ArrowLeft, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
 import '../styles/auth.css'
 
 interface Cabinet {
@@ -139,7 +140,9 @@ export default function CabinetSelector() {
         <div className="auth-container">
             <div className="auth-card">
                 <div className="auth-header">
-                    <h1>🏢 Sélection Cabinet & Société</h1>
+                    <h1 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                        <Building2 size={28} color="var(--accent)" /> Sélection Cabinet & Société
+                    </h1>
                     <p>Connecté en tant que: <strong>{username}</strong></p>
                 </div>
 
@@ -177,7 +180,7 @@ export default function CabinetSelector() {
                                 required
                             >
                                 <option value="">
-                                    {loading ? '⏳ Chargement...' : '-- Choisir une société --'}
+                                    {loading ? 'Chargement...' : '-- Choisir une société --'}
                                 </option>
                                 {societes.map((soc) => (
                                     <option key={soc?.id ?? JSON.stringify(soc)} value={soc?.id ?? JSON.stringify(soc)}>
@@ -194,8 +197,13 @@ export default function CabinetSelector() {
                         type="submit"
                         disabled={!selectedSociete || loading}
                         className="auth-button"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
                     >
-                        {loading ? '🔄 Entrée...' : '✅ Entrer dans le système'}
+                        {loading ? (
+                            <><Loader2 size={18} className="animate-spin" /> Entrée...</>
+                        ) : (
+                            <><CheckCircle2 size={18} /> Entrer dans le système</>
+                        )}
                     </button>
                 </form>
 
@@ -206,8 +214,9 @@ export default function CabinetSelector() {
                             navigate('/login')
                         }}
                         className="link-button"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
                     >
-                        ← Retour connexion
+                        <ArrowLeft size={16} /> Retour connexion
                     </button>
                 </div>
             </div>

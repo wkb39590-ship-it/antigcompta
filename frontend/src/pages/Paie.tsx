@@ -163,7 +163,7 @@ const Paie = () => {
                                         <Calendar className="w-4 h-4 mr-1.5" />
                                         {new Date(selectedId ? 2024 : 2024, selectedBulletin.mois - 1).toLocaleString('fr-FR', { month: 'long' })} {selectedBulletin.annee}
                                     </span>
-                                    <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
+                                    <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                                     <span className="flex items-center">
                                         <Users className="w-4 h-4 mr-1.5" />
                                         {selectedBulletin.employe_nom}
@@ -174,10 +174,10 @@ const Paie = () => {
 
                         <div className="flex items-center gap-3">
                             {getStatusBadge(selectedBulletin.statut)}
-                            <button className="p-3 bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-white/5 transition-all">
+                            <button className="p-3 bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl border border-slate-200 transition-all">
                                 <Printer className="w-5 h-5" />
                             </button>
-                            <button className="p-3 bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-white/5 transition-all">
+                            <button className="p-3 bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl border border-slate-200 transition-all">
                                 <Download className="w-5 h-5" />
                             </button>
                             {selectedBulletin.statut === 'BROUILLON' && (
@@ -390,7 +390,7 @@ const Paie = () => {
                                     >
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600/20 group-hover:text-indigo-400 transition-all">
+                                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600/20 group-hover:text-indigo-600 transition-all">
                                                     <Calendar className="w-5 h-5" />
                                                 </div>
                                                 <div>
@@ -414,7 +414,7 @@ const Paie = () => {
                                             {getStatusBadge(b.statut)}
                                         </td>
                                         <td className="px-8 py-6 text-right">
-                                            <div className="inline-flex p-3 rounded-xl bg-slate-800 text-slate-500 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-lg">
+                                            <div className="inline-flex p-3 rounded-xl bg-slate-100 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
                                                 <ChevronRight className="w-5 h-5" />
                                             </div>
                                         </td>
@@ -430,7 +430,7 @@ const Paie = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                     <div
-                        className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+                        className="absolute inset-0 bg-slate-900/30 backdrop-blur-md"
                         onClick={() => { setIsModalOpen(false); setPreview(null); }}
                     ></div>
 
@@ -460,9 +460,9 @@ const Paie = () => {
                                             value={newPaie.employe_id}
                                             onChange={(e) => setNewPaie({ ...newPaie, employe_id: e.target.value })}
                                         >
-                                            <option value="" className="bg-slate-900">Choisir un membre...</option>
+                                            <option value="" className="bg-white">Choisir un membre...</option>
                                             {employes.map(emp => (
-                                                <option key={emp.id} value={emp.id} className="bg-slate-900">{emp.prenom} {emp.nom}</option>
+                                                <option key={emp.id} value={emp.id} className="bg-white">{emp.prenom} {emp.nom}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -514,7 +514,7 @@ const Paie = () => {
                                     onClick={handleCalculate}
                                     disabled={!newPaie.employe_id || isCalculating}
                                     className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 font-black tracking-widest transition-all ${isCalculating
-                                        ? 'bg-slate-800 text-slate-500'
+                                        ? 'bg-slate-100 text-slate-400'
                                         : 'bg-white text-slate-950 hover:bg-indigo-400 shadow-xl shadow-white/5'
                                         }`}
                                 >
@@ -575,7 +575,7 @@ const Paie = () => {
                                     </div>
                                 ) : (
                                     <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
-                                        <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center text-slate-600 mb-6 border border-white/5">
+                                        <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center text-slate-400 mb-6 border border-slate-200">
                                             <TrendingUp className="w-10 h-10" />
                                         </div>
                                         <p className="text-slate-500 font-medium max-w-[200px]">

@@ -130,7 +130,13 @@ CHAMPS À EXTRAIRE ABSOLUMENT:
 
 4. AUTRES
    - devise: Devise (MAD par défaut)
-   - invoice_type: ACHAT ou VENTE selon le contexte
+   - invoice_type: Détermine le type parmi: ACHAT, VENTE, AVOIR, NOTE_FRAIS, IMMOBILISATION
+     → IMMOBILISATION si : le titre contient "Immobilisation", "Facture d'acquisition", 
+       ou si des lignes mentionnent explicitement "Immobilisation", "ordinateur", "serveur",
+       "véhicule", "machine", "équipement" avec un montant élevé (> 3 000 MAD).
+     → AVOIR si : la facture est un avoir / note de crédit
+     → VENTE si : la société émettrice est le vendeur (perspective vente)
+     → ACHAT sinon (par défaut)
    - payment_mode: Mode de paiement (Chèque, Virement, Espèces, etc)
    - payment_terms: Conditions de paiement (À la livraison, 30 jours, etc)
 
@@ -473,6 +479,38 @@ def extract_invoice_lines(                   #Etraction IA des lignes
 
 CLASSIFICATION_SYSTEM_PROMPT = """Tu es un expert-comptable marocain spécialisé dans le Plan Comptable Marocain (PCM/CGNC).
 Ton rôle est d'analyser une description de produit et de l'affecter au bon compte comptable.
+
+RÈGLES DE CLASSIFICATION PCM:
+
+1. IMMOBILISATIONS (Classe 2) — À utiliser si la description contient des biens durables > 5 000 MAD:
+   - 2355 : Matériel informatique (ordinateur, serveur, laptop, PC, imprimante, scanner, écran)
+   - 2340 : Matériel de transport (véhicule, camion, voiture)
+   - 2350 : Matériel et outillage (machine, équipement industriel)
+   - 2390 : Autres immobilisations corporelles
+   - 2220 : Logiciels, licences (incorporelle)
+   → IMPORTANT: Si le type_facture est IMMOBILISATION ou si la description mentionne explicitement
+     "Immobilisation", utilise OBLIGATOIREMENT un compte de classe 2 (2xxx).
+
+2. ACHATS / CHARGES (Classe 6) — Pour les biens consommables ou services:
+   - 6111 : Achats de marchandises revendues
+   - 6121 : Achats de matières premières
+   - 6132 : Fournitures de bureau
+   - 6141 : Sous-traitance
+   - 6155 : Entretien et réparations
+   - 6161 : Assurances
+   - 6174 : Transport
+   - 6185 : Frais de téléphone / abonnements
+
+3. PRODUITS / VENTES (Classe 7) — Pour une facture de vente:
+   - 7111 : Ventes de marchandises
+   - 7121 : Ventes de produits finis
+
+EXEMPLES:
+- "Ordinateur Dell Optiplex (Immobilisation)" → pcm_class: 2, pcm_account_code: "2355"
+- "Imprimante HP" seule et pas marquée immobilisation → pcm_class: 6, pcm_account_code: "6132"
+- "Imprimante HP (Immobilisation)" → pcm_class: 2, pcm_account_code: "2355"
+- "Mission de conseil" → pcm_class: 6, pcm_account_code: "6141"
+- "Fournitures de bureau" → pcm_class: 6, pcm_account_code: "6132"
 """
 
 

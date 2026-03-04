@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import apiService from '../api'
-import { Edit2, Zap } from 'lucide-react'
+import { Edit2, Zap, FileText, Building2, CheckCircle2 } from 'lucide-react'
 
 interface AgentProfile {
     id: number
@@ -171,19 +171,19 @@ export default function Profile() {
             {/* Statistiques Grille */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
                 <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>📄</div>
+                    <div style={{ marginBottom: '16px' }}><FileText size={32} color="var(--accent)" /></div>
                     <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats?.total_factures_validees || 0}</div>
                     <div className="stat-label">Pièces Comptables Validées</div>
                 </div>
 
                 <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏢</div>
+                    <div style={{ marginBottom: '16px' }}><Building2 size={32} color="var(--success)" /></div>
                     <div className="stat-value" style={{ color: 'var(--success)' }}>{stats?.total_societes_gerees || 0}</div>
                     <div className="stat-label">Dossiers Clientèle</div>
                 </div>
 
                 <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚡</div>
+                    <div style={{ marginBottom: '16px' }}><Zap size={32} color="var(--warning)" /></div>
                     <div className="stat-value" style={{ color: 'var(--warning)' }}>98.4%</div>
                     <div className="stat-label">Efficacité Systémique</div>
                 </div>

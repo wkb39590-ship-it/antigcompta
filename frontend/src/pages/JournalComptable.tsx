@@ -1,5 +1,21 @@
 import { useState, useEffect } from 'react'
 import { API_CONFIG } from '../config/apiConfig'
+import {
+    Calendar,
+    CalendarRange,
+    Layers,
+    ShoppingCart,
+    TrendingUp,
+    FileJson,
+    Banknote,
+    Scale,
+    AlertTriangle,
+    Clock,
+    CheckCircle2,
+    Download,
+    ChevronUp,
+    ChevronDown
+} from 'lucide-react'
 
 interface EntryLine {
     id: number
@@ -49,11 +65,11 @@ interface Totaux {
 }
 
 const JOURNALS = [
-    { code: '', label: '📚 Tous', color: '#6366f1' },
-    { code: 'ACH', label: '🛒 Achats', color: '#f59e0b' },
-    { code: 'VTE', label: '💰 Ventes', color: '#10b981' },
-    { code: 'OD', label: '📝 Opérations Diverses', color: '#8b5cf6' },
-    { code: 'BQ', label: '🏦 Banque', color: '#3b82f6' },
+    { code: '', label: 'Tous', icon: <Layers size={16} />, color: '#6366f1' },
+    { code: 'ACH', label: 'Achats', icon: <ShoppingCart size={16} />, color: '#f59e0b' },
+    { code: 'VTE', label: 'Ventes', icon: <TrendingUp size={16} />, color: '#10b981' },
+    { code: 'OD', label: 'OD', icon: <FileJson size={16} />, color: '#8b5cf6' },
+    { code: 'BQ', label: 'Banque', icon: <Banknote size={16} />, color: '#3b82f6' },
 ]
 
 const fmt = (n?: number) => n != null ? n.toLocaleString('fr-MA', { minimumFractionDigits: 2 }) : '0,00'
@@ -66,7 +82,7 @@ export default function JournalComptable() {
     const [expanded, setExpanded] = useState<number | null>(null)
     const [annee, setAnnee] = useState(new Date().getFullYear())
     const [mois, setMois] = useState(new Date().getMonth() + 1)
-    const [filterMode, setFilterMode] = useState<'mois' | 'annee'>('annee')
+    const [filterMode, setFilterMode] = useState<'tout' | 'annee' | 'mois'>('tout')
 
     const token = () => localStorage.getItem('session_token') || ''
 
@@ -76,12 +92,13 @@ export default function JournalComptable() {
         if (filterMode === 'annee') {
             params.append('date_debut', `${annee}-01-01`)
             params.append('date_fin', `${annee}-12-31`)
-        } else {
+        } else if (filterMode === 'mois') {
             const lastDay = new Date(annee, mois, 0).getDate()
             const mm = String(mois).padStart(2, '0')
             params.append('date_debut', `${annee}-${mm}-01`)
             params.append('date_fin', `${annee}-${mm}-${lastDay}`)
         }
+        // filterMode === 'tout' => pas de filtre date => toutes les écritures
         return params
     }
 
@@ -94,8 +111,13 @@ export default function JournalComptable() {
     }
 
     const loadTotaux = async () => {
-        const params = new URLSearchParams({ token: token(), annee: String(annee) })
-        if (filterMode === 'mois') params.append('mois', String(mois))
+        const params = new URLSearchParams({ token: token() })
+        if (filterMode === 'annee') params.append('annee', String(annee))
+        else if (filterMode === 'mois') {
+            params.append('annee', String(annee))
+            params.append('mois', String(mois))
+        }
+        // filterMode === 'tout' => pas de filtre annee
         const r = await fetch(`${API_CONFIG.BASE_URL}/journaux/totaux?${params}`)
         if (r.ok) setTotaux(await r.json())
     }
@@ -119,9 +141,10 @@ export default function JournalComptable() {
                 </div>
                 <button onClick={exportCSV} style={{
                     background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)',
-                    padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600
+                    padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: '8px'
                 }}>
-                    ⬇ Export CSV
+                    <Download size={16} /> Export CSV
                 </button>
             </div>
 
@@ -131,36 +154,43 @@ export default function JournalComptable() {
                 padding: '16px 20px', marginBottom: '20px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap'
             }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    {(['annee', 'mois'] as const).map(m => (
+                    {(['tout', 'annee', 'mois'] as const).map(m => (
                         <button key={m} onClick={() => setFilterMode(m)} style={{
-                            background: filterMode === m ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
+                            background: filterMode === m ? 'var(--accent)' : 'rgba(99,102,241,0.08)',
                             color: filterMode === m ? 'white' : 'var(--text2)',
-                            border: 'none', padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600
-                        }}>{m === 'annee' ? 'Année' : 'Mois'}</button>
+                            border: 'none', padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
+                            fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px'
+                        }}>
+                            {m === 'tout' ? <><CalendarRange size={14} /> Tout afficher</> :
+                                m === 'annee' ? <><Calendar size={14} /> Année</> :
+                                    <><Clock size={14} /> Mois</>}
+                        </button>
                     ))}
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <label style={{ color: 'var(--text2)', fontSize: '13px' }}>Année:</label>
-                    <input type="number" value={annee} onChange={e => setAnnee(Number(e.target.value))}
-                        min={2020} max={2030}
-                        style={{
-                            background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
-                            borderRadius: '8px', padding: '7px 12px', color: 'var(--text)', width: '90px', fontSize: '14px'
-                        }} />
-                    {filterMode === 'mois' && (
-                        <>
-                            <label style={{ color: 'var(--text2)', fontSize: '13px' }}>Mois:</label>
-                            <select value={mois} onChange={e => setMois(Number(e.target.value))} style={{
-                                background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
-                                borderRadius: '8px', padding: '7px 12px', color: 'var(--text)', fontSize: '14px'
-                            }}>
-                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                    <option key={m} value={m}>{MONTHS[m]}</option>
-                                ))}
-                            </select>
-                        </>
-                    )}
-                </div>
+                {filterMode !== 'tout' && (
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <label style={{ color: 'var(--text2)', fontSize: '13px' }}>Année:</label>
+                        <input type="number" value={annee} onChange={e => setAnnee(Number(e.target.value))}
+                            min={2020} max={2030}
+                            style={{
+                                background: 'rgba(99,102,241,0.08)', border: '1px solid var(--border)',
+                                borderRadius: '8px', padding: '7px 12px', color: 'var(--text)', width: '90px', fontSize: '14px'
+                            }} />
+                        {filterMode === 'mois' && (
+                            <>
+                                <label style={{ color: 'var(--text2)', fontSize: '13px' }}>Mois:</label>
+                                <select value={mois} onChange={e => setMois(Number(e.target.value))} style={{
+                                    background: 'rgba(99,102,241,0.08)', border: '1px solid var(--border)',
+                                    borderRadius: '8px', padding: '7px 12px', color: 'var(--text)', fontSize: '14px'
+                                }}>
+                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                        <option key={m} value={m}>{MONTHS[m]}</option>
+                                    ))}
+                                </select>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Cartes totaux par journal */}
@@ -180,8 +210,9 @@ export default function JournalComptable() {
                                     <span style={{
                                         background: t.equilibre ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
                                         color: t.equilibre ? '#10b981' : '#ef4444',
-                                        padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700
-                                    }}>{t.equilibre ? '⚖ OK' : '⚠ Déséquilibre'}</span>
+                                        padding: '4px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
+                                        display: 'flex', alignItems: 'center', gap: '4px'
+                                    }}>{t.equilibre ? <><Scale size={12} /> OK</> : <><AlertTriangle size={12} /> Écart</>}</span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '6px' }}>
                                     {t.nb_ecritures} écriture{t.nb_ecritures !== 1 ? 's' : ''}
@@ -207,8 +238,8 @@ export default function JournalComptable() {
                         color: activeJournal === j.code ? 'white' : 'var(--text2)',
                         border: `1px solid ${activeJournal === j.code ? j.color : 'transparent'}`,
                         padding: '7px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-                        transition: 'all 0.15s'
-                    }}>{j.label}</button>
+                        transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '8px'
+                    }}>{j.icon}{j.label}</button>
                 ))}
             </div>
 
@@ -257,10 +288,11 @@ export default function JournalComptable() {
                                                 <span style={{
                                                     background: e.is_validated ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
                                                     color: e.is_validated ? '#10b981' : '#f59e0b',
-                                                    padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600
-                                                }}>{e.is_validated ? '✅ Validé' : '⏳ Brouillon'}</span>
+                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
+                                                    display: 'inline-flex', alignItems: 'center', gap: '6px'
+                                                }}>{e.is_validated ? <><CheckCircle2 size={12} /> Validé</> : <><Clock size={12} /> Brouillon</>}</span>
                                             </td>
-                                            <td style={{ padding: '12px 16px', color: 'var(--text2)' }}>{expanded === e.id ? '▲' : '▼'}</td>
+                                            <td style={{ padding: '12px 16px', color: 'var(--text2)' }}>{expanded === e.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                                         </tr>
                                         {expanded === e.id && (
                                             <tr key={`${e.id}-detail`}>

@@ -1,36 +1,46 @@
-from fastapi import Header, HTTPException, Depends
-from typing import Dict
+from fastapi import Header, HTTPException, Depends, Query
+from typing import Dict, Optional
 
 try:
-    # reuse the simple decoder from auth.py
     from routes.auth import decode_jwt_token, get_current_agent
 except Exception:
-    # fallback: import relative
     from .auth import decode_jwt_token, get_current_agent
 
 
-def get_current_session(authorization: str = Header(None)) -> Dict:
-    """Decode session_token from Authorization header `Bearer <token>`.
+def get_current_session(
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+) -> Dict:
+    """Decode session_token from Authorization header `Bearer <token>`
+    OR from `?token=<token>` query param (used by legacy pages).
 
     Returns the token payload as a dict and raises 401 if invalid/missing.
     """
-    if not authorization:
+    raw_token = None
+
+    # 1. Priorité : Authorization: Bearer <token>
+    if authorization:
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            raw_token = parts[1]
+        else:
+            raise HTTPException(status_code=401, detail="Invalid authorization header format")
+
+    # 2. Fallback : ?token=<token> (query param)
+    elif token:
+        raw_token = token
+
+    else:
         raise HTTPException(status_code=401, detail="Authorization header missing")
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid authorization header format")
-    token = parts[1]
-    data = decode_jwt_token(token)
+
+    data = decode_jwt_token(raw_token)
     if not data.get("societe_id"):
         raise HTTPException(status_code=401, detail="Session token missing societe context")
     return data
 
 
-def require_admin(agent = Depends(get_current_agent)):
-    """Dependency helper: ensures the current agent is an admin.
-
-    Note: `get_current_agent` validates the agent token.
-    """
+def require_admin(agent=Depends(get_current_agent)):
+    """Dependency helper: ensures the current agent is an admin."""
     if not getattr(agent, "is_admin", False):
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return agent

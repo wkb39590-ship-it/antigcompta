@@ -1,11 +1,35 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../api'
+import {
+    FileText,
+    CheckCircle2,
+    FileEdit,
+    AlertCircle,
+    Plus,
+    Eye,
+    Trash2,
+    Inbox,
+    BarChart3,
+    ArrowUpRight
+} from 'lucide-react'
 
 const STATUS_ORDER = ['IMPORTED', 'EXTRACTED', 'CLASSIFIED', 'DRAFT', 'VALIDATED', 'EXPORTED', 'ERROR']
 
 function StatusBadge({ status }: { status: string }) {
-    return <span className={`badge badge-${status.toLowerCase()}`}>{status}</span>
+    const icons: Record<string, any> = {
+        IMPORTED: <FileText size={14} />,
+        EXTRACTED: <Eye size={14} />,
+        CLASSIFIED: <BarChart3 size={14} />,
+        DRAFT: <FileEdit size={14} />,
+        VALIDATED: <CheckCircle2 size={14} />,
+        ERROR: <AlertCircle size={14} />
+    }
+    return (
+        <span className={`badge badge-${status.toLowerCase()}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            {icons[status] || '•'} {status}
+        </span>
+    )
 }
 
 export default function Dashboard() {
@@ -59,19 +83,31 @@ export default function Dashboard() {
             {/* Stats */}
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-value">{stats.total}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="stat-value">{stats.total}</div>
+                        <FileText size={24} color="var(--accent)" opacity={0.5} />
+                    </div>
                     <div className="stat-label">Documents en cours</div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.validated}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.validated}</div>
+                        <CheckCircle2 size={24} color="var(--success)" opacity={0.5} />
+                    </div>
                     <div className="stat-label">Dossiers validés</div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats.draft}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats.draft}</div>
+                        <FileEdit size={24} color="var(--warning)" opacity={0.5} />
+                    </div>
                     <div className="stat-label">Travaux en attente</div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-value" style={{ color: 'var(--danger)' }}>{stats.error}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="stat-value" style={{ color: 'var(--danger)' }}>{stats.error}</div>
+                        <AlertCircle size={24} color="var(--danger)" opacity={0.5} />
+                    </div>
                     <div className="stat-label">Anomalies détectées</div>
                 </div>
             </div>
@@ -93,8 +129,8 @@ export default function Dashboard() {
                             <option value="">Tous les statuts</option>
                             {STATUS_ORDER.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <button className="btn btn-primary" onClick={() => navigate('/upload')}>
-                            Transmission de documents
+                        <button className="btn btn-primary" onClick={() => navigate('/upload')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Plus size={18} /> Transmission de documents
                         </button>
                     </div>
                 </div>
@@ -103,7 +139,9 @@ export default function Dashboard() {
                     <div className="loading"><div className="spinner" /> Chargement...</div>
                 ) : factures.length === 0 ? (
                     <div className="empty-state">
-                        <div className="empty-icon">📭</div>
+                        <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                            <Inbox size={48} color="var(--text3)" opacity={0.5} />
+                        </div>
                         <div className="empty-title">Aucune facture</div>
                         <div className="empty-subtitle">Importez votre première facture pour commencer</div>
                     </div>
@@ -144,18 +182,19 @@ export default function Dashboard() {
                                             <div style={{ display: 'flex', gap: '4px' }}>
                                                 <button
                                                     className="btn btn-ghost"
-                                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                                    style={{ padding: '8px', borderRadius: '8px' }}
                                                     onClick={e => { e.stopPropagation(); navigate(`/factures/${f.id}`) }}
+                                                    title="Voir le détail"
                                                 >
-                                                    Voir
+                                                    <Eye size={16} />
                                                 </button>
                                                 <button
                                                     className="btn btn-ghost"
-                                                    style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--danger)' }}
+                                                    style={{ padding: '8px', borderRadius: '8px', color: 'var(--danger)' }}
                                                     onClick={e => { e.stopPropagation(); handleDelete(f.id, f.numero_facture) }}
                                                     title="Supprimer la facture"
                                                 >
-                                                    Supprimer
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>

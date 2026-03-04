@@ -1,6 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import apiService, { Facture, InvoiceLine, JournalEntry, DgiFlag } from '../api'
+import {
+    ArrowLeft,
+    CheckCircle2,
+    AlertCircle,
+    AlertTriangle,
+    Zap,
+    Trash2,
+    FileText,
+    List,
+    BookOpen,
+    FileEdit,
+    ShieldCheck,
+    Box,
+    Book,
+    Plus,
+    X,
+    Save,
+    Search,
+    RefreshCw,
+    Scale
+} from 'lucide-react'
 
 function StatusBadge({ status }: { status: string }) {
     return <span className={`badge badge-${status.toLowerCase()}`}>{status}</span>
@@ -8,13 +29,17 @@ function StatusBadge({ status }: { status: string }) {
 
 function DgiFlagList({ flags }: { flags: DgiFlag[] }) {
     if (!flags || flags.length === 0) return (
-        <div className="alert alert-success">✅ Aucune anomalie DGI détectée</div>
+        <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle2 size={16} /> Aucune anomalie DGI détectée
+        </div>
     )
     return (
         <div>
             {flags.map((f, i) => (
-                <div key={i} className={`dgi-flag ${f.severity.toLowerCase()}`}>
-                    <span className="dgi-flag-icon">{f.severity === 'ERROR' ? '🚨' : '⚠️'}</span>
+                <div key={i} className={`dgi-flag ${f.severity.toLowerCase()}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '8px' }}>
+                    <span className="dgi-flag-icon">
+                        {f.severity === 'ERROR' ? <AlertCircle size={18} color="#ef4444" /> : <AlertTriangle size={18} color="#f59e0b" />}
+                    </span>
                     <div>
                         <strong>{f.code}</strong>: {f.message}
                     </div>
@@ -173,8 +198,8 @@ export default function FactureDetail() {
             <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <button className="btn btn-ghost" style={{ padding: '6px 12px' }} onClick={() => navigate('/dashboard')}>
-                            ← Retour
+                        <button className="btn btn-ghost" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => navigate('/dashboard')}>
+                            <ArrowLeft size={16} /> Retour
                         </button>
                         <h1 className="page-title">Facture #{facture.id}</h1>
                         <StatusBadge status={facture.status} />
@@ -185,33 +210,33 @@ export default function FactureDetail() {
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {facture.status === 'IMPORTED' && (
-                        <button className="btn btn-primary" disabled={actionLoading}
+                        <button className="btn btn-primary" disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             onClick={() => runAction(() => apiService.extractFacture(factureId), '✅ Analyse terminée')}>
-                            Lancer l'Analyse
+                            <Zap size={18} /> Lancer l'Analyse
                         </button>
                     )}
                     {facture.status === 'EXTRACTED' && (
-                        <button className="btn btn-primary" disabled={actionLoading}
+                        <button className="btn btn-primary" disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             onClick={() => runAction(() => apiService.classifyFacture(factureId), '✅ Imputation terminée')}>
-                            Qualifier les lignes
+                            <RefreshCw size={18} /> Qualifier les lignes
                         </button>
                     )}
                     {facture.status === 'CLASSIFIED' && (
-                        <button className="btn btn-primary" disabled={actionLoading}
+                        <button className="btn btn-primary" disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             onClick={() => runAction(() => apiService.generateEntries(factureId), '✅ Écritures générées')}>
-                            Générer les écritures
+                            <FileText size={18} /> Générer les écritures
                         </button>
                     )}
                     {facture.status === 'DRAFT' && (
-                        <button className="btn btn-success" disabled={actionLoading}
+                        <button className="btn btn-success" disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             onClick={() => runAction(() => apiService.validateFacture(factureId), '✅ Facture validée!')}>
-                            Valider le dossier
+                            <CheckCircle2 size={18} /> Valider le dossier
                         </button>
                     )}
                     {['EXTRACTED', 'CLASSIFIED', 'DRAFT'].includes(facture.status) && (
-                        <button className="btn btn-danger" disabled={actionLoading}
+                        <button className="btn btn-danger" disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             onClick={() => runAction(() => apiService.rejectFacture(factureId, 'Rejeté manuellement'), '❌ Facture rejetée')}>
-                            Rejeter
+                            <Trash2 size={18} /> Rejeter
                         </button>
                     )}
                 </div>
@@ -230,7 +255,7 @@ export default function FactureDetail() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         style={{
-                            padding: '10px 20px',
+                            padding: '12px 20px',
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
@@ -240,8 +265,14 @@ export default function FactureDetail() {
                             borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
                             marginBottom: '-1px',
                             transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
                         }}
                     >
+                        {tab === 'header' && <FileText size={16} />}
+                        {tab === 'lines' && <List size={16} />}
+                        {tab === 'entries' && <BookOpen size={16} />}
                         {tab === 'header' ? 'En-tête' : tab === 'lines' ? `Lignes (${lines.length})` : `Écritures (${entries.length})`}
                     </button>
                 ))}
@@ -256,11 +287,13 @@ export default function FactureDetail() {
                             {editingHeader ? (
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <button className="btn btn-ghost" onClick={() => { setEditingHeader(false); setHeaderForm({}) }}>Annuler</button>
-                                    <button className="btn btn-primary" onClick={saveHeader} disabled={actionLoading}>Enregistrer</button>
+                                    <button className="btn btn-primary" onClick={saveHeader} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Save size={14} /> Enregistrer
+                                    </button>
                                 </div>
                             ) : (
-                                <button className="btn btn-ghost" style={{ padding: '6px 12px' }} onClick={() => { setEditingHeader(true); setHeaderForm({ ...facture }) }}>
-                                    Modifier ✎
+                                <button className="btn btn-ghost" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setEditingHeader(true); setHeaderForm({ ...facture }) }}>
+                                    <FileEdit size={14} /> Modifier
                                 </button>
                             )}
                         </div>
@@ -388,7 +421,9 @@ export default function FactureDetail() {
 
                         {/* DGI Flags */}
                         <div className="card">
-                            <div className="card-title" style={{ marginBottom: '16px' }}>🛡️ Contrôles DGI</div>
+                            <div className="card-title" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <ShieldCheck size={18} color="#10b981" /> Contrôles DGI
+                            </div>
                             <DgiFlagList flags={facture.dgi_flags || []} />
                         </div>
                     </div>
@@ -404,7 +439,7 @@ export default function FactureDetail() {
                     </div>
                     {lines.length === 0 ? (
                         <div className="empty-state">
-                            <div className="empty-icon">📦</div>
+                            <div className="empty-icon"><Box size={48} color="var(--text3)" opacity={0.5} /></div>
                             <div className="empty-title">Aucune ligne extraite</div>
                             <div className="empty-subtitle">Lancez l'extraction pour obtenir les lignes</div>
                         </div>
@@ -443,10 +478,10 @@ export default function FactureDetail() {
                                                 <div>
                                                     {line.pcm_account_code ? (
                                                         <div>
-                                                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)' }}>
+                                                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                 {line.pcm_account_code}
+                                                                {line.is_corrected && <span style={{ fontSize: '10px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '2px' }}><FileEdit size={10} /> corrigé</span>}
                                                             </span>
-                                                            {line.is_corrected && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--warning)' }}>✏️ corrigé</span>}
                                                             <div style={{ fontSize: '11px', color: 'var(--text2)' }}>{line.pcm_account_label}</div>
                                                         </div>
                                                     ) : '—'}
@@ -459,7 +494,9 @@ export default function FactureDetail() {
                                                 <ConfidenceBar value={line.classification_confidence} />
                                             </td>
                                             <td style={{ width: 48, textAlign: 'right' }}>
-                                                <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 6, minWidth: 32 }}>✎</button>
+                                                <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 8, minWidth: 32 }}>
+                                                    <FileEdit size={14} />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -518,7 +555,9 @@ export default function FactureDetail() {
                         </div>
                         <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                             <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>Annuler</button>
-                            <button className="btn btn-primary" onClick={saveLineFromModal} disabled={actionLoading}>💾 Sauver</button>
+                            <button className="btn btn-primary" onClick={saveLineFromModal} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Save size={16} /> Sauver
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -530,7 +569,7 @@ export default function FactureDetail() {
                     {entries.length === 0 ? (
                         <div className="card">
                             <div className="empty-state">
-                                <div className="empty-icon">📒</div>
+                                <div className="empty-icon"><Book size={48} color="var(--text3)" opacity={0.5} /></div>
                                 <div className="empty-title">Aucune écriture générée</div>
                                 <div className="empty-subtitle">Classifiez les lignes puis générez les écritures</div>
                             </div>
@@ -541,16 +580,16 @@ export default function FactureDetail() {
                             <div key={entry.id} className="card" style={{ marginBottom: '16px' }}>
                                 <div className="card-header">
                                     <div>
-                                        <div className="card-title">
+                                        <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             Journal {entry.journal_code} — {entry.reference || 'Sans référence'}
-                                            {entry.is_validated && <span className="badge badge-validated" style={{ marginLeft: '12px' }}>✅ Validée</span>}
+                                            {entry.is_validated && <span className="badge badge-validated" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={12} /> Validée</span>}
                                         </div>
                                         <div className="card-subtitle">{entry.description}</div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
                                         <div style={{ fontSize: '12px', color: 'var(--text3)' }}>Équilibre</div>
-                                        <div style={{ fontWeight: 700, color: isBalanced ? 'var(--success)' : 'var(--danger)' }}>
-                                            {isBalanced ? '✅ Équilibré' : `⚠️ Écart: ${Math.abs(entry.total_debit - entry.total_credit).toFixed(2)}`}
+                                        <div style={{ fontWeight: 700, color: isBalanced ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                            {isBalanced ? <><Scale size={14} /> Équilibré</> : <><AlertTriangle size={14} /> Écart: {Math.abs(entry.total_debit - entry.total_credit).toFixed(2)}</>}
                                         </div>
                                     </div>
                                 </div>

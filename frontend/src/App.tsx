@@ -12,6 +12,21 @@ import Avoirs from './pages/Avoirs'
 import Immobilisations from './pages/Immobilisations'
 import JournalComptable from './pages/JournalComptable'
 import Paie from './pages/Paie'
+import {
+    LayoutDashboard,
+    Upload as UploadIcon,
+    History as HistoryIcon,
+    FileText,
+    Building2,
+    BookOpen,
+    CreditCard,
+    Book,
+    Users2,
+    User,
+    LogOut,
+    ChevronUp,
+    ChevronDown
+} from 'lucide-react'
 
 import CabinetSelector from './pages/CabinetSelector'
 import { getSessionContext } from './utils/tokenDecoder'
@@ -63,16 +78,16 @@ function Sidebar() {
     const societeDisplay = session?.societe_raison_sociale || 'Société non sélectionnée'
 
     const navItems = [
-        { to: '/dashboard', label: '🏠 Tableau de bord' },
-        { to: '/upload', label: '📤 Transmission' },
-        { to: '/history', label: '📋 Historique' },
-        { to: '/avoirs', label: '📄 Avoirs' },
-        { to: '/immobilisations', label: '🏗️ Immobilisations' },
-        { to: '/journal', label: '📒 Journal Comptable' },
-        { to: '/paie', label: '💳 Paie & Salaires' },
-        { to: '/pcm', label: '📑 Plan Comptable' },
-        { to: '/mappings', label: '🗂️ Répertoire' },
-        { to: '/profile', label: '👤 Mon Profil' },
+        { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={18} /> },
+        { to: '/upload', label: 'Transmission', icon: <UploadIcon size={18} /> },
+        { to: '/history', label: 'Historique', icon: <HistoryIcon size={18} /> },
+        { to: '/avoirs', label: 'Avoirs', icon: <FileText size={18} /> },
+        { to: '/immobilisations', label: 'Immobilisations', icon: <Building2 size={18} /> },
+        { to: '/journal', label: 'Journal Comptable', icon: <BookOpen size={18} /> },
+        { to: '/paie', label: 'Paie & Salaires', icon: <CreditCard size={18} /> },
+        { to: '/pcm', label: 'Plan Comptable', icon: <Book size={18} /> },
+        { to: '/mappings', label: 'Répertoire', icon: <Users2 size={18} /> },
+        { to: '/profile', label: 'Mon Profil', icon: <User size={18} /> },
     ]
 
     useEffect(() => {
@@ -134,7 +149,9 @@ function Sidebar() {
                         key={item.to}
                         to={item.to}
                         className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
                     >
+                        <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>{item.icon}</span>
                         {item.label}
                     </NavLink>
                 ))}
@@ -147,12 +164,12 @@ function Sidebar() {
                         bottom: '100%',
                         left: '10px',
                         right: '10px',
-                        background: '#1e293b',
+                        background: '#ffffff',
                         borderRadius: '12px',
                         border: '1px solid var(--border)',
                         padding: '8px',
                         marginBottom: '10px',
-                        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
                         zIndex: 100,
                         maxHeight: '300px',
                         overflowY: 'auto'
@@ -171,18 +188,18 @@ function Sidebar() {
                                         width: '100%',
                                         padding: '10px',
                                         textAlign: 'left',
-                                        background: s.id === session?.societe_id ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                        background: s.id === session?.societe_id ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
                                         border: 'none',
                                         borderRadius: '8px',
-                                        color: s.id === session?.societe_id ? 'var(--accent)' : 'white',
+                                        color: s.id === session?.societe_id ? 'var(--accent)' : 'var(--text)',
                                         fontSize: '13px',
                                         cursor: 'pointer',
                                         display: 'block',
                                         transition: 'background 0.2s',
                                         fontWeight: s.id === session?.societe_id ? 'bold' : 'normal'
                                     }}
-                                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                                    onMouseOut={(e) => (e.currentTarget.style.background = s.id === session?.societe_id ? 'rgba(99, 102, 241, 0.2)' : 'transparent')}
+                                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(99, 102, 241, 0.07)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.background = s.id === session?.societe_id ? 'rgba(99, 102, 241, 0.1)' : 'transparent')}
                                 >
                                     {s.raison_sociale}
                                 </button>
@@ -203,9 +220,9 @@ function Sidebar() {
                         textDecoration: 'none',
                         marginBottom: '16px',
                         transition: 'background 0.2s',
-                        background: showSocMenu ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.03)',
+                        background: showSocMenu ? 'rgba(99, 102, 241, 0.08)' : 'rgba(15, 23, 42, 0.04)',
                         cursor: 'pointer',
-                        border: showSocMenu ? '1px solid var(--accent)' : '1px solid transparent'
+                        border: showSocMenu ? '1px solid var(--accent)' : '1px solid var(--border)'
                     }}
                 >
                     <div style={{
@@ -228,7 +245,7 @@ function Sidebar() {
                             {session?.username}
                         </div>
                         <div style={{ fontSize: '11px', color: showSocMenu ? 'var(--accent)' : 'var(--text3)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {societeDisplay} <span>{showSocMenu ? '▲' : '▼'}</span>
+                            {societeDisplay} <span>{showSocMenu ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</span>
                         </div>
                     </div>
                 </div>
@@ -255,6 +272,7 @@ function Sidebar() {
                         transition: 'all 0.2s'
                     }}
                 >
+                    <LogOut size={16} />
                     Déconnexion
                 </button>
             </div>
@@ -268,6 +286,7 @@ function Sidebar() {
  * Définit la structure des routes et les dépendances globales.
  */
 export default function App() {
+    console.log('[App] Rendering App component')
     return (
         <Routes>
             {/* Public Auth Pages */}

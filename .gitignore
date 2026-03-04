@@ -44,3 +44,25 @@ backend/generated/
 
 # Docker
 *.log
+
+
+
+# Exports (PDF/XLSX générés)
+backend/exports/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Uploads
+backend/uploads/
+
+# Generated files
+backend/generated/
+
+# Environment
+.env
+
+# Docker
+*.log
