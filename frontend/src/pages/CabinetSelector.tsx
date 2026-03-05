@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_CONFIG } from '../config/apiConfig'
-import { Building2, Search, ArrowLeft, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
+import { Building2, Search, ArrowLeft, RefreshCw, CheckCircle2, Loader2, Zap, Briefcase, User, AlertTriangle } from 'lucide-react'
 import '../styles/auth.css'
+import '../styles/creative-login.css'
 
 interface Cabinet {
     id: number
@@ -24,12 +25,23 @@ export default function CabinetSelector() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
+    // Mouse tracking for parallax effect
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+
     const token = localStorage.getItem('access_token')
     const username = localStorage.getItem('username')
-    const usernameDisplay = username ? (typeof username === 'string' ? username : JSON.stringify(username)) : ''
 
     useEffect(() => {
-        // Charger les cabinets au chargement
+        const handleMouseMove = (e: MouseEvent) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 40;
+            const y = (e.clientY / window.innerHeight - 0.5) * 40;
+            setMousePos({ x, y });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
+
+    useEffect(() => {
         const cabinetsData = localStorage.getItem('cabinets')
         if (cabinetsData) {
             setCabinets(JSON.parse(cabinetsData))
@@ -37,7 +49,6 @@ export default function CabinetSelector() {
     }, [])
 
     useEffect(() => {
-        // Charger les sociétés quand un cabinet est sélectionné
         if (selectedCabinet) {
             loadSocietes(selectedCabinet)
         }
@@ -85,8 +96,6 @@ export default function CabinetSelector() {
         try {
             if (!token) throw new Error('Token manquant, reconnectez-vous')
 
-            console.log('[CabinetSelector] Calling select-societe with:', { selectedCabinet, selectedSociete })
-
             const response = await fetch(`${API_CONFIG.AUTH.SELECT_SOCIETE}?token=${encodeURIComponent(token)}`, {
                 method: 'POST',
                 headers: {
@@ -98,38 +107,25 @@ export default function CabinetSelector() {
                 })
             })
 
-            console.log('[CabinetSelector] Response status:', response.status)
-
             if (!response.ok) {
                 let data = null
                 try { data = await response.json() } catch { }
                 const msg = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Erreur lors de la sélection'
-                console.error('[CabinetSelector] Error response:', msg)
                 throw new Error(msg)
             }
 
             const data = await response.json()
-            console.log('[CabinetSelector] Response data:', data)
-            console.log('[CabinetSelector] session_token:', data.session_token ? `${data.session_token.substring(0, 20)}...` : 'MISSING')
-
-            // Stocker le session_token et le contexte
             localStorage.setItem('session_token', data.session_token)
 
-            // Extract cabinet_id and societe_id from context
             const cabinet_id = data.context?.cabinet_id || selectedCabinet
             const societe_id = data.context?.societe_id || selectedSociete
 
             localStorage.setItem('current_cabinet_id', String(cabinet_id))
             localStorage.setItem('current_societe_id', String(societe_id))
 
-            console.log('[CabinetSelector] ✅ Stored session_token in localStorage')
-            console.log('[CabinetSelector] ✅ Stored context:', { cabinet_id, societe_id })
-
-            // Rediriger vers le dashboard
             navigate('/dashboard')
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : (err ? JSON.stringify(err) : 'Erreur inconnue')
-            console.error('[CabinetSelector] Error:', errorMsg)
             setError(errorMsg)
         } finally {
             setLoading(false)
@@ -137,87 +133,160 @@ export default function CabinetSelector() {
     }
 
     return (
-        <div className="auth-container">
-            <div className="auth-card">
-                <div className="auth-header">
-                    <h1 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                        <Building2 size={28} color="var(--accent)" /> Sélection Cabinet & Société
-                    </h1>
-                    <p>Connecté en tant que: <strong>{username}</strong></p>
-                </div>
+        <div className="creative-auth-container">
+            {/* Background Animated Blurs */}
+            <div className="animated-bg">
+                <div className="bg-shape shape-1"></div>
+                <div className="bg-shape shape-2"></div>
+                <div className="bg-shape shape-3"></div>
+            </div>
 
-                <form onSubmit={handleSelectSociete} className="auth-form">
-                    <div className="form-group">
-                        <label htmlFor="cabinet">Sélectionner un cabinet</label>
-                        <select
-                            id="cabinet"
-                            value={selectedCabinet || ''}
-                            onChange={(e) => {
-                                setSelectedCabinet(Number(e.target.value))
-                                setSelectedSociete(null)
-                                setSocietes([])
-                            }}
-                            disabled={loading}
-                            required
-                        >
-                            <option value="">-- Choisir un cabinet --</option>
-                            {cabinets.map((cab) => (
-                                <option key={cab?.id ?? JSON.stringify(cab)} value={cab?.id ?? JSON.stringify(cab)}>
-                                    {typeof cab?.nom === 'string' ? cab.nom : JSON.stringify(cab)}
-                                </option>
-                            ))}
-                        </select>
+            {/* Parallax Floating Elements */}
+            <div
+                className="floating-elements"
+                style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)` }}
+            >
+                <div className="float-item float-item-1"></div>
+                <div className="float-item float-item-2"></div>
+                <div className="float-item float-item-3"></div>
+                <div className="float-item float-item-4"></div>
+            </div>
+
+            <div className="auth-content-wrapper">
+                <div className="auth-glass-panel">
+
+                    {/* Left: Showcase */}
+                    <div className="auth-showcase-glass">
+                        <div className="showcase-text">
+                            <div className="brand-title">
+                                <div className="brand-icon-glass">
+                                    <Zap size={28} />
+                                </div>
+                                <h1>comptafacile</h1>
+                            </div>
+                            <h2>Espace de<br />Travail.</h2>
+                            <p>Veuillez sélectionner le cabinet et la société pour laquelle vous souhaitez travailler aujourd'hui.</p>
+
+                            <div style={{ marginTop: '32px', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--auth-text-main)' }}>
+                                <div style={{ padding: '8px', background: 'white', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                                    <User size={20} color="var(--auth-accent-1)" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', color: 'var(--auth-text-dim)', fontWeight: 600 }}>Connecté en tant que</div>
+                                    <div style={{ fontWeight: 700 }}>{username}</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {selectedCabinet && (
-                        <div className="form-group">
-                            <label htmlFor="societe">Sélectionner une société</label>
-                            <select
-                                id="societe"
-                                value={selectedSociete || ''}
-                                onChange={(e) => setSelectedSociete(Number(e.target.value))}
-                                disabled={loading || societes.length === 0}
-                                required
-                            >
-                                <option value="">
-                                    {loading ? 'Chargement...' : '-- Choisir une société --'}
-                                </option>
-                                {societes.map((soc) => (
-                                    <option key={soc?.id ?? JSON.stringify(soc)} value={soc?.id ?? JSON.stringify(soc)}>
-                                        {typeof soc?.raison_sociale === 'string' ? soc.raison_sociale : JSON.stringify(soc)} {soc?.ice ? `(${soc.ice})` : ''}
-                                    </option>
-                                ))}
-                            </select>
+                    {/* Right: Form */}
+                    <div className="auth-form-glass">
+                        <div className="form-header">
+                            <h2>Saisie Contexte</h2>
+                            <p>Choisissez votre périmètre d'action</p>
                         </div>
-                    )}
 
-                    {error && <div className="form-error">{error}</div>}
+                        <form onSubmit={handleSelectSociete}>
+                            <div className="glass-input-group">
+                                <label>Cabinet Comptable</label>
+                                <div className="glass-input-wrapper">
+                                    <select
+                                        value={selectedCabinet || ''}
+                                        onChange={(e) => {
+                                            setSelectedCabinet(Number(e.target.value))
+                                            setSelectedSociete(null)
+                                            setSocietes([])
+                                        }}
+                                        disabled={loading}
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '16px 20px 16px 48px',
+                                            background: 'var(--auth-input-bg)',
+                                            border: '1px solid rgba(0,0,0,0.05)',
+                                            borderRadius: '16px',
+                                            appearance: 'none'
+                                        }}
+                                    >
+                                        <option value="">-- Choisir un cabinet --</option>
+                                        {cabinets.map((cab) => (
+                                            <option key={cab.id} value={cab.id}>
+                                                {cab.nom}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Building2 size={18} className="input-icon" />
+                                </div>
+                            </div>
 
-                    <button
-                        type="submit"
-                        disabled={!selectedSociete || loading}
-                        className="auth-button"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-                    >
-                        {loading ? (
-                            <><Loader2 size={18} className="animate-spin" /> Entrée...</>
-                        ) : (
-                            <><CheckCircle2 size={18} /> Entrer dans le système</>
-                        )}
-                    </button>
-                </form>
+                            {selectedCabinet && (
+                                <div className="glass-input-group">
+                                    <label>Société / Client</label>
+                                    <div className="glass-input-wrapper">
+                                        <select
+                                            value={selectedSociete || ''}
+                                            onChange={(e) => setSelectedSociete(Number(e.target.value))}
+                                            disabled={loading || societes.length === 0}
+                                            required
+                                            style={{
+                                                width: '100%',
+                                                padding: '16px 20px 16px 48px',
+                                                background: 'var(--auth-input-bg)',
+                                                border: '1px solid rgba(0,0,0,0.05)',
+                                                borderRadius: '16px',
+                                                appearance: 'none'
+                                            }}
+                                        >
+                                            <option value="">
+                                                {loading ? 'Chargement...' : '-- Choisir une société --'}
+                                            </option>
+                                            {societes.map((soc) => (
+                                                <option key={soc.id} value={soc.id}>
+                                                    {soc.raison_sociale} {soc.ice ? `(${soc.ice})` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <Briefcase size={18} className="input-icon" />
+                                    </div>
+                                </div>
+                            )}
 
-                <div className="auth-footer">
-                    <button
-                        onClick={() => {
-                            localStorage.clear()
-                            navigate('/login')
-                        }}
-                        className="link-button"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
-                    >
-                        <ArrowLeft size={16} /> Retour connexion
-                    </button>
+                            {error && (
+                                <div className="auth-error-glass">
+                                    <AlertTriangle size={18} />
+                                    <span>{error}</span>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={!selectedSociete || loading}
+                                className="glass-submit-btn"
+                            >
+                                {loading ? (
+                                    <div className="creative-spinner"></div>
+                                ) : (
+                                    <>
+                                        <span>Entrer dans le système</span>
+                                        <CheckCircle2 size={18} />
+                                    </>
+                                )}
+                            </button>
+                        </form>
+
+                        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                            <button
+                                onClick={() => {
+                                    localStorage.clear()
+                                    navigate('/login')
+                                }}
+                                className="link-button"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', margin: '0 auto' }}
+                            >
+                                <ArrowLeft size={16} /> Retour connexion
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

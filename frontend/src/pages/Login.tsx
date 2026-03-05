@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_CONFIG } from '../config/apiConfig'
 import { setAdminSession } from '../utils/adminTokenDecoder'
-import { Zap, AlertTriangle, Lock } from 'lucide-react'
+import { Zap, AlertTriangle, ArrowRight, User, Lock } from 'lucide-react'
 import '../styles/auth.css'
+import '../styles/creative-login.css'
 
 interface RoleAgent {
     id: number;
@@ -29,6 +30,18 @@ export default function Login() {
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    // Mouse tracking for parallax effect
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 40; // Max 40px movement
+            const y = (e.clientY / window.innerHeight - 0.5) * 40;
+            setMousePos({ x, y });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -49,22 +62,17 @@ export default function Login() {
 
             const data: LoginResponse = await response.json()
 
-            // 1. Stockage commun des informations de base
-            localStorage.removeItem('session_token') // Nettoyage critique
+            localStorage.removeItem('session_token')
             localStorage.setItem('access_token', data.access_token)
             localStorage.setItem('username', data.agent.username)
             localStorage.setItem('is_admin', String(data.agent.is_admin))
             localStorage.setItem('is_super_admin', String(data.agent.is_super_admin))
             localStorage.setItem('cabinets', JSON.stringify(data.cabinets))
 
-            // 2. Logique de redirection selon le rôle
             if (data.agent.is_admin || data.agent.is_super_admin) {
-                console.log('[Login] Connexion Administrateur ou Super-Admin détectée');
-                // Session Admin (nécessaire pour AdminProtectedRoute)
                 setAdminSession(data.access_token, data.agent);
                 navigate('/admin/dashboard');
             } else {
-                console.log('[Login] Connexion Agent standard');
                 navigate('/select-cabinet');
             }
         } catch (err) {
@@ -75,263 +83,106 @@ export default function Login() {
     }
 
     return (
-        <div className="unified-login-page">
-            <div className="aurora-login-card">
-                <div className="login-glow"></div>
-
-                <div className="login-header">
-                    <div className="logo-icon"><Zap size={42} color="var(--login-accent)" fill="var(--login-accent)" opacity={0.8} /></div>
-                    <h1>comptafacile</h1>
-                    <p className="subtitle">Solution d'automatisation et de dématérialisation comptable</p>
-                </div>
-
-                <form onSubmit={handleLogin} className="login-form">
-                    <div className="input-group">
-                        <label>Nom d'utilisateur</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Entrez votre identifiant"
-                            disabled={loading}
-                            required
-                        />
-                    </div>
-
-                    <div className="input-group">
-                        <label>Mot de passe</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            disabled={loading}
-                            required
-                        />
-                    </div>
-
-                    {error && (
-                        <div className="login-error">
-                            <span className="error-icon"><AlertTriangle size={18} /></span>
-                            {error}
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="login-btn"
-                    >
-                        {loading ? (
-                            <div className="loader-container">
-                                <div className="btn-spinner"></div>
-                                <span>Authentification...</span>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                                <span>Se connecter</span>
-                                <Lock size={18} />
-                            </div>
-                        )}
-                    </button>
-                </form>
-
-
+        <div className="creative-auth-container">
+            {/* Background Animated Blurs */}
+            <div className="animated-bg">
+                <div className="bg-shape shape-1"></div>
+                <div className="bg-shape shape-2"></div>
+                <div className="bg-shape shape-3"></div>
             </div>
 
-            <style>{`
-                :root {
-                    --login-bg: #0f172a;
-                    --login-panel: rgba(30, 41, 59, 0.7);
-                    --login-accent: #6366f1;
-                    --login-border: rgba(255, 255, 255, 0.1);
-                }
+            {/* Parallax Floating Elements */}
+            <div
+                className="floating-elements"
+                style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)` }}
+            >
+                <div className="float-item float-item-1"></div>
+                <div className="float-item float-item-2"></div>
+                <div className="float-item float-item-3"></div>
+                <div className="float-item float-item-4"></div>
+            </div>
 
-                .unified-login-page {
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
-                    font-family: 'Inter', system-ui, sans-serif;
-                    padding: 20px;
-                }
+            {/* Main Center Content */}
+            <div className="auth-content-wrapper">
+                <div className="auth-glass-panel">
 
-                .aurora-login-card {
-                    position: relative;
-                    width: 100%;
-                    max-width: 440px;
-                    background: var(--login-panel);
-                    backdrop-filter: blur(20px);
-                    border: 1px solid var(--login-border);
-                    border-radius: 28px;
-                    padding: 40px;
-                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                    overflow: hidden;
-                    animation: fadeIn 0.6s ease-out;
-                }
+                    {/* Left: Animated Showcase */}
+                    <div className="auth-showcase-glass">
+                        <div className="showcase-text">
+                            <div className="brand-title">
+                                <div className="brand-icon-glass">
+                                    <Zap size={28} />
+                                </div>
+                                <h1>comptafacile</h1>
+                            </div>
+                            <h2>L'avenir de votre<br />comptabilité.</h2>
+                            <p>Une expérience fluide, intelligente et dynamique pour gérer toutes vos écritures comptables sans effort.</p>
+                        </div>
+                    </div>
 
-                .login-glow {
-                    position: absolute;
-                    top: -100px;
-                    right: -100px;
-                    width: 300px;
-                    height: 300px;
-                    background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent 70%);
-                    pointer-events: none;
-                }
+                    {/* Right: Glass Form */}
+                    <div className="auth-form-glass">
+                        <div className="form-header">
+                            <h2>Connexion</h2>
+                            <p>Accédez à votre espace de travail intelligent</p>
+                        </div>
 
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
+                        <form onSubmit={handleLogin}>
+                            <div className="glass-input-group">
+                                <label>Identifiant</label>
+                                <div className="glass-input-wrapper">
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        placeholder="Votre identifiant"
+                                        disabled={loading}
+                                        required
+                                    />
+                                    <User size={18} className="input-icon" />
+                                </div>
+                            </div>
 
-                .login-header {
-                    text-align: center;
-                    margin-bottom: 35px;
-                }
+                            <div className="glass-input-group">
+                                <label>Mot de passe</label>
+                                <div className="glass-input-wrapper">
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        disabled={loading}
+                                        required
+                                    />
+                                    <Lock size={18} className="input-icon" />
+                                </div>
+                            </div>
 
-                .logo-icon {
-                    font-size: 42px;
-                    margin-bottom: 10px;
-                    filter: drop-shadow(0 0 10px var(--login-accent));
-                }
+                            {error && (
+                                <div className="auth-error-glass">
+                                    <AlertTriangle size={18} />
+                                    <span>{error}</span>
+                                </div>
+                            )}
 
-                .login-header h1 {
-                    font-size: 28px;
-                    font-weight: 800;
-                    color: white;
-                    margin: 0;
-                    letter-spacing: -0.5px;
-                }
-
-                .subtitle {
-                    color: #94a3b8;
-                    font-size: 14px;
-                    margin-top: 5px;
-                    font-weight: 500;
-                }
-
-                .input-group {
-                    margin-bottom: 24px;
-                }
-
-                .input-group label {
-                    display: block;
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                    margin-bottom: 8px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-
-                .input-group input {
-                    width: 100%;
-                    background: rgba(15, 23, 42, 0.5);
-                    border: 1px solid var(--login-border);
-                    border-radius: 14px;
-                    padding: 14px 16px;
-                    color: white;
-                    font-size: 15px;
-                    transition: all 0.3s;
-                    box-sizing: border-box;
-                }
-
-                .input-group input:focus {
-                    outline: none;
-                    border-color: var(--login-accent);
-                    background: rgba(15, 23, 42, 0.8);
-                    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-                }
-
-                .login-error {
-                    background: rgba(239, 68, 68, 0.1);
-                    border-left: 4px solid #ef4444;
-                    padding: 12px;
-                    border-radius: 8px;
-                    color: #fca5a5;
-                    font-size: 13px;
-                    margin-bottom: 24px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-
-                .login-btn {
-                    width: 100%;
-                    background: linear-gradient(135deg, #6366f1, #4f46e5);
-                    color: white;
-                    border: none;
-                    padding: 16px;
-                    border-radius: 14px;
-                    font-size: 16px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                    box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
-                }
-
-                .login-btn:hover:not(:disabled) {
-                    transform: translateY(-2px);
-                    box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.5);
-                }
-
-                .login-btn:disabled {
-                    opacity: 0.7;
-                    cursor: not-allowed;
-                }
-
-                .loader-container {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 12px;
-                }
-
-                .btn-spinner {
-                    width: 18px;
-                    height: 18px;
-                    border: 2px solid rgba(255, 255, 255, 0.3);
-                    border-top-color: white;
-                    border-radius: 50%;
-                    animation: spin 0.8s linear infinite;
-                }
-
-                @keyframes spin { to { transform: rotate(360deg); } }
-
-                .login-footer {
-                    margin-top: 35px;
-                    padding-top: 25px;
-                    border-top: 1px solid var(--login-border);
-                }
-
-                .test-accounts p {
-                    font-size: 12px;
-                    color: #64748b;
-                    margin-bottom: 12px;
-                    text-align: center;
-                }
-
-                .account-chips {
-                    display: flex;
-                    justify-content: center;
-                    gap: 10px;
-                    flex-wrap: wrap;
-                }
-
-                .chip {
-                    font-size: 11px;
-                    padding: 5px 12px;
-                    border-radius: 20px;
-                    font-weight: 600;
-                    background: rgba(255, 255, 255, 0.05);
-                    color: #94a3b8;
-                    border: 1px solid var(--login-border);
-                }
-
-                .chip.admin { color: #818cf8; border-color: rgba(129, 140, 248, 0.3); }
-            `}</style>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="glass-submit-btn"
+                            >
+                                {loading ? (
+                                    <div className="creative-spinner"></div>
+                                ) : (
+                                    <>
+                                        <span>Entrer dans l'application</span>
+                                        <ArrowRight size={18} />
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }
