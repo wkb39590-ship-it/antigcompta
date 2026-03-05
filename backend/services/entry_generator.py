@@ -54,7 +54,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     db.flush()
 
     invoice_type = (facture.invoice_type or "ACHAT").upper()
-    is_avoir = invoice_type == "AVOIR"
+    is_avoir_achat = invoice_type in ["AVOIR", "AVOIR_ACHAT"]
+    is_avoir_vente = invoice_type == "AVOIR_VENTE"
     is_vente = invoice_type == "VENTE"
 
     # Déterminer le code journal
@@ -62,6 +63,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         "ACHAT": "ACH",
         "VENTE": "VTE",
         "AVOIR": "ACH",
+        "AVOIR_ACHAT": "ACH",
+        "AVOIR_VENTE": "VTE",
         "NOTE_FRAIS": "OD",
         "IMMOBILISATION": "ACH",
     }
@@ -89,8 +92,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     tiers_ice = facture.supplier_ice or facture.ice_frs
 
     if is_vente:
-        # ── VENTE ────────────────────────────────────────────────
-        # Débit 3421 (Client) pour le TTC total
+        # ── VENTE STANDARD ───────────────────────────────────────
         ttc_total = _d(facture.montant_ttc)
         client_name = facture.client_name or "Client"
         client_ice = facture.client_ice
@@ -110,116 +112,88 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         total_debit += ttc_total
         line_order += 1
 
-        # Crédit 7xxx par ligne + Crédit 4455 TVA
         for line in facture.lines:
-            # Sécurité: Ne pas utiliser de compte de classe 6 (Charges) pour une vente
             raw_account = line.pcm_account_code or "7111"
-            if not line.corrected_account_code and raw_account.startswith("6"):
-                account_code = "7111"
-                account_label = "Ventes de marchandises (redressé)"
-            else:
-                account_code = line.corrected_account_code or raw_account
-                account_label = line.pcm_account_label or "Ventes"
-
+            account_code = line.corrected_account_code or raw_account
+            account_label = line.pcm_account_label or "Ventes"
             ht = _d(line.line_amount_ht)
-            
-            # Priorité absolue au montant TVA extrait
             tva = _d(line.tva_amount)
             if tva == Decimal("0") and line.tva_rate and _d(line.tva_rate) > 0:
                 tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-            el_ht = EntryLine(
-                ecriture_journal_id=entry.id,
-                line_order=line_order,
-                account_code=account_code,
-                account_label=account_label,
-                debit=Decimal("0"),
-                credit=ht,
-                tiers_name=client_name,
-                tiers_ice=client_ice,
-            )
-            db.add(el_ht)
-            entry_lines.append(el_ht)
-            total_credit += ht
-            line_order += 1
+            el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
+                              account_label=account_label, debit=Decimal("0"), credit=ht,
+                              tiers_name=client_name, tiers_ice=client_ice)
+            db.add(el_ht); entry_lines.append(el_ht); total_credit += ht; line_order += 1
 
             if tva > 0:
-                el_tva = EntryLine(
-                    ecriture_journal_id=entry.id,
-                    line_order=line_order,
-                    account_code="4455",
-                    account_label="TVA facturée",
-                    debit=Decimal("0"),
-                    credit=tva,
-                    tiers_name=client_name,
-                    tiers_ice=client_ice,
-                )
-                db.add(el_tva)
-                entry_lines.append(el_tva)
-                total_credit += tva
-                line_order += 1
+                el_tva = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4455",
+                                   account_label="TVA facturée", debit=Decimal("0"), credit=tva,
+                                   tiers_name=client_name, tiers_ice=client_ice)
+                db.add(el_tva); entry_lines.append(el_tva); total_credit += tva; line_order += 1
 
-    elif is_avoir:
-        # ── AVOIR ACHAT ──────────────────────────────────────────
-        # Débit 4411 (Fournisseur) pour le TTC total
+    elif is_avoir_vente:
+        # ── AVOIR CLIENT (VENTE) ─────────────────────────────────
+        # Inverse de la vente : Débit 7xxx, Débit 4455, Crédit 3421
         ttc_total = _d(facture.montant_ttc)
+        client_name = facture.client_name or "Client"
+        client_ice = facture.client_ice
 
-        el = EntryLine(
-            ecriture_journal_id=entry.id,
-            line_order=line_order,
-            account_code="4411",
-            account_label="Fournisseurs",
-            debit=ttc_total,
-            credit=Decimal("0"),
-            tiers_name=tiers_name,
-            tiers_ice=tiers_ice,
-        )
-        db.add(el)
-        entry_lines.append(el)
-        total_debit += ttc_total
-        line_order += 1
-
-        # Crédit 6xxx + Crédit TVA par ligne
         for line in facture.lines:
-            account_code = line.corrected_account_code or line.pcm_account_code or "6111"
-            account_label = line.pcm_account_label or "Achats"
+            account_code = line.corrected_account_code or line.pcm_account_code or "7111"
+            account_label = line.pcm_account_label or "Ventes (Avoir)"
             ht = _d(line.line_amount_ht)
-            # Si tva_amount est vide, la calculer depuis le taux
             tva = _d(line.tva_amount)
             if tva == Decimal("0") and line.tva_rate:
-                tva = ht * (_d(line.tva_rate) / Decimal("100"))
+                tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+            # Débit HT (Annulation vente)
+            el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
+                              account_label=account_label, debit=ht, credit=Decimal("0"),
+                              tiers_name=client_name, tiers_ice=client_ice)
+            db.add(el_ht); entry_lines.append(el_ht); total_debit += ht; line_order += 1
+
+            # Débit TVA (Annulation TVA collectée)
+            if tva > 0:
+                el_tva = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4455",
+                                   account_label="TVA facturée (Avoir)", debit=tva, credit=Decimal("0"),
+                                   tiers_name=client_name, tiers_ice=client_ice)
+                db.add(el_tva); entry_lines.append(el_tva); total_debit += tva; line_order += 1
+
+        # Crédit 3421 (Client)
+        el_client = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="3421",
+                              account_label="Clients (Avoir)", debit=Decimal("0"), credit=ttc_total,
+                              tiers_name=client_name, tiers_ice=client_ice)
+        db.add(el_client); entry_lines.append(el_client); total_credit += ttc_total; line_order += 1
+
+    elif is_avoir_achat:
+        # ── AVOIR FOURNISSEUR (ACHAT) ────────────────────────────
+        # Inverse de l'achat : Débit 4411, Crédit 6xxx, Crédit 3455
+        ttc_total = _d(facture.montant_ttc)
+        el = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4411",
+                       account_label="Fournisseurs (Avoir)", debit=ttc_total, credit=Decimal("0"),
+                       tiers_name=tiers_name, tiers_ice=tiers_ice)
+        db.add(el); entry_lines.append(el); total_debit += ttc_total; line_order += 1
+
+        for line in facture.lines:
+            account_code = line.corrected_account_code or line.pcm_account_code or "6111"
+            account_label = line.pcm_account_label or "Achats (Avoir)"
+            ht = _d(line.line_amount_ht)
+            tva = _d(line.tva_amount)
+            if tva == Decimal("0") and line.tva_rate:
+                tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             tva_account = _get_tva_account(line.pcm_class, invoice_type)
 
-            el_ht = EntryLine(
-                ecriture_journal_id=entry.id,
-                line_order=line_order,
-                account_code=account_code,
-                account_label=account_label,
-                debit=Decimal("0"),
-                credit=ht,
-                tiers_name=tiers_name,
-                tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
-            )
-            db.add(el_ht)
-            entry_lines.append(el_ht)
-            total_credit += ht
-            line_order += 1
+            el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
+                              account_label=account_label, debit=Decimal("0"), credit=ht,
+                              tiers_name=tiers_name, tiers_ice=tiers_ice)
+            db.add(el_ht); entry_lines.append(el_ht); total_credit += ht; line_order += 1
 
             if tva > 0:
-                el_tva = EntryLine(
-                    ecriture_journal_id=entry.id,
-                    line_order=line_order,
-                    account_code=tva_account,
-                    account_label="TVA récupérable",
-                    debit=Decimal("0"),
-                    credit=tva,
-                    tiers_name=tiers_name,
-                    tiers_ice=tiers_ice,  # Ajouter ICE du fournisseur
-                )
-                db.add(el_tva)
-                entry_lines.append(el_tva)
-                total_credit += tva
-                line_order += 1
+                el_tva = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=tva_account,
+                                   account_label="TVA récupérable (Avoir)", debit=Decimal("0"), credit=tva,
+                                   tiers_name=tiers_name, tiers_ice=tiers_ice)
+                db.add(el_tva); entry_lines.append(el_tva); total_credit += tva; line_order += 1
 
     else:
         # ── ACHAT (charge ou immobilisation) ─────────────────────

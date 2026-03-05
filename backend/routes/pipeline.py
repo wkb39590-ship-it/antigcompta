@@ -286,10 +286,25 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
         client_name_clean = _clean_name(facture.client_name)
         supplier_name_clean = _clean_name(facture.supplier_name)
         
-        # 1. Si Gemini détecte IMMOBILISATION explicitement, on le respecte en priorité
-        if invoice_type_from_gemini == "IMMOBILISATION":
+        # 1. Détecter l'AVOIR et sa direction
+        if invoice_type_from_gemini == "AVOIR":
+            # Si le client est nous => AVOIR_ACHAT (Note de crédit reçue)
+            if (societe_ice and client_ice and societe_ice == client_ice) or \
+               (client_name_clean and raison_social_clean and raison_social_clean in client_name_clean):
+                facture.invoice_type = "AVOIR_ACHAT"
+            # Si le fournisseur est nous => AVOIR_VENTE (Note de crédit émise)
+            elif (societe_ice and supplier_ice and societe_ice == supplier_ice) or \
+                 (supplier_name_clean and raison_social_clean and raison_social_clean in supplier_name_clean):
+                facture.invoice_type = "AVOIR_VENTE"
+            else:
+                # Par défaut AVOIR_ACHAT si incertitude (plus courant)
+                facture.invoice_type = "AVOIR_ACHAT"
+                
+        # 2. Si Gemini détecte IMMOBILISATION explicitement, on le respecte
+        elif invoice_type_from_gemini == "IMMOBILISATION":
             facture.invoice_type = "IMMOBILISATION"
-        # 2. Comparaison prioritaire par ICE pour ACHAT/VENTE
+            
+        # 3. Comparaison prioritaire par ICE pour ACHAT/VENTE
         elif societe_ice:
             if client_ice and societe_ice == client_ice:
                 facture.invoice_type = "ACHAT"
@@ -324,7 +339,14 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     facture.ice_frs = facture.supplier_ice
     facture.if_frs = facture.supplier_if
     # Mappage operation_type (pour filtrages frontend)
-    _op_map = {"VENTE": "vente", "IMMOBILISATION": "IMMOBILISATION", "AVOIR": "avoir", "NOTE_FRAIS": "note_frais"}
+    _op_map = {
+        "VENTE": "vente", 
+        "IMMOBILISATION": "IMMOBILISATION", 
+        "AVOIR": "avoir", 
+        "AVOIR_ACHAT": "avoir", 
+        "AVOIR_VENTE": "avoir_vente", 
+        "NOTE_FRAIS": "note_frais"
+    }
     facture.operation_type = _op_map.get(facture.invoice_type, "achat")
     facture.operation_confidence = 0.9
     facture.extraction_source = "GEMINI"

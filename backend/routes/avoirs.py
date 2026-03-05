@@ -55,7 +55,7 @@ def list_avoirs(
 
     query = db.query(Facture).filter(
         Facture.societe_id == societe_id,
-        Facture.invoice_type == "AVOIR",
+        Facture.invoice_type.in_(["AVOIR", "AVOIR_ACHAT", "AVOIR_VENTE"]),
     )
 
     if status:
@@ -79,7 +79,7 @@ def get_avoir(
     avoir = db.query(Facture).filter(
         Facture.id == avoir_id,
         Facture.societe_id == societe_id,
-        Facture.invoice_type == "AVOIR",
+        Facture.invoice_type.in_(["AVOIR", "AVOIR_ACHAT", "AVOIR_VENTE"]),
     ).first()
 
     if not avoir:
@@ -145,7 +145,7 @@ def generate_avoir_entries(
     avoir = db.query(Facture).filter(
         Facture.id == avoir_id,
         Facture.societe_id == societe_id,
-        Facture.invoice_type == "AVOIR",
+        Facture.invoice_type.in_(["AVOIR", "AVOIR_ACHAT", "AVOIR_VENTE"]),
     ).first()
 
     if not avoir:
@@ -182,7 +182,7 @@ def validate_avoir(
     avoir = db.query(Facture).filter(
         Facture.id == avoir_id,
         Facture.societe_id == societe_id,
-        Facture.invoice_type == "AVOIR",
+        Facture.invoice_type.in_(["AVOIR", "AVOIR_ACHAT", "AVOIR_VENTE"]),
     ).first()
 
     if not avoir:
