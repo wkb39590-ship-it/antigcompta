@@ -186,6 +186,7 @@ class Facture(Base):
 
     # Fichier source
     file_path = Column(String(500), nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)
 
     # Champs legacy (compatibilité)
     fournisseur = Column(String, nullable=True)

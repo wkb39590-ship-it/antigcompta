@@ -181,6 +181,25 @@ export default function FactureDetail() {
     if (loading) return <div className="loading"><div className="spinner" /> Chargement...</div>
     if (!facture) return <div className="empty-state"><div className="empty-title">Facture introuvable</div></div>
 
+    const getStepNumber = (status: string) => {
+        switch (status) {
+            case 'IMPORTED': return 1;
+            case 'EXTRACTED': return 2;
+            case 'CLASSIFIED': return 3;
+            case 'DRAFT': return 4;
+            case 'VALIDATED': return 5;
+            default: return 0;
+        }
+    }
+
+    const currentStep = getStepNumber(facture.status)
+
+    const getStepClass = (step: number) => {
+        if (currentStep > step) return 'step done'
+        if (currentStep === step) return 'step active'
+        return 'step'
+    }
+
     // basic modal styles (scoped inline for simplicity)
     const modalStyles = `
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:9999 }
@@ -194,7 +213,19 @@ export default function FactureDetail() {
 
     return (
         <div>
-            {/* Header */}
+            {/* Pipeline steps */}
+            <div className="pipeline-steps" style={{ marginBottom: '24px' }}>
+                <div className={getStepClass(1)}>Réception</div>
+                <span className="step-arrow">→</span>
+                <div className={getStepClass(2)}>Analyse</div>
+                <span className="step-arrow">→</span>
+                <div className={getStepClass(3)}>Imputation</div>
+                <span className="step-arrow">→</span>
+                <div className={getStepClass(4)}>Écritures</div>
+                <span className="step-arrow">→</span>
+                <div className={getStepClass(5)}>Contrôle</div>
+            </div>
+
             <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
@@ -242,11 +273,13 @@ export default function FactureDetail() {
                 </div>
             </div>
 
-            {msg && (
-                <div className={`alert alert-${msg.type}`} style={{ marginBottom: '24px' }}>
-                    {msg.text}
-                </div>
-            )}
+            {
+                msg && (
+                    <div className={`alert alert-${msg.type}`} style={{ marginBottom: '24px' }}>
+                        {msg.text}
+                    </div>
+                )
+            }
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
@@ -279,371 +312,379 @@ export default function FactureDetail() {
             </div>
 
             {/* Tab: Header */}
-            {activeTab === 'header' && (
-                <div className="two-col">
-                    <div className="card">
-                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div className="card-title">Informations facture</div>
-                            {editingHeader ? (
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button className="btn btn-ghost" onClick={() => { setEditingHeader(false); setHeaderForm({}) }}>Annuler</button>
-                                    <button className="btn btn-primary" onClick={saveHeader} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <Save size={14} /> Enregistrer
+            {
+                activeTab === 'header' && (
+                    <div className="two-col">
+                        <div className="card">
+                            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div className="card-title">Informations facture</div>
+                                {editingHeader ? (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button className="btn btn-ghost" onClick={() => { setEditingHeader(false); setHeaderForm({}) }}>Annuler</button>
+                                        <button className="btn btn-primary" onClick={saveHeader} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Save size={14} /> Enregistrer
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button className="btn btn-ghost" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setEditingHeader(true); setHeaderForm({ ...facture }) }}>
+                                        <FileEdit size={14} /> Modifier
                                     </button>
-                                </div>
-                            ) : (
-                                <button className="btn btn-ghost" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setEditingHeader(true); setHeaderForm({ ...facture }) }}>
-                                    <FileEdit size={14} /> Modifier
-                                </button>
-                            )}
-                        </div>
+                                )}
+                            </div>
 
-                        <div className="three-col" style={{ gap: '12px' }}>
-                            {[
-                                { label: 'N° Facture', key: 'numero_facture', type: 'text' },
-                                { label: 'Date', key: 'date_facture', type: 'date' },
-                                { label: 'Échéance', key: 'due_date', type: 'date' },
-                                { label: 'Type', key: 'invoice_type', type: 'select', options: ['ACHAT', 'VENTE', 'AVOIR', 'NOTE_FRAIS', 'IMMOBILISATION'] },
-                                { label: 'Devise', key: 'devise', type: 'text' },
-                                { label: 'Mode paiement', key: 'payment_mode', type: 'select', options: ['Virement', 'Chèque', 'Espèces', 'Effet', 'Autre'] },
-                            ].map((field) => (
-                                <div key={field.label}>
-                                    <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
-                                    {editingHeader ? (
-                                        field.type === 'select' ? (
-                                            <select
-                                                className="form-input"
-                                                value={(headerForm as any)[field.key] || ''}
-                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
-                                            >
-                                                <option value="">—</option>
-                                                {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                type={field.type}
-                                                className="form-input"
-                                                value={(headerForm as any)[field.key] || ''}
-                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
-                                            />
-                                        )
-                                    ) : (
-                                        <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-                            <div className="card-title" style={{ marginBottom: '16px', fontSize: '14px' }}>Fournisseur</div>
                             <div className="three-col" style={{ gap: '12px' }}>
                                 {[
-                                    { label: 'Nom', key: 'supplier_name' },
-                                    { label: 'ICE', key: 'supplier_ice' },
-                                    { label: 'IF', key: 'supplier_if' },
-                                    { label: 'RC', key: 'supplier_rc' },
-                                    { label: 'Adresse', key: 'supplier_address' },
+                                    { label: 'N° Facture', key: 'numero_facture', type: 'text' },
+                                    { label: 'Date', key: 'date_facture', type: 'date' },
+                                    { label: 'Échéance', key: 'due_date', type: 'date' },
+                                    { label: 'Type', key: 'invoice_type', type: 'select', options: ['ACHAT', 'VENTE', 'AVOIR', 'NOTE_FRAIS', 'IMMOBILISATION'] },
+                                    { label: 'Devise', key: 'devise', type: 'text' },
+                                    { label: 'Mode paiement', key: 'payment_mode', type: 'select', options: ['Virement', 'Chèque', 'Espèces', 'Effet', 'Autre'] },
                                 ].map((field) => (
                                     <div key={field.label}>
                                         <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
                                         {editingHeader ? (
-                                            <input
-                                                className="form-input"
-                                                value={(headerForm as any)[field.key] || ''}
-                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
-                                            />
+                                            field.type === 'select' ? (
+                                                <select
+                                                    className="form-input"
+                                                    value={(headerForm as any)[field.key] || ''}
+                                                    onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                                >
+                                                    <option value="">—</option>
+                                                    {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    type={field.type}
+                                                    className="form-input"
+                                                    value={(headerForm as any)[field.key] || ''}
+                                                    onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                                />
+                                            )
                                         ) : (
                                             <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
                                         )}
                                     </div>
                                 ))}
                             </div>
+
+                            <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                                <div className="card-title" style={{ marginBottom: '16px', fontSize: '14px' }}>Fournisseur</div>
+                                <div className="three-col" style={{ gap: '12px' }}>
+                                    {[
+                                        { label: 'Nom', key: 'supplier_name' },
+                                        { label: 'ICE', key: 'supplier_ice' },
+                                        { label: 'IF', key: 'supplier_if' },
+                                        { label: 'RC', key: 'supplier_rc' },
+                                        { label: 'Adresse', key: 'supplier_address' },
+                                    ].map((field) => (
+                                        <div key={field.label}>
+                                            <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
+                                            {editingHeader ? (
+                                                <input
+                                                    className="form-input"
+                                                    value={(headerForm as any)[field.key] || ''}
+                                                    onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                                />
+                                            ) : (
+                                                <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                                <div className="card-title" style={{ marginBottom: '16px', fontSize: '14px' }}>Client</div>
+                                <div className="three-col" style={{ gap: '12px' }}>
+                                    {[
+                                        { label: 'Nom', key: 'client_name' },
+                                        { label: 'ICE', key: 'client_ice' },
+                                        { label: 'IF', key: 'client_if' },
+                                    ].map((field) => (
+                                        <div key={field.label}>
+                                            <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
+                                            {editingHeader ? (
+                                                <input
+                                                    className="form-input"
+                                                    value={(headerForm as any)[field.key] || ''}
+                                                    onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
+                                                />
+                                            ) : (
+                                                <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
-                        <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-                            <div className="card-title" style={{ marginBottom: '16px', fontSize: '14px' }}>Client</div>
-                            <div className="three-col" style={{ gap: '12px' }}>
-                                {[
-                                    { label: 'Nom', key: 'client_name' },
-                                    { label: 'ICE', key: 'client_ice' },
-                                    { label: 'IF', key: 'client_if' },
-                                ].map((field) => (
-                                    <div key={field.label}>
-                                        <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{field.label}</div>
-                                        {editingHeader ? (
-                                            <input
-                                                className="form-input"
-                                                value={(headerForm as any)[field.key] || ''}
-                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                                style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }}
-                                            />
-                                        ) : (
-                                            <div style={{ fontWeight: 600 }}>{(facture as any)[field.key] || '—'}</div>
-                                        )}
-                                    </div>
-                                ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {/* Montants */}
+                            <div className="card">
+                                <div className="card-title" style={{ marginBottom: '16px' }}>Montants</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {[
+                                        { label: 'Montant HT', key: 'montant_ht', color: 'var(--text)' },
+                                        { label: `TVA (${facture.taux_tva || '?'}%)`, key: 'montant_tva', color: 'var(--warning)' },
+                                        { label: 'Montant TTC', key: 'montant_ttc', color: 'var(--accent)' },
+                                    ].map((field) => (
+                                        <div key={field.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ color: 'var(--text2)', fontSize: '14px' }}>{field.label}</span>
+                                            {editingHeader ? (
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={(headerForm as any)[field.key] || ''}
+                                                    onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value ? Number(e.target.value) : null }))}
+                                                    style={{ width: '120px', padding: '4px 8px', fontSize: '13px', textAlign: 'right' }}
+                                                />
+                                            ) : (
+                                                <span style={{ fontWeight: 700, fontSize: '16px', color: field.color }}>
+                                                    {fmt((facture as any)[field.key])} {facture.devise || 'MAD'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* DGI Flags */}
+                            <div className="card">
+                                <div className="card-title" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <ShieldCheck size={18} color="#10b981" /> Contrôles DGI
+                                </div>
+                                <DgiFlagList flags={facture.dgi_flags || []} />
                             </div>
                         </div>
                     </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {/* Montants */}
-                        <div className="card">
-                            <div className="card-title" style={{ marginBottom: '16px' }}>Montants</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {[
-                                    { label: 'Montant HT', key: 'montant_ht', color: 'var(--text)' },
-                                    { label: `TVA (${facture.taux_tva || '?'}%)`, key: 'montant_tva', color: 'var(--warning)' },
-                                    { label: 'Montant TTC', key: 'montant_ttc', color: 'var(--accent)' },
-                                ].map((field) => (
-                                    <div key={field.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ color: 'var(--text2)', fontSize: '14px' }}>{field.label}</span>
-                                        {editingHeader ? (
-                                            <input
-                                                type="number"
-                                                className="form-input"
-                                                value={(headerForm as any)[field.key] || ''}
-                                                onChange={e => setHeaderForm(prev => ({ ...prev, [field.key]: e.target.value ? Number(e.target.value) : null }))}
-                                                style={{ width: '120px', padding: '4px 8px', fontSize: '13px', textAlign: 'right' }}
-                                            />
-                                        ) : (
-                                            <span style={{ fontWeight: 700, fontSize: '16px', color: field.color }}>
-                                                {fmt((facture as any)[field.key])} {facture.devise || 'MAD'}
-                                            </span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* DGI Flags */}
-                        <div className="card">
-                            <div className="card-title" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <ShieldCheck size={18} color="#10b981" /> Contrôles DGI
-                            </div>
-                            <DgiFlagList flags={facture.dgi_flags || []} />
-                        </div>
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Tab: Lines */}
-            {activeTab === 'lines' && (
-                <div className="card">
-                    <div className="card-header">
-                        <div className="card-title">Lignes produits / services</div>
-                        <div className="card-subtitle">Classification Plan Comptable Marocain</div>
-                    </div>
-                    {lines.length === 0 ? (
-                        <div className="empty-state">
-                            <div className="empty-icon"><Box size={48} color="var(--text3)" opacity={0.5} /></div>
-                            <div className="empty-title">Aucune ligne extraite</div>
-                            <div className="empty-subtitle">Lancez l'extraction pour obtenir les lignes</div>
+            {
+                activeTab === 'lines' && (
+                    <div className="card">
+                        <div className="card-header">
+                            <div className="card-title">Lignes produits / services</div>
+                            <div className="card-subtitle">Classification Plan Comptable Marocain</div>
                         </div>
-                    ) : (
-                        <div className="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Description</th>
-                                        <th>Qté</th>
-                                        <th>PU HT</th>
-                                        <th>Montant HT</th>
-                                        <th>TVA</th>
-                                        <th>Compte PCM</th>
-                                        <th>Statut</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {lines.map(line => (
-                                        <tr key={line.id}>
-                                            <td style={{ color: 'var(--text3)' }}>{line.line_number}</td>
-                                            <td style={{ maxWidth: '200px' }}>
-                                                <div style={{ fontWeight: 500 }}>{line.description || '—'}</div>
-                                                {line.classification_reason && (
-                                                    <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>
-                                                        {line.classification_reason}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td>{line.quantity ?? '—'} {line.unit || ''}</td>
-                                            <td>{fmt(line.unit_price_ht)}</td>
-                                            <td style={{ fontWeight: 600 }}>{fmt(line.line_amount_ht)}</td>
-                                            <td>{line.tva_rate != null ? `${line.tva_rate}%` : '—'}</td>
-                                            <td>
-                                                <div>
-                                                    {line.pcm_account_code ? (
-                                                        <div>
-                                                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                {line.pcm_account_code}
-                                                                {line.is_corrected && <span style={{ fontSize: '10px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '2px' }}><FileEdit size={10} /> corrigé</span>}
-                                                            </span>
-                                                            <div style={{ fontSize: '11px', color: 'var(--text2)' }}>{line.pcm_account_label}</div>
-                                                        </div>
-                                                    ) : '—'}
-                                                    {line.classification_confidence != null && line.classification_confidence < 0.5 && (
-                                                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>⚠️ faible confiance</div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td style={{ minWidth: '120px' }}>
-                                                <ConfidenceBar value={line.classification_confidence} />
-                                            </td>
-                                            <td style={{ width: 48, textAlign: 'right' }}>
-                                                <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 8, minWidth: 32 }}>
-                                                    <FileEdit size={14} />
-                                                </button>
-                                            </td>
+                        {lines.length === 0 ? (
+                            <div className="empty-state">
+                                <div className="empty-icon"><Box size={48} color="var(--text3)" opacity={0.5} /></div>
+                                <div className="empty-title">Aucune ligne extraite</div>
+                                <div className="empty-subtitle">Lancez l'extraction pour obtenir les lignes</div>
+                            </div>
+                        ) : (
+                            <div className="table-wrap">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Description</th>
+                                            <th>Qté</th>
+                                            <th>PU HT</th>
+                                            <th>Montant HT</th>
+                                            <th>TVA</th>
+                                            <th>Compte PCM</th>
+                                            <th>Statut</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            )}
+                                    </thead>
+                                    <tbody>
+                                        {lines.map(line => (
+                                            <tr key={line.id}>
+                                                <td style={{ color: 'var(--text3)' }}>{line.line_number}</td>
+                                                <td style={{ maxWidth: '200px' }}>
+                                                    <div style={{ fontWeight: 500 }}>{line.description || '—'}</div>
+                                                    {line.classification_reason && (
+                                                        <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>
+                                                            {line.classification_reason}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td>{line.quantity ?? '—'} {line.unit || ''}</td>
+                                                <td>{fmt(line.unit_price_ht)}</td>
+                                                <td style={{ fontWeight: 600 }}>{fmt(line.line_amount_ht)}</td>
+                                                <td>{line.tva_rate != null ? `${line.tva_rate}%` : '—'}</td>
+                                                <td>
+                                                    <div>
+                                                        {line.pcm_account_code ? (
+                                                            <div>
+                                                                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    {line.pcm_account_code}
+                                                                    {line.is_corrected && <span style={{ fontSize: '10px', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '2px' }}><FileEdit size={10} /> corrigé</span>}
+                                                                </span>
+                                                                <div style={{ fontSize: '11px', color: 'var(--text2)' }}>{line.pcm_account_label}</div>
+                                                            </div>
+                                                        ) : '—'}
+                                                        {line.classification_confidence != null && line.classification_confidence < 0.5 && (
+                                                            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)' }}>⚠️ faible confiance</div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td style={{ minWidth: '120px' }}>
+                                                    <ConfidenceBar value={line.classification_confidence} />
+                                                </td>
+                                                <td style={{ width: 48, textAlign: 'right' }}>
+                                                    <button className="btn btn-icon" title="Modifier ligne" onClick={() => { setEditingLineId(line.id); setEditedLine({ ...line }); setLineModalOpen(true) }} style={{ padding: 8, minWidth: 32 }}>
+                                                        <FileEdit size={14} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
 
             {/* Line Edit Modal */}
-            {lineModalOpen && editedLine && (
-                <div className="modal-backdrop">
-                    <div className="modal">
-                        <div className="modal-header">
-                            <div style={{ fontWeight: 700 }}>Modifier la ligne #{editedLine.line_number}</div>
-                            <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>✖</button>
-                        </div>
-                        <div className="modal-body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label className="label">Description</label>
-                                    <textarea value={editedLine.description || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), description: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label className="label">Quantité</label>
-                                    <input type="number" value={editedLine.quantity ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), quantity: e.target.value ? Number(e.target.value) : null }))} />
-                                    <label className="label">Unité</label>
-                                    <input value={editedLine.unit || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), unit: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label className="label">PU HT</label>
-                                    <input type="number" value={editedLine.unit_price_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), unit_price_ht: e.target.value ? Number(e.target.value) : null }))} />
-                                </div>
-                                <div>
-                                    <label className="label">Montant HT</label>
-                                    <input type="number" value={editedLine.line_amount_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), line_amount_ht: e.target.value ? Number(e.target.value) : null }))} />
-                                </div>
-                                <div>
-                                    <label className="label">TVA (%)</label>
-                                    <input type="number" value={editedLine.tva_rate ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), tva_rate: e.target.value ? Number(e.target.value) : null }))} />
-                                </div>
-                                <div>
-                                    <label className="label">Confiance</label>
-                                    <input type="range" min={0} max={100} value={Math.round((editedLine.classification_confidence ?? 0) * 100)} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), classification_confidence: Number(e.target.value) / 100 }))} />
-                                </div>
-                                <div>
-                                    <label className="label">Compte PCM</label>
-                                    <input value={editedLine.pcm_account_code || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), pcm_account_code: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label className="label">Libellé compte</label>
-                                    <input value={editedLine.pcm_account_label || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), pcm_account_label: e.target.value }))} />
+            {
+                lineModalOpen && editedLine && (
+                    <div className="modal-backdrop">
+                        <div className="modal">
+                            <div className="modal-header">
+                                <div style={{ fontWeight: 700 }}>Modifier la ligne #{editedLine.line_number}</div>
+                                <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>✖</button>
+                            </div>
+                            <div className="modal-body">
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                    <div>
+                                        <label className="label">Description</label>
+                                        <textarea value={editedLine.description || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), description: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">Quantité</label>
+                                        <input type="number" value={editedLine.quantity ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), quantity: e.target.value ? Number(e.target.value) : null }))} />
+                                        <label className="label">Unité</label>
+                                        <input value={editedLine.unit || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), unit: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">PU HT</label>
+                                        <input type="number" value={editedLine.unit_price_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), unit_price_ht: e.target.value ? Number(e.target.value) : null }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">Montant HT</label>
+                                        <input type="number" value={editedLine.line_amount_ht ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), line_amount_ht: e.target.value ? Number(e.target.value) : null }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">TVA (%)</label>
+                                        <input type="number" value={editedLine.tva_rate ?? ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), tva_rate: e.target.value ? Number(e.target.value) : null }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">Confiance</label>
+                                        <input type="range" min={0} max={100} value={Math.round((editedLine.classification_confidence ?? 0) * 100)} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), classification_confidence: Number(e.target.value) / 100 }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">Compte PCM</label>
+                                        <input value={editedLine.pcm_account_code || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), pcm_account_code: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label className="label">Libellé compte</label>
+                                        <input value={editedLine.pcm_account_label || ''} onChange={(e) => setEditedLine(prev => ({ ...(prev || {}), pcm_account_label: e.target.value }))} />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>Annuler</button>
-                            <button className="btn btn-primary" onClick={saveLineFromModal} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Save size={16} /> Sauver
-                            </button>
+                            <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                <button className="btn btn-ghost" onClick={() => { setLineModalOpen(false); setEditedLine(null); setEditingLineId(null) }}>Annuler</button>
+                                <button className="btn btn-primary" onClick={saveLineFromModal} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Save size={16} /> Sauver
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Tab: Entries */}
-            {activeTab === 'entries' && (
-                <div>
-                    {entries.length === 0 ? (
-                        <div className="card">
-                            <div className="empty-state">
-                                <div className="empty-icon"><Book size={48} color="var(--text3)" opacity={0.5} /></div>
-                                <div className="empty-title">Aucune écriture générée</div>
-                                <div className="empty-subtitle">Classifiez les lignes puis générez les écritures</div>
-                            </div>
-                        </div>
-                    ) : entries.map(entry => {
-                        const isBalanced = Math.abs(entry.total_debit - entry.total_credit) <= 0.01
-                        return (
-                            <div key={entry.id} className="card" style={{ marginBottom: '16px' }}>
-                                <div className="card-header">
-                                    <div>
-                                        <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            Journal {entry.journal_code} — {entry.reference || 'Sans référence'}
-                                            {entry.is_validated && <span className="badge badge-validated" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={12} /> Validée</span>}
-                                        </div>
-                                        <div className="card-subtitle">{entry.description}</div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '12px', color: 'var(--text3)' }}>Équilibre</div>
-                                        <div style={{ fontWeight: 700, color: isBalanced ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                                            {isBalanced ? <><Scale size={14} /> Équilibré</> : <><AlertTriangle size={14} /> Écart: {Math.abs(entry.total_debit - entry.total_credit).toFixed(2)}</>}
-                                        </div>
-                                    </div>
+            {
+                activeTab === 'entries' && (
+                    <div>
+                        {entries.length === 0 ? (
+                            <div className="card">
+                                <div className="empty-state">
+                                    <div className="empty-icon"><Book size={48} color="var(--text3)" opacity={0.5} /></div>
+                                    <div className="empty-title">Aucune écriture générée</div>
+                                    <div className="empty-subtitle">Classifiez les lignes puis générez les écritures</div>
                                 </div>
+                            </div>
+                        ) : entries.map(entry => {
+                            const isBalanced = Math.abs(entry.total_debit - entry.total_credit) <= 0.01
+                            return (
+                                <div key={entry.id} className="card" style={{ marginBottom: '16px' }}>
+                                    <div className="card-header">
+                                        <div>
+                                            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                Journal {entry.journal_code} — {entry.reference || 'Sans référence'}
+                                                {entry.is_validated && <span className="badge badge-validated" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={12} /> Validée</span>}
+                                            </div>
+                                            <div className="card-subtitle">{entry.description}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '12px', color: 'var(--text3)' }}>Équilibre</div>
+                                            <div style={{ fontWeight: 700, color: isBalanced ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                                {isBalanced ? <><Scale size={14} /> Équilibré</> : <><AlertTriangle size={14} /> Écart: {Math.abs(entry.total_debit - entry.total_credit).toFixed(2)}</>}
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                <div className="table-wrap">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>N°</th>
-                                                <th>Compte</th>
-                                                <th>Libellé</th>
-                                                <th>Tiers</th>
-                                                <th style={{ textAlign: 'right' }}>Débit</th>
-                                                <th style={{ textAlign: 'right' }}>Crédit</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {entry.entry_lines.map(el => (
-                                                <tr key={el.id}>
-                                                    <td style={{ color: 'var(--text3)' }}>{el.line_order}</td>
-                                                    <td>
-                                                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)' }}>
-                                                            {el.account_code}
-                                                        </span>
+                                    <div className="table-wrap">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>N°</th>
+                                                    <th>Compte</th>
+                                                    <th>Libellé</th>
+                                                    <th>Tiers</th>
+                                                    <th style={{ textAlign: 'right' }}>Débit</th>
+                                                    <th style={{ textAlign: 'right' }}>Crédit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {entry.entry_lines.map(el => (
+                                                    <tr key={el.id}>
+                                                        <td style={{ color: 'var(--text3)' }}>{el.line_order}</td>
+                                                        <td>
+                                                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)' }}>
+                                                                {el.account_code}
+                                                            </span>
+                                                        </td>
+                                                        <td>{el.account_label || '—'}</td>
+                                                        <td style={{ fontSize: '12px', color: 'var(--text2)' }}>{el.tiers_name || '—'}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: el.debit > 0 ? 700 : 400, color: el.debit > 0 ? 'var(--text)' : 'var(--text3)' }}>
+                                                            {el.debit > 0 ? fmt(el.debit) : '—'}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: el.credit > 0 ? 700 : 400, color: el.credit > 0 ? 'var(--text)' : 'var(--text3)' }}>
+                                                            {el.credit > 0 ? fmt(el.credit) : '—'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr style={{ background: 'var(--bg3)' }}>
+                                                    <td colSpan={4} style={{ fontWeight: 700, padding: '10px 14px' }}>TOTAUX</td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '10px 14px', color: 'var(--accent)' }}>
+                                                        {fmt(entry.total_debit)}
                                                     </td>
-                                                    <td>{el.account_label || '—'}</td>
-                                                    <td style={{ fontSize: '12px', color: 'var(--text2)' }}>{el.tiers_name || '—'}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: el.debit > 0 ? 700 : 400, color: el.debit > 0 ? 'var(--text)' : 'var(--text3)' }}>
-                                                        {el.debit > 0 ? fmt(el.debit) : '—'}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: el.credit > 0 ? 700 : 400, color: el.credit > 0 ? 'var(--text)' : 'var(--text3)' }}>
-                                                        {el.credit > 0 ? fmt(el.credit) : '—'}
+                                                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '10px 14px', color: 'var(--accent)' }}>
+                                                        {fmt(entry.total_credit)}
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr style={{ background: 'var(--bg3)' }}>
-                                                <td colSpan={4} style={{ fontWeight: 700, padding: '10px 14px' }}>TOTAUX</td>
-                                                <td style={{ textAlign: 'right', fontWeight: 700, padding: '10px 14px', color: 'var(--accent)' }}>
-                                                    {fmt(entry.total_debit)}
-                                                </td>
-                                                <td style={{ textAlign: 'right', fontWeight: 700, padding: '10px 14px', color: 'var(--accent)' }}>
-                                                    {fmt(entry.total_credit)}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                                            </tfoot>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
-                        )
-                    })}
-                </div>
-            )}
-        </div>
+                            )
+                        })}
+                    </div>
+                )
+            }
+        </div >
     )
 }

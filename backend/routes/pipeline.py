@@ -15,6 +15,7 @@ GET  /factures/{id}
 import json
 import os
 import uuid
+import hashlib
 import csv
 import io
 from datetime import datetime, timezone
@@ -56,18 +57,23 @@ ALLOWED_EXTS = [".pdf", ".png", ".jpg", ".jpeg"]
 # Utilitaires Internes (Helpers)
 # ──────────────────────────────────────────────────────────────────────────
 
-def _save_file(upload: UploadFile) -> str:
+def _save_file(upload: UploadFile) -> tuple[str, str]:
     ext = Path(upload.filename or "").suffix.lower()
     if ext not in ALLOWED_EXTS:
         raise HTTPException(400, f"Extension non supportée: {ext}")
-    name = f"{uuid.uuid4()}{ext}"
-    dest = UPLOAD_DIR / name
+    
     data = upload.file.read()
     if not data:
         raise HTTPException(400, "Fichier vide")
+    
+    # Calculer le hash
+    file_hash = hashlib.sha256(data).hexdigest()
+    
+    name = f"{uuid.uuid4()}{ext}"
+    dest = UPLOAD_DIR / name
     with open(dest, "wb") as f:
         f.write(data)
-    return str(dest)
+    return str(dest), file_hash
 
 
 def _guess_mime(path: str) -> str:
@@ -119,11 +125,33 @@ def upload_facture(
     if not societe:
         raise HTTPException(404, "Société introuvable")
 
-    file_path = _save_file(file)
+    file_path, file_hash = _save_file(file)
+
+    # ANTI-DOUBLON PHYSIQUE: Vérifier si le fichier existe déjà pour cette société
+    duplicate = db.query(Facture).filter(
+        Facture.societe_id == societe_id,
+        Facture.file_hash == file_hash
+    ).first()
+
+    if duplicate:
+        # Supprimer le fichier physique qu'on vient de créer pour ne pas encombrer
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        # Pull details from the existing record to be more informative
+        exist_date = duplicate.date_facture.strftime("%d/%m/%Y") if duplicate.date_facture else "Inconnue"
+        exist_supplier = duplicate.supplier_name or duplicate.supplier_ice or "Inconnu"
+        exist_ttc = f"{float(duplicate.montant_ttc):.2f}" if duplicate.montant_ttc else "0.00"
+            
+        raise HTTPException(
+            status_code=409,
+            detail=f"Doublon détecté (Fichier) : Ce document exact a déjà été téléversé (ID: {duplicate.id}, Fournisseur: {exist_supplier}, Date: {exist_date}, TTC: {exist_ttc})."
+        )
 
     facture = Facture(
         societe_id=societe_id,
         file_path=file_path,
+        file_hash=file_hash,
         status="IMPORTED",
         operation_type="achat",
         operation_confidence=0.5,
@@ -303,7 +331,7 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
 
     # ── ANTI-DOUBLON: Sécurité anti-saisies multiples ──────────
     # On cherche une autre facture avec le même (ICE ou Nom) + Date + TTC
-    if facture.date_facture and facture.montant_ttc:
+    if facture.date_facture and facture.montant_ttc and (facture.supplier_ice or facture.supplier_name):
         query = db.query(Facture).filter(
             Facture.societe_id == facture.societe_id,
             Facture.id != facture.id,
@@ -320,10 +348,14 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
         
         if duplicate:
             db.rollback()
-            supplier_id = facture.supplier_ice or facture.supplier_name or "Inconnu"
+            # On utilise les infos de la facture EXISTANTE car elles sont validées/extraites
+            exist_date = duplicate.date_facture.strftime("%d/%m/%Y") if duplicate.date_facture else "Inconnue"
+            exist_supplier = duplicate.supplier_name or duplicate.supplier_ice or "Inconnu"
+            exist_ttc = f"{float(duplicate.montant_ttc):.2f}" if duplicate.montant_ttc else "0.00"
+            
             raise HTTPException(
                 status_code=409, 
-                detail=f"Doublon détecté : Cette facture (Fournisseur: {supplier_id}, Date: {facture.date_facture}, TTC: {facture.montant_ttc}) existe déjà dans ce dossier."
+                detail=f"Doublon détecté (Extraction) : Une facture identique existe déjà (ID: {duplicate.id}, Fournisseur: {exist_supplier}, Date: {exist_date}, TTC: {exist_ttc})."
             )
 
     # ── Contrôles DGI ──────────────────────────────────────────

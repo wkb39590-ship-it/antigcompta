@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { API_CONFIG } from '../config/apiConfig'
+import apiService, { Immo } from '../api'
 import {
     Building2,
     Plus,
@@ -13,30 +13,7 @@ import {
     ChevronRight
 } from 'lucide-react'
 
-interface Immo {
-    id: number
-    designation: string
-    categorie: string
-    date_acquisition: string
-    valeur_acquisition: number
-    tva_acquisition: number
-    duree_amortissement: number
-    taux_amortissement: number
-    methode: string
-    compte_actif_pcm: string
-    compte_amort_pcm: string
-    compte_dotation_pcm: string
-    statut: string
-    plan_amortissement?: LigneAmort[]
-}
-
-interface LigneAmort {
-    annee: number
-    dotation_annuelle: number
-    amortissement_cumule: number
-    valeur_nette_comptable: number
-    ecriture_generee: boolean
-}
+// ... (interfaces LigneAmort etc are now in api.ts)
 
 const METHODES = ['LINEAIRE', 'DEGRESSIF']
 const CATEGORIES = ['CORPORELLE', 'INCORPORELLE', 'FINANCIERE']
@@ -95,21 +72,27 @@ export default function Immobilisations() {
         methode: 'LINEAIRE', compte_actif_pcm: '2355', compte_amort_pcm: '2835', compte_dotation_pcm: '6193'
     })
 
-    const token = () => localStorage.getItem('session_token') || ''
     const location = useLocation()
     const [fromFacture, setFromFacture] = useState<string | null>(null)
 
     const load = async () => {
         setLoading(true)
         try {
-            const r = await fetch(`${API_CONFIG.BASE_URL} /immobilisations/ ? token = ${token()} `)
-            if (r.ok) setImmos(await r.json())
+            const data = await apiService.listImmobilisations()
+            setImmos(data)
+        } catch (err: any) {
+            console.error(err)
+            setMsg('❌ Erreur lors du chargement')
         } finally { setLoading(false) }
     }
 
     const loadDetail = async (id: number) => {
-        const r = await fetch(`${API_CONFIG.BASE_URL} /immobilisations/${id}?token = ${token()} `)
-        if (r.ok) setSelected(await r.json())
+        try {
+            const data = await apiService.getImmobilisation(id)
+            setSelected(data)
+        } catch (err) {
+            console.error(err)
+        }
     }
 
     useEffect(() => { load() }, [])
@@ -153,26 +136,25 @@ export default function Immobilisations() {
             duree_amortissement: parseInt(form.duree_amortissement),
             facture_id: fromFacture ? parseInt(fromFacture) : null,
         }
-        const r = await fetch(`${API_CONFIG.BASE_URL} /immobilisations/ ? token = ${token()} `, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        const data = await r.json()
-        if (r.ok) {
+        try {
+            const data = await apiService.createImmobilisation(payload)
             setMsg('✅ Immobilisation créée')
             setShowForm(false)
             load()
             setSelected(data)
-        } else {
-            setMsg('❌ ' + (data.detail || 'Erreur'))
+        } catch (err: any) {
+            setMsg('❌ ' + (err.response?.data?.detail || 'Erreur'))
         }
     }
 
     const genDotation = async (immoId: number, annee: number) => {
-        const r = await fetch(`${API_CONFIG.BASE_URL} /immobilisations/${immoId} /dotation/${annee}?token = ${token()} `, { method: 'POST' })
-        const data = await r.json()
-        if (r.ok) { setMsg(`✅ Dotation ${annee} générée`); loadDetail(immoId) }
-        else setMsg('❌ ' + (data.detail || 'Erreur'))
+        try {
+            await apiService.generateDotation(immoId, annee)
+            setMsg(`✅ Dotation ${annee} générée`)
+            loadDetail(immoId)
+        } catch (err: any) {
+            setMsg('❌ ' + (err.response?.data?.detail || 'Erreur'))
+        }
     }
 
     const currentYear = new Date().getFullYear()

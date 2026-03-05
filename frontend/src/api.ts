@@ -178,6 +178,31 @@ export interface Employe {
     anciennete_pct: number
 }
 
+export interface LigneAmort {
+    annee: number
+    dotation_annuelle: number
+    amortissement_cumule: number
+    valeur_nette_comptable: number
+    ecriture_generee: boolean
+}
+
+export interface Immo {
+    id: number
+    designation: string
+    categorie: string
+    date_acquisition: string
+    valeur_acquisition: number
+    tva_acquisition: number
+    duree_amortissement: number
+    taux_amortissement: number
+    methode: string
+    compte_actif_pcm: string
+    compte_amort_pcm: string
+    compte_dotation_pcm: string
+    statut: string
+    plan_amortissement?: LigneAmort[]
+}
+
 // ── API calls ──────────────────────────────────────────────
 
 /**
@@ -328,6 +353,19 @@ export const apiService = {
     getEmploye: (id: number) => api.get(`/employes/${id}`).then(r => r.data),
     createEmploye: (data: any) => api.post('/employes/', data).then(r => r.data),
     updateEmploye: (id: number, data: any) => api.put(`/employes/${id}`, data).then(r => r.data),
+
+    // ── Immobilisations Routes ──────────────────────────────
+    listImmobilisations: (categorie?: string, statut?: string) =>
+        api.get('/immobilisations/', { params: { categorie, statut } }).then(r => r.data),
+
+    getImmobilisation: (id: number) =>
+        api.get(`/immobilisations/${id}`).then(r => r.data),
+
+    createImmobilisation: (data: any) =>
+        api.post('/immobilisations/', data).then(r => r.data),
+
+    generateDotation: (immoId: number, annee: number) =>
+        api.post(`/immobilisations/${immoId}/dotation/${annee}`).then(r => r.data),
 }
 
 

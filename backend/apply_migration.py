@@ -58,6 +58,8 @@ def apply_migration():
         "ALTER TABLE factures ADD COLUMN IF NOT EXISTS designation VARCHAR(255)",
         "ALTER TABLE factures ADD COLUMN IF NOT EXISTS id_paie VARCHAR(50)",
         "ALTER TABLE factures ADD COLUMN IF NOT EXISTS date_paie DATE",
+        "ALTER TABLE factures ADD COLUMN IF NOT EXISTS file_hash VARCHAR(64)",
+        "CREATE INDEX IF NOT EXISTS ix_factures_file_hash ON factures(file_hash)",
         
         # Créer table d'association Agent-Societe
         """CREATE TABLE IF NOT EXISTS agents_societes (

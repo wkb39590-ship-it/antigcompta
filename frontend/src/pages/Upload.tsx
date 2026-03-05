@@ -21,6 +21,7 @@ export default function Upload() {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [currentSociete, setCurrentSociete] = useState<any>(null)
+    const [currentStep, setCurrentStep] = useState(0)
     const fileRef = useRef<HTMLInputElement>(null)
     const navigate = useNavigate()
 
@@ -48,53 +49,53 @@ export default function Upload() {
         setLoading(true)
         setError('')
         setSuccess('')
+        setCurrentStep(1) // Réception
 
         try {
             console.log('[Upload] Starting pipeline with file:', file.name)
-            console.log('[Upload] Session token:', localStorage.getItem('session_token') ? '✅ Present' : '❌ Missing')
 
-            // Étape 1: Upload (societe_id is extracted from session_token by backend)
+            // Étape 1: Upload
             console.log('[Upload] Step 1: Uploading file...')
             const uploaded = await apiService.uploadFacture(file)
             const id = uploaded.id
-            console.log('[Upload] ✅ Upload successful, facture ID:', id)
-            setSuccess(`Facture #${id} uploadée. Extraction en cours...`)
+            setSuccess(`Facture #${id} reçue. Passage à l'analyse...`)
+            setCurrentStep(2) // Analyse
 
             // Étape 2: Extraction automatique
             console.log('[Upload] Step 2: Extracting...')
             await apiService.extractFacture(id)
-            console.log('[Upload] ✅ Extraction done')
-            setSuccess(`Extraction terminée. Classification PCM en cours...`)
+            setSuccess(`Analyse terminée. Imputation comptable en cours...`)
+            setCurrentStep(3) // Imputation
 
             // Étape 3: Classification automatique
             console.log('[Upload] Step 3: Classifying...')
             await apiService.classifyFacture(id)
-            console.log('[Upload] ✅ Classification done')
-            setSuccess(`Classification terminée. Génération des écritures...`)
+            setSuccess(`Imputation terminée. Génération des écritures...`)
+            setCurrentStep(4) // Écritures
 
             // Étape 4: Génération des écritures
             console.log('[Upload] Step 4: Generating entries...')
             await apiService.generateEntries(id)
-            console.log('[Upload] ✅ All steps done!')
-            setSuccess(`Pipeline complet! Redirection vers la facture #${id}...`)
+            setSuccess(`Écritures générées. Contrôle final...`)
+            setCurrentStep(5) // Contrôle
 
-            setTimeout(() => navigate(`/factures/${id}`), 1500)
+            console.log('[Upload] ✅ All steps done!')
+            setSuccess(`Traitement complet terminé avec succès !`)
+
+            setTimeout(() => navigate(`/factures/${id}`), 2000)
         } catch (e: any) {
             console.error('[Upload] ❌ Error:', e)
-            if (e.response) {
-                console.error('[Upload] Response status:', e.response.status)
-                console.error('[Upload] Response data:', e.response.data)
-            } else if (e.request) {
-                console.error('[Upload] Request made but no response:', e.request)
-            } else {
-                console.error('[Upload] Error message:', e.message)
-            }
-
             const msg = e.response?.data?.detail || e.message || 'Erreur inconnue'
             setError(`Erreur: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
         } finally {
             setLoading(false)
         }
+    }
+
+    const getStepClass = (step: number) => {
+        if (currentStep > step) return 'step done'
+        if (currentStep === step) return 'step active'
+        return 'step'
     }
 
     return (
@@ -106,15 +107,15 @@ export default function Upload() {
 
             {/* Pipeline steps */}
             <div className="pipeline-steps">
-                <div className="step active">Réception</div>
+                <div className={getStepClass(1)}>Réception</div>
                 <span className="step-arrow">→</span>
-                <div className="step">Analyse</div>
+                <div className={getStepClass(2)}>Analyse</div>
                 <span className="step-arrow">→</span>
-                <div className="step">Imputation</div>
+                <div className={getStepClass(3)}>Imputation</div>
                 <span className="step-arrow">→</span>
-                <div className="step">Écritures</div>
+                <div className={getStepClass(4)}>Écritures</div>
                 <span className="step-arrow">→</span>
-                <div className="step">Contrôle</div>
+                <div className={getStepClass(5)}>Contrôle</div>
             </div>
 
             <div className="two-col">
