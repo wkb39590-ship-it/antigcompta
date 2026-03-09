@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../../api';
 import { getAdminUser } from '../../utils/adminTokenDecoder';
+import {
+    History,
+    PlusCircle,
+    RotateCw,
+    Trash2,
+    CheckCircle2,
+    Clock,
+    User,
+    FileText,
+    AlertCircle
+} from 'lucide-react';
 
 interface AdminLog {
     id: number;
@@ -36,13 +47,13 @@ export const AdminHistory: React.FC = () => {
         fetchData();
     }, []);
 
-    const getActionBadgeClass = (type: string) => {
+    const getActionContent = (type: string) => {
         switch (type) {
-            case 'CREATE': return 'badge-create';
-            case 'UPDATE': return 'badge-update';
-            case 'DELETE': return 'badge-delete';
-            case 'VALIDATE': return 'badge-validate';
-            default: return 'badge-default';
+            case 'CREATE': return { icon: <PlusCircle size={14} />, label: 'Création', className: 'badge-create' };
+            case 'UPDATE': return { icon: <RotateCw size={14} />, label: 'Mise à jour', className: 'badge-update' };
+            case 'DELETE': return { icon: <Trash2 size={14} />, label: 'Suppression', className: 'badge-delete' };
+            case 'VALIDATE': return { icon: <CheckCircle2 size={14} />, label: 'Validation', className: 'badge-validate' };
+            default: return { icon: <History size={14} />, label: type, className: 'badge-default' };
         }
     };
 
@@ -58,90 +69,162 @@ export const AdminHistory: React.FC = () => {
     };
 
     return (
-        <div className="admin-history-page">
-            <div className="admin-page-header">
-                <h1 className="glass-text">Historique des Actions</h1>
-                <p>Suivez toutes les interventions effectuées sur le système.</p>
+        <div className="aurora-page-v2">
+            <div className="aurora-page-header">
+                <div className="header-info">
+                    <h1 className="hero-title heading-font">Historique Système</h1>
+                    <p className="aurora-subtitle">Audit trail complet des flux et opérations transverses.</p>
+                </div>
             </div>
 
-            <div className="aurora-wide-card aurora-card">
-                {loading ? (
-                    <div className="aurora-loader">
-                        <div className="loader-spinner"></div>
-                        <span>Chargement des logs...</span>
+            <div className="aurora-content-grid">
+                <div className="aurora-card table-card history-container">
+                    <div className="card-header-flex">
+                        <h2 className="heading-font">Flux d'activités récentes</h2>
+                        <div className="glass-pill">Audit Trail Actif</div>
                     </div>
-                ) : error ? (
-                    <div className="aurora-error-state">{error}</div>
-                ) : (
-                    <div className="aurora-table-wrapper">
-                        <table className="aurora-table">
-                            <thead>
-                                <tr>
-                                    <th>DATE & HEURE</th>
-                                    <th>ACTION</th>
-                                    <th>ENTITÉ</th>
-                                    <th>AGENT</th>
-                                    <th>DÉTAILS</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {logs.length > 0 ? (
-                                    logs.map((log) => (
-                                        <tr key={log.id}>
-                                            <td className="time-cell">{formatDate(log.created_at)}</td>
-                                            <td>
-                                                <span className={`action-badge ${getActionBadgeClass(log.action_type)}`}>
-                                                    {log.action_type}
-                                                </span>
-                                            </td>
-                                            <td className="entity-cell">{log.entity_type}</td>
-                                            <td className="agent-cell">
-                                                <div className="agent-info">
-                                                    <span className="agent-username">@{log.agent_username || 'Système'}</span>
+
+                    {loading ? (
+                        <div className="aurora-loader-inline">
+                            <div className="spinner-aurora"></div>
+                            <span>Récupération des logs sécurisés...</span>
+                        </div>
+                    ) : error ? (
+                        <div className="aurora-error-v2">
+                            <AlertCircle size={40} />
+                            <p>{error}</p>
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="aurora-table-v2">
+                                <thead>
+                                    <tr>
+                                        <th>Horodatage</th>
+                                        <th>Événement</th>
+                                        <th>Module</th>
+                                        <th>Responsable</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {logs.length > 0 ? (
+                                        logs.map((log) => {
+                                            const action = getActionContent(log.action_type);
+                                            return (
+                                                <tr key={log.id}>
+                                                    <td>
+                                                        <div className="time-td-v2">
+                                                            <Clock size={12} />
+                                                            <span>{formatDate(log.created_at)}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`status-pill ${action.className}`}>
+                                                            {action.icon}
+                                                            {action.label}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="module-tag-v2">
+                                                            <FileText size={12} />
+                                                            {log.entity_type}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="agent-box-v2">
+                                                            <div className="agent-avatar-mini">{log.agent_username?.[0]?.toUpperCase() || 'S'}</div>
+                                                            <span className="agent-un">@{log.agent_username || 'système'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="details-col-v2" title={log.details || ''}>
+                                                            {log.details || <span className="no-details">Aucun détail additionnel</span>}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={5}>
+                                                <div className="aurora-empty-v2">
+                                                    <History size={40} />
+                                                    <p>Historique vierge.</p>
                                                 </div>
                                             </td>
-                                            <td className="details-cell">{log.details}</td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5} className="empty-state">Aucune action enregistrée pour le moment.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <style>{`
-        .admin-history-page {
-          animation: fadeIn 0.8s ease-out;
-        }
+        .aurora-page-v2 { animation: fadeIn 0.8s ease-out; padding-bottom: 80px; }
+        
+        .aurora-page-header { margin-bottom: 35px; }
+        .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
+        .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
 
-        .action-badge {
-          padding: 4px 10px;
-          border-radius: 8px;
-          font-size: 11px;
-          font-weight: 800;
+        .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }
+
+        .table-card { padding: 30px; }
+        .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .card-header-flex h2 { font-size: 20px; font-weight: 800; margin: 0; }
+
+        .table-responsive { overflow-x: auto; }
+        .aurora-table-v2 { width: 100%; border-collapse: collapse; }
+        .aurora-table-v2 th {
+          text-align: left; padding: 15px 20px; font-size: 11px; font-weight: 800;
+          color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px;
+          border-bottom: 1px solid var(--border);
+        }
+        
+        .aurora-table-v2 td { padding: 18px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .aurora-table-v2 tr:hover { background: rgba(99, 102, 241, 0.02); }
+
+        .time-td-v2 { display: flex; align-items: center; gap: 8px; color: var(--text3); font-size: 13px; font-weight: 500; }
+        
+        .status-pill { 
+          display: inline-flex; align-items: center; gap: 6px; 
+          padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 800;
           text-transform: uppercase;
         }
+        .badge-create { background: rgba(16, 185, 129, 0.08); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.15); }
+        .badge-update { background: rgba(59, 130, 246, 0.08); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.15); }
+        .badge-delete { background: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); }
+        .badge-validate { background: rgba(168, 85, 247, 0.08); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.15); }
+        .badge-default { background: #f1f5f9; color: var(--text3); border: 1px solid #e2e8f0; }
 
-        .badge-create { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .badge-update { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
-        .badge-delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
-        .badge-validate { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); }
-        .badge-default { background: rgba(148, 163, 184, 0.1); color: #94a1b8; border: 1px solid rgba(148, 163, 184, 0.2); }
-
-        .time-cell { font-family: monospace; color: var(--admin-text-dim); }
-        .entity-cell { font-weight: 700; color: var(--admin-text); }
-        .agent-username { color: var(--admin-accent); font-weight: 600; }
-        .details-cell { color: var(--admin-text-dim); max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .aurora-table-wrapper {
-          margin-top: 10px;
-          overflow-x: auto;
+        .module-tag-v2 { 
+          display: inline-flex; align-items: center; gap: 6px; 
+          padding: 5px 10px; background: #f8fafc; border: 1px solid #e2e8f0;
+          border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 700;
         }
+
+        .agent-box-v2 { display: flex; align-items: center; gap: 10px; }
+        .agent-avatar-mini { 
+          width: 28px; height: 28px; border-radius: 8px; background: #f1f5f9;
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 800; font-size: 11px; color: var(--text2); border: 1px solid #e2e8f0;
+          box-shadow: inset 0 2px 4px rgba(255,255,255,0.8);
+        }
+        .agent-un { font-size: 13px; font-weight: 700; color: var(--accent); }
+
+        .details-col-v2 { 
+          max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-size: 13px; color: var(--text3); font-weight: 500;
+        }
+        .no-details { font-style: italic; opacity: 0.5; }
+
+        .aurora-loader-inline { padding: 60px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; color: var(--text3); }
+        .spinner-aurora { width: 32px; height: 32px; border: 3px solid #f1f5f9; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .aurora-error-v2 { padding: 60px 0; text-align: center; color: #ef4444; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); opacity: 0.3; }
       `}</style>
         </div>
     );

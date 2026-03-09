@@ -1,6 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAdminUser, clearAdminSession } from '../../utils/adminTokenDecoder';
+import {
+  LayoutDashboard,
+  Building2,
+  Building,
+  Users,
+  Link as LinkIcon,
+  History,
+  User,
+  LogOut,
+  Zap
+} from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -12,7 +23,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
   const adminUser = getAdminUser();
   const adminName = adminUser ? `${adminUser.prenom || adminUser.username}` : 'Admin';
 
-  // Récupérer le nom du cabinet pour les admins simples
   const cabinets = JSON.parse(localStorage.getItem('cabinets') || '[]');
   const currentCabinet = cabinets.find((c: any) => c.id === adminUser?.cabinet_id);
   const cabinetLabel = !adminUser?.is_super_admin && currentCabinet ? currentCabinet.nom : '';
@@ -23,13 +33,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
   };
 
   const navItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', id: 'dashboard', icon: '📊' },
-    { label: 'Cabinets', path: '/admin/cabinets', id: 'cabinets', icon: '🏢', superOnly: true },
-    { label: 'Sociétés', path: '/admin/societes', id: 'societes', icon: '🏬', adminOnly: true },
-    { label: 'Agents', path: '/admin/agents', id: 'agents', icon: '👥' },
-    { label: 'Associations', path: '/admin/associations', id: 'associations', icon: '🔗', adminOnly: true },
-    { label: 'Historique', path: '/admin/history', id: 'history', icon: '📜' },
-    { label: 'Profil', path: '/admin/profile', id: 'profile', icon: '👤' },
+    { label: 'Dashboard', path: '/admin/dashboard', id: 'dashboard', icon: <LayoutDashboard size={20} /> },
+    { label: 'Cabinets', path: '/admin/cabinets', id: 'cabinets', icon: <Building2 size={20} />, superOnly: true },
+    { label: 'Sociétés', path: '/admin/societes', id: 'societes', icon: <Building size={20} />, adminOnly: true },
+    { label: 'Agents', path: '/admin/agents', id: 'agents', icon: <Users size={20} /> },
+    { label: 'Liaisons', path: '/admin/associations', id: 'associations', icon: <LinkIcon size={20} />, adminOnly: true },
+    { label: 'Historique', path: '/admin/history', id: 'history', icon: <History size={20} /> },
+    { label: 'Mon Profil', path: '/admin/profile', id: 'profile', icon: <User size={20} /> },
   ].filter(item => {
     if (item.superOnly && !adminUser?.is_super_admin) return false;
     if (item.adminOnly && adminUser?.is_super_admin) return false;
@@ -37,16 +47,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
   });
 
   return (
-    <div className="admin-layout aurora-bg">
+    <div className="admin-layout">
+      {/* Background Aurora Foundation */}
+      <div className="aurora-viewport">
+        <div className="aurora-blob blob-1"></div>
+        <div className="aurora-blob blob-2"></div>
+        <div className="aurora-blob blob-3"></div>
+      </div>
+
       <div className="aurora-sidebar-wrapper">
         <nav className="aurora-sidebar aurora-card">
           <div className="aurora-brand">
-            <div className="brand-icon-wrapper animate-float">
-              <span className="brand-logo">⚡</span>
-            </div>
             <div className="brand-texts">
-              <h2 className="glass-text">COMPTAFACILE</h2>
-              <p>Administration Système</p>
+              <h2 className="glass-text">SYSTEM</h2>
+              <p>Administration Professionnelle</p>
             </div>
           </div>
 
@@ -54,11 +68,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
             <div className="mini-avatar">{adminName[0].toUpperCase()}</div>
             <div className="mini-info">
               <span className="mini-name">{adminName}</span>
-              <span className="mini-status">{cabinetLabel || 'En ligne'}</span>
+              <span className="mini-status">{cabinetLabel || 'Super Admin'}</span>
             </div>
           </div>
-
-          <div className="nav-divider" />
 
           <ul className="aurora-nav admin-scroll">
             {navItems.map((item) => (
@@ -69,7 +81,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
                 >
                   <span className="nav-icon-bg">{item.icon}</span>
                   <span className="nav-text">{item.label}</span>
-                  {currentPage === item.id && <div className="active-dot" />}
                 </button>
               </li>
             ))}
@@ -77,20 +88,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
 
           <div className="sidebar-footer">
             <button className="aurora-btn-logout" onClick={handleLogout}>
-              <span className="logout-icon">🚪</span>
-              <span>Quitter la session</span>
+              <LogOut size={18} />
+              <span>Se déconnecter</span>
             </button>
           </div>
         </nav>
       </div>
 
       <main className="aurora-main admin-scroll">
-        <header className="aurora-header">
-          <div className="header-breadcrumbs">
-            {adminUser?.is_super_admin ? 'Système' : (cabinetLabel || 'Admin')} / <span className="current-page-text">{navItems.find(i => i.id === currentPage)?.label || currentPage}</span>
+        <header className="aurora-header aurora-card">
+          <div className="header-breadcrumbs glass-text">
+            {adminUser?.is_super_admin ? 'Système Central' : (cabinetLabel || 'Cabinet')} • <span className="current-page-text">{navItems.find(i => i.id === currentPage)?.label || currentPage}</span>
           </div>
           <div className="header-actions">
-            <div className="header-time">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+            <div className="header-time glass-pill">
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </div>
           </div>
         </header>
         <div className="aurora-view-container">
@@ -106,105 +119,108 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
           overflow: hidden;
           padding: 24px;
           gap: 24px;
+          position: relative;
+          z-index: 1;
         }
 
         .aurora-sidebar-wrapper {
           width: 280px;
           height: 100%;
+          flex-shrink: 0;
         }
 
         .aurora-sidebar {
           height: 100%;
           display: flex;
           flex-direction: column;
-          padding: 20px;
-          border-radius: 32px;
+          padding: 24px;
+          border-radius: 32px !important;
         }
 
         .aurora-brand {
           display: flex;
           align-items: center;
           gap: 15px;
-          padding: 10px 10px 30px 10px;
+          padding: 0 0 40px 0;
         }
 
         .brand-icon-wrapper {
-          width: 45px;
-          height: 45px;
-          background: var(--admin-gradient);
+          width: 44px;
+          height: 44px;
+          background: var(--aurora-gradient);
           border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 24px;
-          box-shadow: 0 10px 20px var(--admin-accent-glow);
+          box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
         }
 
         .brand-texts h2 {
           margin: 0;
-          font-size: 20px;
-          letter-spacing: 2px;
+          font-size: 22px;
+          letter-spacing: 3px;
           font-weight: 900;
+          line-height: 1;
         }
 
         .brand-texts p {
-          margin: 0;
+          margin: 4px 0 0 0;
           font-size: 10px;
+          font-weight: 700;
           text-transform: uppercase;
-          color: var(--admin-text-dim);
+          color: var(--text3);
           letter-spacing: 1px;
         }
 
         .admin-mini-profile {
-          background: rgba(255, 255, 255, 0.05);
-          padding: 15px;
+          background: rgba(255, 255, 255, 0.4);
+          padding: 16px;
           border-radius: 20px;
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-bottom: 25px;
+          margin-bottom: 30px;
+          border: 1px solid rgba(255, 255, 255, 0.5);
         }
 
         .mini-avatar {
-          width: 40px;
-          height: 40px;
+          width: 42px;
+          height: 42px;
           border-radius: 12px;
-          background: var(--admin-secondary);
+          background: var(--aurora-gradient);
+          color: white;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: bold;
+          font-weight: 800;
           font-size: 18px;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         }
 
         .mini-name {
           display: block;
           font-size: 14px;
-          font-weight: 700;
-          color: var(--admin-text);
+          font-weight: 800;
+          color: var(--text);
+          font-family: 'Outfit', sans-serif;
         }
 
         .mini-status {
-          font-size: 10px;
-          color: #10b981;
+          font-size: 11px;
+          color: var(--success);
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 6px;
+          font-weight: 700;
         }
 
         .mini-status::before {
           content: '';
           width: 6px;
           height: 6px;
-          background: #10b981;
+          background: var(--success);
           border-radius: 50%;
-          box-shadow: 0 0 10px #10b981;
-        }
-
-        .nav-divider {
-          height: 1px;
-          background: var(--admin-glass-border);
-          margin-bottom: 20px;
+          box-shadow: 0 0 10px var(--success);
         }
 
         .aurora-nav {
@@ -212,74 +228,59 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
           padding: 0;
           margin: 0;
           flex: 1;
-          overflow-y: auto;
-        }
-
-        .aurora-nav li {
-          margin-bottom: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
 
         .aurora-nav-link {
           width: 100%;
           display: flex;
           align-items: center;
-          gap: 15px;
-          padding: 12px 15px;
+          gap: 16px;
+          padding: 12px 16px;
           border: none;
           background: transparent;
-          color: var(--admin-text-dim);
+          color: var(--text2);
           border-radius: 16px;
           cursor: pointer;
-          transition: all 0.3s;
-          position: relative;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          font-family: 'Inter', sans-serif;
         }
 
         .aurora-nav-link:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--admin-text);
-          padding-left: 20px;
+          background: rgba(99, 102, 241, 0.05);
+          color: var(--accent);
+          transform: translateX(4px);
         }
 
         .aurora-nav-link.active {
-          background: var(--admin-gradient);
-          color: white;
-          box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+          background: white;
+          color: var(--accent);
+          box-shadow: 0 8px 20px rgba(99, 102, 241, 0.08);
+          border: 1px solid rgba(99, 102, 241, 0.1);
         }
 
         .nav-icon-bg {
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.05);
-          font-size: 16px;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.5);
           transition: all 0.3s;
         }
 
         .aurora-nav-link.active .nav-icon-bg {
-          background: rgba(255, 255, 255, 0.2);
+          background: var(--aurora-gradient);
+          color: white;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         }
 
         .nav-text {
           font-size: 14px;
-          font-weight: 600;
-        }
-
-        .active-dot {
-          width: 6px;
-          height: 6px;
-          background: white;
-          border-radius: 50%;
-          margin-left: auto;
-          box-shadow: 0 0 10px white;
-        }
-
-        .sidebar-footer {
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid var(--admin-glass-border);
+          font-weight: 700;
         }
 
         .aurora-btn-logout {
@@ -290,18 +291,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
           gap: 10px;
           padding: 14px;
           border-radius: 16px;
-          border: 1px solid var(--admin-glass-border);
-          background: rgba(239, 68, 68, 0.05);
-          color: #f87171;
-          font-weight: 700;
+          border: 1px solid rgba(239, 68, 68, 0.1);
+          background: rgba(239, 68, 68, 0.04);
+          color: var(--danger);
+          font-weight: 800;
+          font-size: 13px;
           cursor: pointer;
           transition: all 0.3s;
+          font-family: 'Outfit', sans-serif;
         }
 
         .aurora-btn-logout:hover {
-          background: #ef4444;
+          background: var(--danger);
           color: white;
-          box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+          box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
         }
 
         .aurora-main {
@@ -309,57 +312,50 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
           display: flex;
           flex-direction: column;
           gap: 24px;
-          overflow-y: auto;
-          padding-right: 10px;
+          height: 100%;
+          overflow: hidden;
         }
+
+        .admin-scroll {
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(99, 102, 241, 0.2) transparent;
+        }
+
+        .admin-scroll::-webkit-scrollbar { width: 6px; }
+        .admin-scroll::-webkit-scrollbar-track { background: transparent; }
+        .admin-scroll::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.2); border-radius: 10px; }
+        .admin-scroll::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.4); }
 
         .aurora-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 20px 30px;
-          background: var(--admin-card);
-          backdrop-filter: blur(20px);
-          border: 1px solid var(--admin-glass-border);
-          border-radius: 24px;
-          flex-shrink: 0;
+          padding: 16px 32px;
+          min-height: 80px;
         }
 
         .header-breadcrumbs {
           font-size: 14px;
-          color: var(--admin-text-dim);
-          font-weight: 600;
+          font-weight: 700;
+          font-family: 'Outfit', sans-serif;
         }
 
         .current-page-text {
-          color: var(--admin-accent);
-          font-weight: 800;
-        }
-
-        .header-time {
-          font-size: 13px;
-          color: var(--admin-text-dim);
-          font-weight: 600;
-          text-transform: capitalize;
+          color: var(--text);
+          font-weight: 900;
+          opacity: 1;
         }
 
         .aurora-view-container {
           flex: 1;
-          animation: slideUp 0.6s ease-out;
         }
 
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 1024px) {
-          .admin-layout { padding: 10px; flex-direction: column; }
+        @media (max-width: 1100px) {
+          .admin-layout { padding: 12px; flex-direction: column; }
           .aurora-sidebar-wrapper { width: 100%; height: auto; }
           .admin-mini-profile { display: none; }
-          .aurora-sidebar { border-radius: 20px; }
-          .aurora-nav { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; }
-          .aurora-nav li { margin-bottom: 0; }
+          .aurora-sidebar { border-radius: 20px !important; }
         }
       `}</style>
     </div>

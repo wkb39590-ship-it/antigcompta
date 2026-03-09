@@ -25,7 +25,8 @@ import {
     User,
     LogOut,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    Zap
 } from 'lucide-react'
 
 import CabinetSelector from './pages/CabinetSelector'
@@ -140,8 +141,8 @@ function Sidebar() {
     return (
         <aside className="sidebar">
             <div className="sidebar-logo">
-                <h1>comptafacile</h1>
-                <p>Gestion Comptable Intégrale</p>
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '900', letterSpacing: '1px', color: 'var(--accent)' }}>comptafacile</h1>
+                <p style={{ margin: '4px 0 0 0', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text3)', letterSpacing: '0.5px' }}>Gestion Comptable Intégrale</p>
             </div>
             <nav className="sidebar-nav">
                 {navItems.map(item => (

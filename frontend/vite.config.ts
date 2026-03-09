@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     port: 3333,
     host: true,
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/api': {
         target: 'http://backend:8000',

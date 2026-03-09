@@ -3,6 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import apiService from '../../api';
 import { getAdminUser } from '../../utils/adminTokenDecoder';
 import { API_CONFIG } from '../../config/apiConfig';
+import {
+  Building,
+  PlusCircle,
+  X,
+  LayoutDashboard,
+  Pencil,
+  Trash2,
+  MapPin,
+  Fingerprint,
+  Building2
+} from 'lucide-react';
 
 interface Societe {
   id: number;
@@ -165,14 +176,14 @@ export const AdminSocietes: React.FC = () => {
   };
 
   return (
-    <div className="aurora-page">
+    <div className="aurora-page-v2">
       <div className="aurora-page-header">
-        <div>
-          <h1 className="glass-text">Gestion des Sociétés</h1>
-          <p className="aurora-subtitle">Pilotez les entités juridiques par cabinet.</p>
+        <div className="header-info">
+          <h1 className="hero-title heading-font">Gestion des Sociétés</h1>
+          <p className="aurora-subtitle">Pilotage des entités juridiques et configuration des accès client.</p>
         </div>
         <button
-          className={`aurora-fab ${showForm ? 'active' : ''}`}
+          className={`aurora-btn-primary ${showForm ? 'active-form' : ''}`}
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -187,7 +198,6 @@ export const AdminSocietes: React.FC = () => {
               });
             } else {
               setShowForm(true);
-              // Pré-remplir pour Admin simple
               if (!isSuper && adminUser?.cabinet_id) {
                 setFormData((prev) => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
               }
@@ -195,16 +205,20 @@ export const AdminSocietes: React.FC = () => {
             setError('');
           }}
         >
-          {showForm ? '✕' : '+ Société'}
+          {showForm ? <X size={20} /> : <><PlusCircle size={18} /> <span>Nouvelle Société</span></>}
         </button>
       </div>
 
       {error && <div className="aurora-error-toast">{error}</div>}
 
-      <div className="aurora-content-layout">
+      <div className="aurora-content-grid">
         {showForm && (
-          <form className="aurora-glass-form aurora-card" onSubmit={handleCreateSociete}>
-            <h2 className="glass-text">{editingSociete ? 'Modifier la Société' : 'Nouvelle Société'}</h2>
+          <form className="aurora-card premium-form" onSubmit={handleCreateSociete}>
+            <div className="form-header">
+              <h2 className="heading-font">{editingSociete ? 'Édition Structure' : 'Initialisation Entreprise'}</h2>
+              <p>Paramètres fiscaux et identification légale</p>
+            </div>
+
             <div className="aurora-form-grid">
               <div className="aurora-input-group span-2">
                 <label>Cabinet de rattachement</label>
@@ -222,7 +236,7 @@ export const AdminSocietes: React.FC = () => {
                   </select>
                 ) : (
                   <div className="aurora-input-readonly">
-                    {cabinets.find((c: Cabinet) => String(c.id) === formData.cabinet_id)?.nom || (cabinets.length > 0 ? cabinets[0].nom : 'Chargement...')}
+                    {cabinets.find((c: Cabinet) => String(c.id) === formData.cabinet_id)?.nom || (cabinets.length > 0 ? cabinets[0].nom : 'Chargement cabinet...')}
                   </div>
                 )}
               </div>
@@ -230,17 +244,17 @@ export const AdminSocietes: React.FC = () => {
                 <label>Raison Sociale</label>
                 <input
                   type="text"
-                  placeholder="Ex: SARL Alpha"
+                  placeholder="Ex: SARL Optima"
                   value={formData.raison_sociale}
                   onChange={(e) => setFormData({ ...formData, raison_sociale: e.target.value })}
                   required
                 />
               </div>
               <div className="aurora-input-group">
-                <label>ICE (15 chiffres)</label>
+                <label>ICE (Identifiant Commun)</label>
                 <input
                   type="text"
-                  placeholder="000234567..."
+                  placeholder="00234..."
                   value={formData.ice}
                   onChange={(e) => setFormData({ ...formData, ice: e.target.value })}
                 />
@@ -249,201 +263,225 @@ export const AdminSocietes: React.FC = () => {
                 <label>IF (Identifiant Fiscal)</label>
                 <input
                   type="text"
+                  placeholder="ID Fiscal"
                   value={formData.if_fiscal}
                   onChange={(e) => setFormData({ ...formData, if_fiscal: e.target.value })}
                 />
               </div>
               <div className="aurora-input-group">
-                <label>RC (Registre du Commerce)</label>
+                <label>RC (Registre Commerce)</label>
                 <input
                   type="text"
-                  placeholder="Ex: 12345"
+                  placeholder="N° Registre"
                   value={formData.rc}
                   onChange={(e) => setFormData({ ...formData, rc: e.target.value })}
                 />
               </div>
               <div className="aurora-input-group span-2">
-                <label>Adresse complète</label>
+                <label>Adresse d'Exploitation</label>
                 <input
                   type="text"
-                  placeholder="Ex: 123 Rue des Palmiers, Casablanca"
+                  placeholder="Siège social, Ville"
                   value={formData.adresse}
                   onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
                 />
               </div>
             </div>
-            <button type="submit" className="aurora-btn-submit">
-              Initialiser la société
+
+            <button type="submit" className="aurora-btn-primary full-width">
+              {editingSociete ? 'Sauvegarder les changements' : 'Activer la structure'}
             </button>
           </form>
         )}
 
-        <div className="aurora-table-wrapper aurora-card">
+        <div className="aurora-card table-card">
+          <div className="card-header-flex">
+            <h2 className="heading-font">Sociétés sous gestion</h2>
+            <div className="glass-pill">{societes.length} Entités</div>
+          </div>
+
           {loading ? (
             <div className="aurora-loader-inline">
               <div className="spinner-aurora"></div>
-              <span>Chargement des entités...</span>
+              <span>Synchronisation des entités...</span>
             </div>
           ) : (
-            <>
+            <div className="table-responsive">
               {societes.length === 0 ? (
-                <div className="aurora-empty">
-                  <span>🏢</span>
-                  <p>Aucune société configurée.</p>
+                <div className="aurora-empty-v2">
+                  <div className="empty-icon-box"><Building size={40} /></div>
+                  <p>Aucune société rattachée pour le moment.</p>
                 </div>
               ) : (
-                <table className="aurora-table">
+                <table className="aurora-table-v2">
                   <thead>
                     <tr>
-                      <th>Entreprise / Adresse</th>
-                      <th>Cabinet Partenaire</th>
-                      <th>ICE / IF / RC</th>
+                      <th>Dénomination Sociale</th>
+                      <th>Cabinet Référent</th>
+                      <th>Données Fiscales</th>
                       <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {societes.map((societe: Societe) => (
-                      <tr key={societe.id} className="aurora-tr">
+                      <tr key={societe.id}>
                         <td>
-                          <div className="aurora-td-soc">
-                            <span className="soc-name">{societe.raison_sociale}</span>
-                            <span className="soc-address">{societe.adresse || 'N/A'}</span>
+                          <div className="soc-profile-td">
+                            <div className="soc-avatar-v2">{societe.raison_sociale[0]}</div>
+                            <div className="soc-name-box">
+                              <span className="name">{societe.raison_sociale}</span>
+                              <span className="address-line">{societe.adresse || 'Adresse non spécifiée'}</span>
+                            </div>
                           </div>
                         </td>
                         <td>
-                          <span className="aurora-tag purple">
-                            {cabinets.find((c: Cabinet) => c.id === societe.cabinet_id)?.nom || 'Inconnu'}
-                          </span>
+                          <div className="cabinet-tag-v2">
+                            <Fingerprint size={12} />
+                            {cabinets.find((c: Cabinet) => c.id === societe.cabinet_id)?.nom || 'Cabinet Inconnu'}
+                          </div>
                         </td>
                         <td>
-                          <div className="aurora-ids">
-                            <span>ICE: {societe.ice || '-'}</span>
-                            <span>IF: {societe.if_fiscal || '-'}</span>
+                          <div className="fiscal-td">
+                            <div className="ice-line">ICE: {societe.ice || '---'}</div>
+                            <div className="if-line">IF: {societe.if_fiscal || '---'}</div>
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button
-                            className="aurora-btn-manage"
-                            title="Gérer les factures"
-                            onClick={() => handleManageSociete(societe)}
-                          >
-                            📑 Gérer
-                          </button>
-                          <button className="aurora-btn-icon" onClick={() => handleEditClick(societe)}>✏️</button>
-                          <button className="aurora-btn-icon delete" onClick={() => deleteSociete(societe.id)}>🗑️</button>
+                          <div className="action-buttons-flex">
+                            <button
+                              className="aurora-btn-action"
+                              onClick={() => handleManageSociete(societe)}
+                            >
+                              <LayoutDashboard size={14} /> <span>Ouvrir</span>
+                            </button>
+                            <button className="icon-btn edit" title="Modifier" onClick={() => handleEditClick(societe)}>
+                              <Pencil size={16} />
+                            </button>
+                            <button className="icon-btn del" title="Supprimer" onClick={() => deleteSociete(societe.id)}>
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
 
       <style>{`
-        .aurora-page { animation: pageEnter 0.6s ease-out; }
-        @keyframes pageEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .aurora-page-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
-        .aurora-page-header h1 { font-size: 36px; font-weight: 900; margin: 0; letter-spacing: -1px; }
-        .aurora-subtitle { color: var(--admin-text-dim); font-size: 14px; font-weight: 500; margin-top: 5px; }
-
-        .aurora-fab {
-          width: 140px; height: 48px; background: var(--admin-gradient); color: white;
-          border: none; border-radius: 24px; font-weight: 800; cursor: pointer;
-          transition: all 0.3s; box-shadow: 0 10px 20px var(--admin-accent-glow);
-        }
-        .aurora-fab:hover { transform: translateY(-2px); box-shadow: 0 15px 30px var(--admin-accent-glow); }
-        .aurora-fab.active { background: #334155; box-shadow: none; }
-
-        .aurora-error-toast {
-          background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 15px 25px;
-          border-radius: 16px; border: 1px solid rgba(239, 68, 68, 0.2); margin-bottom: 25px;
-        }
-
-        .aurora-content-layout { display: grid; gap: 25px; }
-        .aurora-glass-form { padding: 40px; }
-        .aurora-glass-form h2 { margin: 0 0 30px 0; font-size: 20px; font-weight: 800; }
-
-        .aurora-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-        .aurora-input-group.span-2 { grid-column: span 2; }
+        .aurora-page-v2 { animation: fadeIn 0.8s ease-out; padding-bottom: 80px; }
         
+        .aurora-page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; }
+        .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
+        .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
+
+        .aurora-btn-primary.active-form { background: #334155; box-shadow: none; }
+        .full-width { width: 100%; margin-top: 20px; }
+
+        .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }
+
+        .premium-form { padding: 35px; animation: slideDown 0.4s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .form-header { margin-bottom: 30px; }
+        .form-header h2 { font-size: 20px; font-weight: 800; margin: 0; }
+        .form-header p { font-size: 13px; color: var(--text3); margin-top: 4px; }
+
+        .aurora-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .span-2 { grid-column: span 2; }
+
         .aurora-input-group label {
-          display: block; font-size: 11px; font-weight: 800; color: var(--admin-text-dim);
-          text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+          display: block; font-size: 11px; font-weight: 800; color: var(--text3);
+          text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
         }
 
         .aurora-input-group input, .aurora-select {
-          width: 100%; padding: 15px; border-radius: 14px; border: 1px solid var(--admin-glass-border);
-          background: rgba(255, 255, 255, 0.03); color: white; outline: none; transition: all 0.3s;
+          width: 100%; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border);
+          background: rgba(255, 255, 255, 0.5); color: var(--text); outline: none; transition: all 0.3s;
+          font-family: 'Inter', sans-serif; font-size: 14px;
         }
         .aurora-input-group input:focus, .aurora-select:focus {
-          border-color: var(--admin-accent); background: rgba(255, 255, 255, 0.06);
+          border-color: var(--accent); background: white; box-shadow: 0 0 10px rgba(99, 102, 241, 0.1);
         }
 
         .aurora-input-readonly {
-          padding: 15px; border-radius: 14px; border: 1px solid var(--admin-glass-border);
-          background: rgba(255, 255, 255, 0.02); color: var(--admin-accent); font-weight: 700;
+          padding: 14px 16px; border-radius: 14px; background: rgba(99, 102, 241, 0.05);
+          color: var(--accent); font-weight: 700; font-size: 14px; border: 1px dashed var(--accent);
         }
 
-        .aurora-btn-submit {
-          padding: 15px 30px; border-radius: 14px; border: none;
-          background: var(--admin-gradient); color: white; font-weight: 800;
-          cursor: pointer; transition: all 0.3s;
+        .table-card { padding: 30px; }
+        .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .card-header-flex h2 { font-size: 20px; font-weight: 800; margin: 0; }
+
+        .table-responsive { overflow-x: auto; }
+        .aurora-table-v2 { width: 100%; border-collapse: collapse; }
+        .aurora-table-v2 th {
+          text-align: left; padding: 15px 20px; font-size: 11px; font-weight: 800;
+          color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px;
+          border-bottom: 1px solid var(--border);
         }
-
-        .aurora-table-wrapper { padding: 10px; }
-        .aurora-table { width: 100%; border-collapse: collapse; }
-        .aurora-table th {
-          padding: 20px; font-size: 11px; font-weight: 800; color: var(--admin-text-dim);
-          text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--admin-glass-border);
-          text-align: left;
-        }
-
-        .aurora-tr:hover { background: rgba(255, 255, 255, 0.03); }
-        .aurora-tr td { padding: 20px; color: var(--admin-text); border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
-
-        .aurora-td-soc { display: flex; flex-direction: column; gap: 4px; }
-        .soc-name { font-weight: 800; font-size: 15px; }
-        .soc-address { font-size: 12px; color: var(--admin-text-dim); }
-
-        .aurora-tag {
-          padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800;
-        }
-        .aurora-tag.purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); }
-
-        .aurora-ids { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--admin-text-dim); }
-
-        .aurora-btn-icon { background: transparent; border: none; padding: 8px; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
-        .aurora-btn-icon:hover { background: rgba(255, 255, 255, 0.1); }
         
-        .aurora-btn-manage {
-          background: rgba(99, 102, 241, 0.1);
-          color: var(--admin-accent);
-          border: 1px solid rgba(99, 102, 241, 0.2);
-          padding: 6px 12px;
-          border-radius: 10px;
-          font-size: 12px;
-          font-weight: 700;
-          cursor: pointer;
-          margin-right: 10px;
-          transition: all 0.2s;
+        .aurora-table-v2 tr { transition: background 0.3s; }
+        .aurora-table-v2 tr:hover { background: rgba(99, 102, 241, 0.02); }
+        .aurora-table-v2 td { padding: 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+
+        .soc-profile-td { display: flex; align-items: center; gap: 15px; }
+        .soc-avatar-v2 {
+          width: 44px; height: 44px; border-radius: 12px; 
+          background: linear-gradient(145deg, #10b981, #047857);
+          color: white; display: flex; align-items: center; justify-content: center;
+          font-weight: 800; font-size: 16px; 
+          box-shadow: 0 8px 15px -3px rgba(16, 185, 129, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+          border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .aurora-btn-manage:hover {
-          background: var(--admin-accent);
-          color: white;
-          transform: translateY(-1px);
+        .soc-name-box { display: flex; flex-direction: column; }
+        .soc-name-box .name { font-weight: 700; color: var(--text); font-size: 15px; }
+        .soc-name-box .address-line { font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 2px; }
+
+        .cabinet-tag-v2 {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 6px 12px; background: #f8fafc; border: 1px solid #e2e8f0;
+          border-radius: 10px; font-size: 12px; font-weight: 700; color: var(--text2);
         }
 
-        .aurora-loader-inline { padding: 50px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
-        .spinner-aurora { width: 30px; height: 30px; border: 3px solid var(--admin-glass-border); border-top-color: var(--admin-accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        .fiscal-td { display: flex; flex-direction: column; gap: 2px; }
+        .ice-line, .if-line { font-size: 12px; font-weight: 700; color: var(--text3); }
+
+        .action-buttons-flex { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+        
+        .aurora-btn-action {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 14px; 
+          background: linear-gradient(135deg, #1e293b, #0f172a);
+          color: white;
+          border-radius: 10px; border: none; font-size: 12px; font-weight: 800;
+          cursor: pointer; transition: all 0.3s; 
+          box-shadow: 0 5px 15px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.1);
+        }
+        .aurora-btn-action:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+
+        .icon-btn {
+          width: 36px; height: 36px; border-radius: 10px; border: 1px solid #e2e8f0;
+          background: white; color: var(--text3); cursor: pointer; transition: all 0.3s;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.05); transform: translateY(-2px); }
+        .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); }
+
+        .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); }
+        .empty-icon-box { margin-bottom: 20px; opacity: 0.2; }
+
+        .aurora-loader-inline { padding: 60px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; color: var(--text3); }
+        .spinner-aurora { width: 32px; height: 32px; border: 3px solid #f1f5f9; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
           .aurora-form-grid { grid-template-columns: 1fr; }
-          .aurora-input-group.span-2 { grid-column: span 1; }
+          .span-2 { grid-column: span 1; }
         }
       `}</style>
     </div>

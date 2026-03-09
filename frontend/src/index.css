@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap');
+
 /* ── Global Design System ─────────────────────────────────── */
 *,
 *::before,
@@ -8,50 +10,45 @@
 }
 
 :root {
-  --bg: #f1f5f9;
-  --bg2: #ffffff;
-  --bg3: #e2e8f0;
+  --bg: #f8fafc;
+  --bg-darker: #f1f5f9;
   --card: #ffffff;
-  --border: #cbd5e1;
-  --accent: #3b82f6;
-  --accent2: #6366f1;
+  --border: #e2e8f0;
+  --accent: #6366f1;
+  --accent2: #8b5cf6;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
   --text: #0f172a;
   --text2: #475569;
   --text3: #94a3b8;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 2px 16px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 8px 40px rgba(15, 23, 42, 0.12);
-  --glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --radius-xl: 32px;
+  --radius-lg: 24px;
+  --radius: 16px;
+  --shadow-premium: 0 20px 50px rgba(0, 0, 0, 0.05);
   --glass: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(148, 163, 184, 0.3);
-  --blur: blur(12px);
+  --glass-border: rgba(99, 102, 241, 0.1);
 
-  /* Aurora Premium Theme — Light */
-  --admin-bg: #f8fafc;
-  --admin-card: rgba(255, 255, 255, 0.85);
-  --admin-accent: #6366f1;
-  --admin-accent-glow: rgba(99, 102, 241, 0.25);
-  --admin-secondary: #a855f7;
-  --admin-text: #0f172a;
-  --admin-text-dim: #64748b;
-  --admin-glass: rgba(255, 255, 255, 0.7);
-  --admin-glass-border: rgba(99, 102, 241, 0.15);
-  --admin-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  --admin-surface: rgba(248, 250, 252, 0.9);
+  /* Aurora 2.0 Tokens */
+  --aurora-1: #6366f1;
+  --aurora-2: #ec4899;
+  --aurora-3: #8b5cf6;
+  --aurora-gradient: linear-gradient(135deg, var(--aurora-1) 0%, var(--aurora-3) 100%);
 }
-
 
 body {
   font-family: 'Inter', -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+.heading-font {
+  font-family: 'Outfit', sans-serif;
 }
 
 /* ── Layout ─────────────────────────────────────────────── */
@@ -689,85 +686,110 @@ tbody tr:last-child td {
   background: var(--text3);
 }
 
-/* ── Aurora Premium Styles ───────────────────────────────── */
-.aurora-bg {
-  background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
-    var(--admin-bg) !important;
-  color: var(--admin-text) !important;
+
+/* ── Aurora 2.0: Dynamic Background ──────────────────────── */
+.aurora-viewport {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: #f8fafc;
 }
 
-.aurora-card {
-  background: #ffffff;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(99, 102, 241, 0.15);
-  border-radius: 24px;
-  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+.aurora-blob {
+  position: absolute;
+  filter: blur(80px);
+  opacity: 0.15;
+  border-radius: 50%;
+  animation: blob-float 20s infinite alternate;
 }
 
-.aurora-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.12);
+.blob-1 {
+  width: 600px;
+  height: 600px;
+  background: var(--aurora-1);
+  top: -100px;
+  left: -100px;
 }
 
-.glass-text {
-  background: var(--admin-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.blob-2 {
+  width: 500px;
+  height: 500px;
+  background: var(--aurora-2);
+  bottom: -100px;
+  right: -100px;
+  animation-duration: 25s;
+  animation-delay: -5s;
 }
 
-.neon-glow {
-  box-shadow: 0 0 20px var(--admin-accent-glow);
+.blob-3 {
+  width: 400px;
+  height: 400px;
+  background: var(--aurora-3);
+  top: 40%;
+  left: 50%;
+  animation-duration: 30s;
+  animation-delay: -10s;
 }
 
-@keyframes float {
+@keyframes blob-float {
   0% {
-    transform: translateY(0px);
+    transform: translate(0, 0) scale(1);
   }
 
-  50% {
-    transform: translateY(-10px);
+  33% {
+    transform: translate(100px, 50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-50px, 100px) scale(0.9);
   }
 
   100% {
-    transform: translateY(0px);
+    transform: translate(0, 0) scale(1);
   }
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
+/* ── Aurora 2.0: Card & UI Refinements ───────────────────── */
+.aurora-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03) !important;
+  border-radius: 24px !important;
 }
 
-.aurora-bg-page {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.05) 0%, transparent 40%),
-    var(--bg);
-  min-height: 100vh;
+.aurora-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(99, 102, 241, 0.08) !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
 }
 
-.neon-glow-indigo {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+.glass-pill {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
 }
 
-/* Scrollbar Admin Custom */
-.admin-scroll::-webkit-scrollbar {
-  width: 5px;
+.aurora-btn-primary {
+  background: var(--aurora-gradient);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+  transition: all 0.3s;
+  cursor: pointer;
 }
 
-.admin-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.admin-scroll::-webkit-scrollbar-thumb {
-  background: var(--admin-glass-border);
-  border-radius: 10px;
-}
-
-.admin-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--admin-accent);
+.aurora-btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 15px 30px rgba(99, 102, 241, 0.3);
 }
