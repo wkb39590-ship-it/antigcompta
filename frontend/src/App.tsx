@@ -12,6 +12,9 @@ import Avoirs from './pages/Avoirs'
 import Immobilisations from './pages/Immobilisations'
 import JournalComptable from './pages/JournalComptable'
 import Paie from './pages/Paie'
+import BulletinPaieDetail from './pages/BulletinPaieDetail'
+import BulletinCreate from './pages/BulletinCreate'
+import EmployeCreate from './pages/EmployeCreate'
 import Releves from './pages/Releves'
 import Rapprochement from './pages/Rapprochement'
 import {
@@ -393,6 +396,9 @@ export default function App() {
                 <Route path="immobilisations" element={<ProtectedRoute><Immobilisations /></ProtectedRoute>} />
                 <Route path="journal" element={<ProtectedRoute><JournalComptable /></ProtectedRoute>} />
                 <Route path="paie" element={<ProtectedRoute><Paie /></ProtectedRoute>} />
+                <Route path="paie/nouveau" element={<ProtectedRoute><BulletinCreate /></ProtectedRoute>} />
+                <Route path="paie/:id" element={<ProtectedRoute><BulletinPaieDetail /></ProtectedRoute>} />
+                <Route path="employes/nouveau" element={<ProtectedRoute><EmployeCreate /></ProtectedRoute>} />
                 <Route path="releves" element={<ProtectedRoute><Releves /></ProtectedRoute>} />
                 <Route path="releves/:id/rapprochement" element={<ProtectedRoute><Rapprochement /></ProtectedRoute>} />
             </Route>

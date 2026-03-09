@@ -4,7 +4,7 @@ from typing import List
 from decimal import Decimal
 
 from database import get_db
-from models import Employe, BulletinPaie
+from models import Employe, BulletinPaie, JournalEntry
 from schemas import BulletinPaieOut, BulletinPaieCreate
 from services.paie_service import calculer_bulletin, sauvegarder_bulletin, generer_ecriture_paie
 from routes.deps import get_current_session
@@ -152,3 +152,52 @@ def valider_bulletin(
     db.refresh(bulletin)
     bulletin.employe_nom = f"{bulletin.employe.prenom or ''} {bulletin.employe.nom}".strip()
     return bulletin
+
+@router.get("/{bulletin_id}/entries", response_model=dict)
+def get_bulletin_entries(
+    bulletin_id: int,
+    db: Session = Depends(get_db),
+    context: dict = Depends(get_current_session)
+):
+    """Récupère les écritures comptables associées à un bulletin."""
+    societe_id = context['societe_id']
+    bulletin = db.query(BulletinPaie).join(Employe).filter(
+        BulletinPaie.id == bulletin_id,
+        Employe.societe_id == societe_id
+    ).first()
+    
+    if not bulletin:
+        raise HTTPException(status_code=404, detail="Bulletin introuvable.")
+        
+    if not bulletin.journal_entry_id:
+        return {"journal_entry": None, "message": "Aucune écriture associée (bulletin non validé ?)"}
+        
+    entry = db.query(JournalEntry).filter(JournalEntry.id == bulletin.journal_entry_id).first()
+    if not entry:
+        return {"journal_entry": None, "message": "Écriture introuvable."}
+        
+    return {
+        "journal_entry": {
+            "id": entry.id,
+            "journal_code": entry.journal_code,
+            "entry_date": str(entry.entry_date) if entry.entry_date else None,
+            "reference": entry.reference,
+            "description": entry.description,
+            "is_validated": entry.is_validated,
+            "total_debit": float(entry.total_debit) if entry.total_debit else 0,
+            "total_credit": float(entry.total_credit) if entry.total_credit else 0,
+            "entry_lines": [
+                {
+                    "id": el.id,
+                    "line_order": el.line_order,
+                    "account_code": el.account_code,
+                    "account_label": el.account_label,
+                    "debit": float(el.debit),
+                    "credit": float(el.credit),
+                    "tiers_name": el.tiers_name,
+                    "tiers_ice": el.tiers_ice,
+                }
+                for el in sorted(entry.entry_lines, key=lambda e: e.line_order or 0)
+            ]
+        }
+    }

@@ -311,6 +311,7 @@ export const apiService = {
     saveBulletin: (data: { employe_id: number; mois: number; annee: number; primes?: number; heures_sup?: number }) =>
         api.post('/paie/', data).then(r => r.data),
     validateBulletin: (id: number) => api.post(`/paie/${id}/validate`).then(r => r.data),
+    getBulletinEntries: (id: number) => api.get(`/paie/${id}/entries`).then(r => r.data),
 
     // ── Employés Routes ────────────────────────────────────────
     listEmployes: (statut?: string) => api.get('/employes/', { params: { statut } }).then(r => r.data),
