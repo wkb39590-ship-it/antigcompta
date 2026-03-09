@@ -12,6 +12,8 @@ import Avoirs from './pages/Avoirs'
 import Immobilisations from './pages/Immobilisations'
 import JournalComptable from './pages/JournalComptable'
 import Paie from './pages/Paie'
+import Releves from './pages/Releves'
+import Rapprochement from './pages/Rapprochement'
 import {
     LayoutDashboard,
     Upload as UploadIcon,
@@ -84,6 +86,7 @@ function Sidebar() {
         { to: '/history', label: 'Historique', icon: <HistoryIcon size={18} /> },
         { to: '/avoirs', label: 'Avoirs', icon: <FileText size={18} /> },
         { to: '/immobilisations', label: 'Immobilisations', icon: <Building2 size={18} /> },
+        { to: '/releves', label: 'Relevés Bancaires', icon: <BookOpen size={18} /> },
         { to: '/journal', label: 'Journal Comptable', icon: <BookOpen size={18} /> },
         { to: '/paie', label: 'Paie & Salaires', icon: <CreditCard size={18} /> },
         { to: '/pcm', label: 'Plan Comptable', icon: <Book size={18} /> },
@@ -390,6 +393,8 @@ export default function App() {
                 <Route path="immobilisations" element={<ProtectedRoute><Immobilisations /></ProtectedRoute>} />
                 <Route path="journal" element={<ProtectedRoute><JournalComptable /></ProtectedRoute>} />
                 <Route path="paie" element={<ProtectedRoute><Paie /></ProtectedRoute>} />
+                <Route path="releves" element={<ProtectedRoute><Releves /></ProtectedRoute>} />
+                <Route path="releves/:id/rapprochement" element={<ProtectedRoute><Rapprochement /></ProtectedRoute>} />
             </Route>
 
 

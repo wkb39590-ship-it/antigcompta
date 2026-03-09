@@ -60,12 +60,8 @@ def _build_query(db: Session, societe_id: int, journal_code: Optional[str],
                  date_debut: Optional[date], date_fin: Optional[date],
                  valide_seulement: bool):
     """Construit la requête de récupération des écritures."""
-    # Joindre via factures pour filtrer par société
-    q = (
-        db.query(JournalEntry)
-        .join(Facture, JournalEntry.facture_id == Facture.id)
-        .filter(Facture.societe_id == societe_id)
-    )
+    # On filtre par société directement sur l'écriture
+    q = db.query(JournalEntry).filter(JournalEntry.societe_id == societe_id)
 
     if valide_seulement:
         q = q.filter(JournalEntry.is_validated == True)

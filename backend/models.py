@@ -319,6 +319,7 @@ class JournalEntry(Base):
     __tablename__ = "ecritures_journal"
 
     id = Column(Integer, primary_key=True, index=True)
+    societe_id = Column(Integer, ForeignKey("societes.id"), nullable=True, index=True) # Nouveau champ
     facture_id = Column(Integer, ForeignKey("factures.id", ondelete="CASCADE"), nullable=True, index=True)
 
     journal_code = Column(String(10), nullable=False)  # ACH/VTE/OD/BQ/CAIS
@@ -573,3 +574,66 @@ class LignePaie(Base):
 
     # Relations
     bulletin       = relationship("BulletinPaie", back_populates="lignes")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODULE RELEVÉ BANCAIRE — Gestion et Rapprochement
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ReleveBancaire(Base):
+    """
+    Représente un relevé bancaire importé (CSV, PDF, etc.).
+    """
+    __tablename__ = "releves_bancaires"
+
+    id = Column(Integer, primary_key=True, index=True)
+    societe_id = Column(Integer, ForeignKey("societes.id"), nullable=False, index=True)
+    
+    date_import = Column(DateTime, nullable=False, server_default=func.now())
+    date_debut = Column(Date, nullable=True)
+    date_fin = Column(Date, nullable=True)
+    banque_nom = Column(String(100), nullable=True)
+    compte_bancaire = Column(String(50), nullable=True)
+    
+    solde_initial = Column(Numeric(15, 2), nullable=True)
+    solde_final = Column(Numeric(15, 2), nullable=True)
+    
+    file_path = Column(String(500), nullable=True)
+    file_name = Column(String(255), nullable=True)
+    
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    
+    # Relations
+    societe = relationship("Societe")
+    lignes = relationship("LigneReleve", back_populates="releve", cascade="all, delete-orphan")
+
+
+class LigneReleve(Base):
+    """
+    Transactions individuelles extraites d'un relevé bancaire.
+    Peut être rapprochée avec une ou plusieurs EntryLine.
+    """
+    __tablename__ = "lignes_releves"
+
+    id = Column(Integer, primary_key=True, index=True)
+    releve_id = Column(Integer, ForeignKey("releves_bancaires.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    date_operation = Column(Date, nullable=False)
+    date_valeur = Column(Date, nullable=True)
+    description = Column(Text, nullable=True)
+    reference = Column(String(100), nullable=True)
+    
+    debit = Column(Numeric(15, 2), nullable=False, server_default="0")
+    credit = Column(Numeric(15, 2), nullable=False, server_default="0")
+    
+    # Rapprochement
+    is_rapproche = Column(Boolean, nullable=False, server_default="false")
+    rapprochement_type = Column(String(20), nullable=True)  # MANUEL / AUTO
+    # Lier à une ligne de journal BQ ou écriture
+    entry_line_id = Column(Integer, ForeignKey("lignes_ecritures.id", ondelete="SET NULL"), nullable=True)
+    
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # Relations
+    releve = relationship("ReleveBancaire", back_populates="lignes")
+    entry_line = relationship("EntryLine")

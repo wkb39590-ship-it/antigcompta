@@ -73,6 +73,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     # Créer l'en-tête de l'écriture
     entry = JournalEntry(
         facture_id=facture.id,
+        societe_id=facture.societe_id,
         journal_code=journal_code,
         entry_date=facture.date_facture,
         reference=facture.numero_facture,

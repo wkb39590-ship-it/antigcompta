@@ -20,6 +20,7 @@ from routes.immobilisations import router as immobilisations_router
 from routes.journaux import router as journaux_router
 from routes.paie import router as paie_router
 from routes.employes import router as employes_router
+from routes.releves import router as releves_router
 
 # Legacy routers (conservés pour compatibilité)
 try:
@@ -60,6 +61,8 @@ app.include_router(immobilisations_router)  # /immobilisations/*
 app.include_router(journaux_router)         # /journaux/*
 app.include_router(paie_router)             # /paie/*
 app.include_router(employes_router)         # /employes/*
+app.include_router(releves_router)          # /releves/*
+
 
 # ── Routers legacy ──────────────────────────────────────────
 if _has_factures:

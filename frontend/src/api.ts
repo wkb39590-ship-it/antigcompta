@@ -203,6 +203,29 @@ export interface Immo {
     plan_amortissement?: LigneAmort[]
 }
 
+export interface LigneReleve {
+    id: number
+    date_operation: string
+    description: string | null
+    debit: number
+    credit: number
+    is_rapproche: boolean
+    entry_line_id: number | null
+}
+
+export interface ReleveBancaire {
+    id: number
+    date_import: string
+    date_debut: string | null
+    date_fin: string | null
+    solde_initial: number | null
+    solde_final: number | null
+    banque_nom: string | null
+    file_name: string | null
+    lignes_count?: number
+    lignes?: LigneReleve[]
+}
+
 // ── API calls ──────────────────────────────────────────────
 
 /**
@@ -210,15 +233,10 @@ export interface Immo {
  * Chaque méthode correspond à un endpoint FastAPI.
  */
 export const apiService = {
-    // Liste des factures
+    // ... existants
     listFactures: (status?: string) =>
         api.get('/factures/', { params: { status } }).then(r => r.data),
 
-    // Upload
-    /**
-     * Téléverse une facture vers le serveur.
-     * @param file Fichier image ou PDF sélectionné par l'utilisateur.
-     */
     uploadFacture: (file: File) => {
         const form = new FormData()
         form.append('file', file)
@@ -228,108 +246,54 @@ export const apiService = {
         }).then(r => r.data)
     },
 
-    // Extraction (Gemini can be slow, use longer timeout)
     extractFacture: (id: number) =>
-        api.post(`/factures/${id}/extract`, {}, { timeout: 300000 }).then(r => r.data),  // 5 minutes
-
-
-    // Classification
+        api.post(`/factures/${id}/extract`, {}, { timeout: 300000 }).then(r => r.data),
     classifyFacture: (id: number) =>
         api.post(`/factures/${id}/classify`, {}, { timeout: 300000 }).then(r => r.data),
-
-    // Génération écritures
     generateEntries: (id: number) =>
         api.post(`/factures/${id}/generate-entries`, {}, { timeout: 300000 }).then(r => r.data),
-
-    // Détail facture
-    getFacture: (id: number) =>
-        api.get(`/factures/${id}`).then(r => r.data),
-
-    // Lignes produits
-    getFactureLines: (id: number) =>
-        api.get(`/factures/${id}/lines`).then(r => r.data),
-
-    // Écritures
-    getFactureEntries: (id: number) =>
-        api.get(`/factures/${id}/entries`).then(r => r.data),
-
-    // Validation
-    validateFacture: (id: number) =>
-        api.post(`/factures/${id}/validate`).then(r => r.data),
-
-    // Rejet
+    getFacture: (id: number) => api.get(`/factures/${id}`).then(r => r.data),
+    getFactureLines: (id: number) => api.get(`/factures/${id}/lines`).then(r => r.data),
+    getFactureEntries: (id: number) => api.get(`/factures/${id}/entries`).then(r => r.data),
+    validateFacture: (id: number) => api.post(`/factures/${id}/validate`).then(r => r.data),
     rejectFacture: (id: number, reason: string) =>
         api.post(`/factures/${id}/reject?reason=${encodeURIComponent(reason)}`).then(r => r.data),
-
-    // Correction ligne produit
     updateInvoiceLine: (lineId: number, data: Partial<InvoiceLine>) =>
         api.put(`/factures/invoice-lines/${lineId}`, data).then(r => r.data),
-
-    // Correction ligne écriture
     updateEntryLine: (lineId: number, data: Partial<EntryLine>) =>
         api.put(`/factures/entry-lines/${lineId}`, data).then(r => r.data),
 
-    // PCM
     getPcmAccounts: (pcmClass?: number) =>
         api.get('/pcm/accounts', { params: { pcm_class: pcmClass } }).then(r => r.data),
 
-    // Sociétés
-    listSocietes: () =>
-        api.get('/societes/').then(r => r.data),
-
+    listSocietes: () => api.get('/societes/').then(r => r.data),
     createSociete: (data: { raison_sociale: string; ice?: string; if_fiscal?: string }) =>
         api.post('/societes/', data).then(r => r.data),
 
-    // Profil & Auth
-    getProfile: (token: string) =>
-        api.get(`/auth/me?token=${token}`).then(r => r.data),
-
-    getAgentStats: (token: string) =>
-        api.get(`/auth/stats?token=${token}`).then(r => r.data),
-
-    // URL fichier
+    getProfile: (token: string) => api.get(`/auth/me?token=${token}`).then(r => r.data),
+    getAgentStats: (token: string) => api.get(`/auth/stats?token=${token}`).then(r => r.data),
     getFileUrl: (id: number) => `${API_BASE}/factures/${id}/file`,
 
-    // Mappings (Feedback Loop)
-    listMappings: () =>
-        api.get('/mappings/').then(r => r.data),
+    listMappings: () => api.get('/mappings/').then(r => r.data),
+    deleteMapping: (id: number) => api.delete(`/mappings/${id}`).then(r => r.data),
 
-    deleteMapping: (id: number) =>
-        api.delete(`/mappings/${id}`).then(r => r.data),
-
-    // Suppression facture
-    deleteFacture: (id: number) =>
-        api.delete(`/factures/${id}`).then(r => r.data),
-
-    // Mise à jour facture
-    updateFacture: (id: number, data: Partial<Facture>) =>
-        api.put(`/factures/${id}`, data).then(r => r.data),
-
-    // Mise à jour profil (Agent)
-    updateProfile: (data: any) =>
-        api.put('/auth/profile', data).then(r => r.data),
+    deleteFacture: (id: number) => api.delete(`/factures/${id}`).then(r => r.data),
+    updateFacture: (id: number, data: Partial<Facture>) => api.put(`/factures/${id}`, data).then(r => r.data),
+    updateProfile: (data: any) => api.put('/auth/profile', data).then(r => r.data),
 
     // ── Admin Routes ──────────────────────────────────────────
     adminListAgents: () => api.get('/admin/agents').then(r => r.data),
-    adminCreateAgent: (data: any, cabinetId: string) =>
-        api.post(`/admin/agents?cabinet_id=${cabinetId}`, data).then(r => r.data),
-    adminUpdateAgent: (id: number, data: any) =>
-        api.put(`/admin/agents/${id}`, data).then(r => r.data),
-    adminDeleteAgent: (id: number) =>
-        api.delete(`/admin/agents/${id}`).then(r => r.data),
-
+    adminCreateAgent: (data: any, cabinetId: string) => api.post(`/admin/agents?cabinet_id=${cabinetId}`, data).then(r => r.data),
+    adminUpdateAgent: (id: number, data: any) => api.put(`/admin/agents/${id}`, data).then(r => r.data),
+    adminDeleteAgent: (id: number) => api.delete(`/admin/agents/${id}`).then(r => r.data),
     adminListCabinets: () => api.get('/admin/cabinets').then(r => r.data),
     adminCreateCabinet: (data: any) => api.post('/admin/cabinets', data).then(r => r.data),
     adminUpdateCabinet: (id: number, data: any) => api.put(`/admin/cabinets/${id}`, data).then(r => r.data),
     adminDeleteCabinet: (id: number) => api.delete(`/admin/cabinets/${id}`).then(r => r.data),
     adminListSocietes: () => api.get('/admin/societes').then(r => r.data),
-    adminCreateSociete: (data: any, cabinetId: string) =>
-        api.post(`/admin/societes?cabinet_id=${cabinetId}`, data).then(r => r.data),
-    adminUpdateSociete: (id: number, data: any) =>
-        api.put(`/admin/societes/${id}`, data).then(r => r.data),
-    adminDeleteSociete: (id: number) =>
-        api.delete(`/admin/societes/${id}`).then(r => r.data),
-
+    adminCreateSociete: (data: any, cabinetId: string) => api.post(`/admin/societes?cabinet_id=${cabinetId}`, data).then(r => r.data),
+    adminUpdateSociete: (id: number, data: any) => api.put(`/admin/societes/${id}`, data).then(r => r.data),
+    adminDeleteSociete: (id: number) => api.delete(`/admin/societes/${id}`).then(r => r.data),
     adminGetProfile: () => api.get('/admin/profile').then(r => r.data),
     adminUpdateProfile: (data: any) => api.put('/admin/profile', data).then(r => r.data),
     adminGetGlobalStats: () => api.get('/admin/stats/global').then(r => r.data),
@@ -357,16 +321,37 @@ export const apiService = {
     // ── Immobilisations Routes ──────────────────────────────
     listImmobilisations: (categorie?: string, statut?: string) =>
         api.get('/immobilisations/', { params: { categorie, statut } }).then(r => r.data),
-
-    getImmobilisation: (id: number) =>
-        api.get(`/immobilisations/${id}`).then(r => r.data),
-
-    createImmobilisation: (data: any) =>
-        api.post('/immobilisations/', data).then(r => r.data),
-
+    getImmobilisation: (id: number) => api.get(`/immobilisations/${id}`).then(r => r.data),
+    createImmobilisation: (data: any) => api.post('/immobilisations/', data).then(r => r.data),
     generateDotation: (immoId: number, annee: number) =>
         api.post(`/immobilisations/${immoId}/dotation/${annee}`).then(r => r.data),
-}
 
+    // ── Relevés Bancaires ───────────────────────────────────
+    listReleves: () => api.get('/releves/').then(r => r.data),
+    getReleve: (id: number) => api.get(`/releves/${id}`).then(r => r.data),
+    uploadReleve: (file: File) => {
+        const form = new FormData()
+        form.append('file', file)
+        return api.post(`/releves/upload`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 120000
+        }).then(r => r.data)
+    },
+
+    getSuggestions: (ligneId: number) =>
+        api.get(`/releves/suggestions/${ligneId}`).then(r => r.data),
+
+    rapprocher: (ligneReleveId: number, entryLineId: number) =>
+        api.post(`/releves/rapprocher`, { ligne_releve_id: ligneReleveId, entry_line_id: entryLineId }).then(r => r.data),
+
+    genererEcriture: (ligneReleveId: number, compteContrepartie: string) =>
+        api.post(`/releves/generer-ecriture`, { ligne_releve_id: ligneReleveId, compte_contrepartie: compteContrepartie }).then(r => r.data),
+
+    getAccountSuggestion: (ligneId: number) =>
+        api.get(`/releves/suggest-account/${ligneId}`).then(r => r.data),
+
+    getAllSuggestions: (releveId: number) =>
+        api.get(`/releves/suggestions-all/${releveId}`).then(r => r.data)
+}
 
 export default apiService

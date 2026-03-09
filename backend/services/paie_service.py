@@ -248,6 +248,7 @@ def generer_ecriture_paie(bulletin: BulletinPaie, db: Session) -> JournalEntry:
     nom_emp = f"{employe.prenom or ''} {employe.nom}".strip() if employe else f"Emp#{bulletin.employe_id}"
 
     entry = JournalEntry(
+        societe_id  = employe.societe_id if employe else None,
         facture_id  = None,
         journal_code= "OD",
         entry_date  = date(bulletin.annee, bulletin.mois, 28),  # Fin de mois approx.

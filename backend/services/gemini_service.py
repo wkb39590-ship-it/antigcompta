@@ -513,6 +513,62 @@ EXEMPLES:
 - "Fournitures de bureau" → pcm_class: 6, pcm_account_code: "6132"
 """
 
+BANK_CLASSIFICATION_SYSTEM_PROMPT = """Tu es un expert-comptable marocain spécialisé dans le Plan Comptable Marocain (PCM).
+Ton rôle est d'analyser un libellé d'opération bancaire et de suggérer le compte de contrepartie approprié.
+
+RÈGLES DE CLASSIFICATION (CAS FRÉQUENTS):
+1. VIREMENTS REÇUS / REMISES CHÈQUES (Crédit):
+   - 4411 : Fournisseurs (si c'est un remboursement)
+   - 3421 : Clients (SI c'est un encaissement client)
+   - 4463 : Comptes d'associés (apport)
+2. PAIEMENTS / VIREMENTS EMIS (Débit):
+   - 4411 : Fournisseurs (paiement facture)
+   - 6111 : Achats de marchandises
+   - 6144 : Publicité (ex: Facebook, Google Ads)
+   - 6145 : Frais postaux et de télécom (ex: IAM, Orange, Inwi)
+   - 6151 : Entretien et réparations
+   - 6125 : Achats de fournitures (ex: Marjane, BIM)
+3. OPÉRATIONS BANCAIRES:
+   - 6147 : Services bancaires (Frais, commissions, agios)
+   - 5141 : Banque (ne pas suggérer, c'est le compte support, suggère la contrepartie)
+4. DIVERS:
+   - 4711 : Compte d'attente (si libellé trop vague)
+
+Si tu as un doute, privilégie le compte d'attente 4711 ou un compte de tiers (4411/3421).
+"""
+
+
+def classify_bank_transaction(
+    description: str,
+    debit: float = 0,
+    credit: float = 0,
+    model: str = DEFAULT_MODEL,
+) -> Dict[str, Any]:
+    """Suggère un compte PCM basé sur le libellé bancaire."""
+    amount_str = f"Débit: {debit}" if debit > 0 else f"Crédit: {credit}"
+    context = f"Libellé bancaire: {description}\nMontant: {amount_str}"
+
+    client = _client()
+    resp = client.models.generate_content(
+        model=model,
+        contents=[{
+            "role": "user",
+            "parts": [
+                {"text": BANK_CLASSIFICATION_SYSTEM_PROMPT},
+                {"text": context},
+            ],
+        }],
+        config={
+            "response_mime_type": "application/json",
+            "response_json_schema": CLASSIFICATION_SCHEMA,
+            "temperature": 0.0,
+        },
+    )
+    try:
+        return json.loads(resp.text)
+    except Exception as e:
+        raise RuntimeError(f"Gemini bank classification response not valid JSON. Raw: {resp.text[:500]}") from e
+
 
 def classify_invoice_line(
     description: str,
@@ -624,3 +680,80 @@ def extract_invoice_fields_from_image_bytes(           #Ancienne méthode compat
         return data
     except Exception as e:
         raise RuntimeError(f"Gemini response is not valid JSON. Raw: {resp.text[:500]}") from e
+
+# ──────────────────────────────────────────────────────────────────────────
+# Extraction de Relevés Bancaires (Bank Statements)
+# ──────────────────────────────────────────────────────────────────────────
+
+RELEVE_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "date_debut": {"type": ["string", "null"], "description": "Date de début du relevé (DD/MM/YYYY)"},
+        "date_fin": {"type": ["string", "null"], "description": "Date de fin du relevé (DD/MM/YYYY)"},
+        "solde_initial": {"type": ["number", "null"]},
+        "solde_final": {"type": ["number", "null"]},
+        "banque_nom": {"type": ["string", "null"]},
+        "compte_bancaire": {"type": ["string", "null"]},
+        "lignes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "date_operation": {"type": ["string", "null"], "description": "Format DD/MM/YYYY"},
+                    "date_valeur": {"type": ["string", "null"], "description": "Format DD/MM/YYYY"},
+                    "description": {"type": ["string", "null"]},
+                    "reference": {"type": ["string", "null"]},
+                    "debit": {"type": ["number", "null"]},
+                    "credit": {"type": ["number", "null"]},
+                },
+                "required": ["date_operation", "description", "debit", "credit"]
+            }
+        }
+    },
+    "required": ["lignes"]
+}
+
+RELEVE_SYSTEM_PROMPT = """Tu es un moteur d'extraction de relevés bancaires. Ton rôle est d'extraire de manière extrêmement précise le tableau des opérations.
+- Renvoyer UNIQUEMENT un JSON structuré.
+- Si une opération est au DEBIT, extraire le montant dans 'debit' et mettre 0 dans 'credit'.
+- Si une opération est au CREDIT, extraire le montant dans 'credit' et mettre 0 dans 'debit'.
+- montants : décimal positif uniquement (ex: 2429.83, 20000.00). Si le séparateur est une virgule, convertir en point. Si espaces, les enlever.
+- dates : format JJ/MM/AAAA.
+- description : libellé de l'opération (nature opération).
+- solde_initial / solde_final : Extraire les reports de solde si présents (ex: SOLDE A REPORTER).
+Ne renvoie ni commentaires ni formatage markdown en dehors du JSON.
+"""
+
+def extract_bank_statement(
+    image_data: Any,
+    mime_type: str = "image/png",
+    model: str = DEFAULT_MODEL,
+) -> Dict[str, Any]:
+    """Envoie l'image d'un relevé bancaire à Gemini pour extraction des transactions en tableau."""
+    if not image_data:
+        raise ValueError("image_data is empty")
+
+    images_list = image_data if isinstance(image_data, list) else [image_data]
+    
+    parts = [{"text": RELEVE_SYSTEM_PROMPT}]
+    for img_bytes in images_list:
+        parts.append({"inline_data": {"mime_type": mime_type, "data": img_bytes}})
+
+    client = _client()
+    resp = client.models.generate_content(
+        model=model,
+        contents=[{
+            "role": "user",
+            "parts": parts,
+        }],
+        config={
+            "response_mime_type": "application/json",
+            "response_json_schema": RELEVE_SCHEMA,
+            "temperature": 0.0,
+        },
+    )
+    try:
+        data = json.loads(resp.text)
+        return data
+    except Exception as e:
+        raise RuntimeError(f"Gemini bank statement response not valid JSON. Raw: {resp.text[:500]}") from e

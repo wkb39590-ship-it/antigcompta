@@ -117,6 +117,7 @@ def generer_ecriture_acquisition(immo: Immobilisation, db: Session) -> JournalEn
     compte_actif = immo.compte_actif_pcm or "2355"
 
     entry = JournalEntry(
+        societe_id=immo.societe_id,
         facture_id=immo.facture_id,
         journal_code="ACH",
         entry_date=immo.date_acquisition,
@@ -199,6 +200,7 @@ def generer_ecriture_dotation(immo: Immobilisation, annee: int, db: Session) -> 
 
     from datetime import date
     entry = JournalEntry(
+        societe_id=immo.societe_id,
         facture_id=immo.facture_id,
         journal_code="OD",
         entry_date=date(annee, 12, 31),
