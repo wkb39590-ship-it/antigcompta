@@ -275,7 +275,7 @@ def generer_ecriture_paie(bulletin: BulletinPaie, db: Session) -> JournalEntry:
         entry_date  = date(bulletin.annee, bulletin.mois, 28),  # Fin de mois approx.
         reference   = f"PAIE-{bulletin.id}-{mois_label}",
         description = f"Bulletin de paie {mois_label} — {nom_emp}",
-        is_validated= False,
+        is_validated= True,   # Validé automatiquement car le bulletin est validé
     )
     db.add(entry)
     db.flush()

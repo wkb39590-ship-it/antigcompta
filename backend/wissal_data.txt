@@ -1,0 +1,15 @@
+BULLETINS:
+{'id': 1, 'employe_id': 5, 'mois': 3, 'annee': 2026, 'salaire_brut': Decimal('9505.00'), 'statut': 'VALIDE'}
+{'id': 2, 'employe_id': 7, 'mois': 3, 'annee': 2026, 'salaire_brut': Decimal('9513.00'), 'statut': 'VALIDE'}
+{'id': 3, 'employe_id': 8, 'mois': 3, 'annee': 2026, 'salaire_brut': Decimal('10004.99'), 'statut': 'VALIDE'}
+{'id': 4, 'employe_id': 9, 'mois': 3, 'annee': 2026, 'salaire_brut': Decimal('11508.00'), 'statut': 'VALIDE'}
+{'id': 6, 'employe_id': 11, 'mois': 2, 'annee': 2026, 'salaire_brut': Decimal('11310.86'), 'statut': 'VALIDE'}
+
+ECRITURES:
+{'id': 39, 'journal_code': 'OD', 'reference': 'PAIE-2-03/2026', 'description': 'Bulletin de paie 03/2026 — sohayb kibali'}
+{'id': 19, 'journal_code': 'OD', 'reference': 'DOT-1-2026', 'description': 'Dotation amortissement 2026 — Acquisition - ETS. EL OUJ DI & FILS'}
+{'id': 40, 'journal_code': 'OD', 'reference': 'PAIE-3-03/2026', 'description': 'Bulletin de paie 03/2026 — mohammed kibali'}
+{'id': 41, 'journal_code': 'OD', 'reference': 'PAIE-4-03/2026', 'description': 'Bulletin de paie 03/2026 — oumayma kibali'}
+{'id': 42, 'journal_code': 'OD', 'reference': 'PAIE-5-02/2026', 'description': 'Bulletin de paie 02/2026 — wissal kibali'}
+{'id': 43, 'journal_code': 'OD', 'reference': 'PAIE-6-02/2026', 'description': 'Bulletin de paie 02/2026 — wissal kibali'}
+{'id': 16, 'journal_code': 'OD', 'reference': 'PAIE-1-03/2026', 'description': 'Bulletin de paie 03/2026 — Assil ALAMI'}
