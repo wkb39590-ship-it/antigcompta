@@ -70,11 +70,11 @@ export default function Paie() {
                     <p className="page-subtitle">Calcul des salaires, cotisations et éditions des bulletins</p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-ghost" onClick={load}><RefreshCcw size={18} /> Actualiser</button>
-                    <button className="btn btn-primary" onClick={() => navigate('/employes/nouveau')}>
+                    <button className="btn btn-outline" onClick={load}><RefreshCcw size={18} /> Actualiser</button>
+                    <button className="btn btn-outline" onClick={() => navigate('/employes/nouveau')}>
                         <Users size={18} /> Nouveau Salarié
                     </button>
-                    <button className="btn btn-primary" onClick={() => navigate('/paie/nouveau')}>
+                    <button className="btn btn-outline" onClick={() => navigate('/paie/nouveau')}>
                         <FileText size={18} /> Générer Bulletin
                     </button>
                 </div>

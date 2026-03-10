@@ -22,9 +22,21 @@ def list_bulletins(
         Employe.societe_id == societe_id
     ).order_by(BulletinPaie.annee.desc(), BulletinPaie.mois.desc()).all()
     
-    # Enrichir avec le nom de l'employé
+    # Enrichir avec les infos employeur et employé
     for b in bulletins:
-        b.employe_nom = f"{b.employe.prenom or ''} {b.employe.nom}".strip()
+        emp = b.employe
+        soc = emp.societe if emp else None
+        b.employe_nom = f"{emp.prenom or ''} {emp.nom}".strip() if emp else "Inconnu"
+        if emp:
+            b.employe_cin = emp.cin
+            b.employe_cnss = emp.numero_cnss
+            b.employe_date_embauche = emp.date_embauche
+        if soc:
+            b.societe_nom = soc.raison_sociale
+            b.societe_adresse = soc.adresse
+            b.societe_ice = soc.ice
+            b.societe_rc = soc.rc
+            b.societe_cnss = soc.cnss
     
     return bulletins
 
@@ -57,9 +69,19 @@ def simuler_calcul(
     res["id"] = 0
     res["statut"] = "BROUILLON"
     res["created_at"] = datetime.now()
-    # Ajouter un id fictif à chaque ligne (requis par LignePaieOut)
-    for i, ligne in enumerate(res.get("lignes", [])):
-        ligne["id"] = i + 1
+    # Ajouter les infos employeur et employé pour BulletinPaieOut
+    res["employe_nom"] = f"{employe.prenom or ''} {employe.nom}".strip()
+    res["employe_cin"] = employe.cin
+    res["employe_cnss"] = employe.numero_cnss
+    res["employe_date_embauche"] = employe.date_embauche
+    
+    soc = employe.societe
+    if soc:
+        res["societe_nom"] = soc.raison_sociale
+        res["societe_adresse"] = soc.adresse
+        res["societe_ice"] = soc.ice
+        res["societe_rc"] = soc.rc
+        res["societe_cnss"] = soc.cnss
     
     return BulletinPaieOut(**res)
 
@@ -117,7 +139,19 @@ def get_bulletin(
     if not bulletin:
         raise HTTPException(status_code=404, detail="Bulletin introuvable.")
     
-    bulletin.employe_nom = f"{bulletin.employe.prenom or ''} {bulletin.employe.nom}".strip()
+    emp = bulletin.employe
+    soc = emp.societe if emp else None
+    bulletin.employe_nom = f"{emp.prenom or ''} {emp.nom}".strip() if emp else "Inconnu"
+    if emp:
+        bulletin.employe_cin = emp.cin
+        bulletin.employe_cnss = emp.numero_cnss
+        bulletin.employe_date_embauche = emp.date_embauche
+    if soc:
+        bulletin.societe_nom = soc.raison_sociale
+        bulletin.societe_adresse = soc.adresse
+        bulletin.societe_ice = soc.ice
+        bulletin.societe_rc = soc.rc
+        bulletin.societe_cnss = soc.cnss
     return bulletin
 
 @router.post("/{bulletin_id}/validate", response_model=BulletinPaieOut)
@@ -150,7 +184,19 @@ def valider_bulletin(
     
     db.commit()
     db.refresh(bulletin)
-    bulletin.employe_nom = f"{bulletin.employe.prenom or ''} {bulletin.employe.nom}".strip()
+    emp = bulletin.employe
+    soc = emp.societe if emp else None
+    bulletin.employe_nom = f"{emp.prenom or ''} {emp.nom}".strip() if emp else "Inconnu"
+    if emp:
+        bulletin.employe_cin = emp.cin
+        bulletin.employe_cnss = emp.numero_cnss
+        bulletin.employe_date_embauche = emp.date_embauche
+    if soc:
+        bulletin.societe_nom = soc.raison_sociale
+        bulletin.societe_adresse = soc.adresse
+        bulletin.societe_ice = soc.ice
+        bulletin.societe_rc = soc.rc
+        bulletin.societe_cnss = soc.cnss
     return bulletin
 
 @router.get("/{bulletin_id}/entries", response_model=dict)

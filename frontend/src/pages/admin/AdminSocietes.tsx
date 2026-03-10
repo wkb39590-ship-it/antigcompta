@@ -23,6 +23,7 @@ interface Societe {
   if_fiscal: string;
   rc: string;
   adresse: string;
+  cnss: string;
 }
 
 interface Cabinet {
@@ -44,6 +45,7 @@ export const AdminSocietes: React.FC = () => {
     if_fiscal: '',
     rc: '',
     adresse: '',
+    cnss: '',
     cabinet_id: '',
   });
 
@@ -95,6 +97,7 @@ export const AdminSocietes: React.FC = () => {
         if_fiscal: formData.if_fiscal,
         rc: formData.rc,
         adresse: formData.adresse,
+        cnss: formData.cnss,
       };
 
       if (editingSociete) {
@@ -108,6 +111,7 @@ export const AdminSocietes: React.FC = () => {
         if_fiscal: '',
         rc: '',
         adresse: '',
+        cnss: '',
         cabinet_id: '',
       });
       setShowForm(false);
@@ -126,6 +130,7 @@ export const AdminSocietes: React.FC = () => {
       if_fiscal: societe.if_fiscal || '',
       rc: societe.rc || '',
       adresse: societe.adresse || '',
+      cnss: societe.cnss || '',
       cabinet_id: String(societe.cabinet_id),
     });
     setShowForm(true);
@@ -194,6 +199,7 @@ export const AdminSocietes: React.FC = () => {
                 if_fiscal: '',
                 rc: '',
                 adresse: '',
+                cnss: '',
                 cabinet_id: '',
               });
             } else {
@@ -277,7 +283,16 @@ export const AdminSocietes: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, rc: e.target.value })}
                 />
               </div>
-              <div className="aurora-input-group span-2">
+              <div className="aurora-input-group">
+                <label>N° CNSS (Affiliation)</label>
+                <input
+                  type="text"
+                  placeholder="N° Affiliation"
+                  value={formData.cnss}
+                  onChange={(e) => setFormData({ ...formData, cnss: e.target.value })}
+                />
+              </div>
+              <div className="aurora-input-group full-width">
                 <label>Adresse d'Exploitation</label>
                 <input
                   type="text"
@@ -344,6 +359,7 @@ export const AdminSocietes: React.FC = () => {
                           <div className="fiscal-td">
                             <div className="ice-line">ICE: {societe.ice || '---'}</div>
                             <div className="if-line">IF: {societe.if_fiscal || '---'}</div>
+                            <div className="cnss-line">CNSS: {societe.cnss || '---'}</div>
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
@@ -449,7 +465,7 @@ export const AdminSocietes: React.FC = () => {
         }
 
         .fiscal-td { display: flex; flex-direction: column; gap: 2px; }
-        .ice-line, .if-line { font-size: 12px; font-weight: 700; color: var(--text3); }
+        .ice-line, .if-line, .cnss-line { font-size: 12px; font-weight: 700; color: var(--text3); }
 
         .action-buttons-flex { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
         

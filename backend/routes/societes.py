@@ -19,6 +19,7 @@ class SocieteCreate(BaseModel):
     if_fiscal: Optional[str] = None
     rc: Optional[str] = None
     adresse: Optional[str] = None
+    cnss: Optional[str] = None
 
 
 @router.get("/", response_model=list)
@@ -34,6 +35,9 @@ def list_societes(agent: Agent = Depends(get_current_agent), db: Session = Depen
             "raison_sociale": s.raison_sociale,
             "ice": s.ice,
             "if_fiscal": s.if_fiscal,
+            "rc": s.rc,
+            "cnss": s.cnss,
+            "adresse": s.adresse,
         }
         for s in societes
     ]
@@ -50,6 +54,9 @@ def create_societe(data: SocieteCreate, agent: Agent = Depends(get_current_agent
         raison_sociale=data.raison_sociale,
         ice=data.ice,
         if_fiscal=data.if_fiscal,
+        rc=data.rc,
+        adresse=data.adresse,
+        cnss=data.cnss
     )
     db.add(s)
     db.commit()
@@ -69,4 +76,7 @@ def get_societe(societe_id: int, agent: Agent = Depends(get_current_agent), db: 
         "raison_sociale": s.raison_sociale,
         "ice": s.ice,
         "if_fiscal": s.if_fiscal,
+        "rc": s.rc,
+        "cnss": s.cnss,
+        "adresse": s.adresse,
     }

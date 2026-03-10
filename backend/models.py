@@ -86,6 +86,7 @@ class Societe(Base):
     rc = Column(String(50), nullable=True)
     patente = Column(String(50), nullable=True)
     adresse = Column(String(500), nullable=True)
+    cnss = Column(String(50), nullable=True) # Numéro d'affiliation CNSS
     logo_path = Column(String(500), nullable=True)  # Logo de la société
     
     created_at = Column(DateTime, nullable=False, server_default=func.now())

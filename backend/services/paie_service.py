@@ -30,6 +30,11 @@ ABAT_PROF_PLAFOND_AN = Decimal("30000")
 DEDUCTION_ENFANT_MENSUELLE = Decimal("30")   # 360 MAD/an / 12
 MAX_ENFANTS_DEDUCTIBLES    = 6
 
+# Heures supplémentaires
+# Formule : (Salaire_base / 191) × Coefficient × Nombre_heures
+HS_DIVISEUR    = Decimal("191")   # Nombre d'heures de travail mensuel légal
+HS_COEFFICIENT = Decimal("1.25")  # Taux standard heures supplémentaires (25% de majoration)
+
 # Barème IR mensuel progressif (tranches en MAD, taux, abattement mensuel)
 # Format: (limite_haute, taux, abattement_fixe_mensuel)
 BAREME_IR_MENSUEL = [
@@ -115,10 +120,16 @@ def calculer_bulletin(
     annee: int,
     primes: Decimal = Decimal("0"),
     heures_sup: Decimal = Decimal("0"),
+    coef_hs: Decimal = HS_COEFFICIENT,  # Coefficient HS (défaut 1.25)
 ) -> Dict[str, Any]:
     """
     Calcule l'ensemble du bulletin de paie pour un employé et un mois donné.
     Retourne un dictionnaire complet avec toutes les lignes de détail.
+
+    RÈGLE HEURES SUPPLÉMENTAIRES :
+      heures_sup = nombre d'heures (ex: 5)
+      Valeur_HS  = (salaire_base / 191) × coef_hs × heures_sup
+      Le coefficient standard est 1.25 (majoration 25%).
     """
     salaire_base = _d(employe.salaire_base)
 
@@ -126,12 +137,18 @@ def calculer_bulletin(
     anciennete_pct = _d(employe.anciennete_pct or 0)
     prime_anciennete = (salaire_base * anciennete_pct / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    # Autres primes et heures sup
+    # Primes (montant MAD, saisi directement)
     primes = _d(primes)
-    heures_sup = _d(heures_sup)
+
+    # ─── HEURES SUPPLÉMENTAIRES ───────────────────────────────────────────
+    # heures_sup = nombre d'heures saisi par l'utilisateur (PAS un montant MAD)
+    # Formule : valeur_hs = (salaire_base / 191) × coefficient × nombre_heures
+    nb_heures_sup = _d(heures_sup)       # nombre d'heures brut
+    taux_horaire  = (salaire_base / HS_DIVISEUR).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+    valeur_hs     = (taux_horaire * coef_hs * nb_heures_sup).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     # Salaire brut total
-    salaire_brut = salaire_base + prime_anciennete + primes + heures_sup
+    salaire_brut = salaire_base + prime_anciennete + primes + valeur_hs
 
     # Cotisations
     cnss = calculer_cnss(salaire_brut) if employe.affiliee_cnss else {"base": Decimal("0"), "salarie": Decimal("0"), "patronal": Decimal("0")}
@@ -145,16 +162,20 @@ def calculer_bulletin(
     cout_total     = salaire_brut + total_patronal
 
     # Lignes de détail
+    hs_libelle = (
+        f"Heures supplémentaires ({float(nb_heures_sup):.2g}h × {float(coef_hs):.2f})"
+        if nb_heures_sup > 0 else "Heures supplémentaires"
+    )
     lignes = [
         # GAINS
-        {"libelle": "Salaire de base",        "type_ligne": "GAIN",    "montant": float(salaire_base),     "taux": None,   "ordre": 1},
-        {"libelle": "Prime d'ancienneté",     "type_ligne": "GAIN",    "montant": float(prime_anciennete), "taux": float(anciennete_pct / 100), "ordre": 2},
-        {"libelle": "Primes/Avantages",       "type_ligne": "GAIN",    "montant": float(primes),           "taux": None,   "ordre": 3},
-        {"libelle": "Heures supplémentaires", "type_ligne": "GAIN",    "montant": float(heures_sup),       "taux": None,   "ordre": 4},
+        {"libelle": "Salaire de base",        "type_ligne": "GAIN",    "montant": float(salaire_base),     "taux": None,                        "base_calcul": None,               "ordre": 1},
+        {"libelle": "Prime d'ancienneté",     "type_ligne": "GAIN",    "montant": float(prime_anciennete), "taux": float(anciennete_pct / 100), "base_calcul": float(salaire_base), "ordre": 2},
+        {"libelle": "Primes / Avantages",     "type_ligne": "GAIN",    "montant": float(primes),           "taux": None,                        "base_calcul": None,               "ordre": 3},
+        {"libelle": hs_libelle,               "type_ligne": "GAIN",    "montant": float(valeur_hs),        "taux": float(coef_hs),              "base_calcul": float(taux_horaire), "ordre": 4},
         # RETENUES SALARIALES
-        {"libelle": "CNSS salarié (4.48%)",   "type_ligne": "RETENUE", "montant": float(cnss["salarie"]),  "taux": 0.0448, "base_calcul": float(cnss["base"]),  "ordre": 10},
-        {"libelle": "AMO salarié (2.26%)",    "type_ligne": "RETENUE", "montant": float(amo["salarie"]),   "taux": 0.0226, "base_calcul": float(salaire_brut),  "ordre": 11},
-        {"libelle": "IR/IGR retenu",          "type_ligne": "RETENUE", "montant": float(ir),               "taux": None,   "ordre": 12},
+        {"libelle": "CNSS salarié (4,48%)",   "type_ligne": "RETENUE", "montant": float(cnss["salarie"]),  "taux": 0.0448, "base_calcul": float(cnss["base"]),   "ordre": 10},
+        {"libelle": "AMO salarié (2,26%)",    "type_ligne": "RETENUE", "montant": float(amo["salarie"]),   "taux": 0.0226, "base_calcul": float(salaire_brut),  "ordre": 11},
+        {"libelle": "IR/IGR retenu",          "type_ligne": "RETENUE", "montant": float(ir),               "taux": None,   "base_calcul": None,               "ordre": 12},
     ]
 
     return {
@@ -164,7 +185,7 @@ def calculer_bulletin(
         "annee":           annee,
         "salaire_base":    float(salaire_base),
         "prime_anciennete":float(prime_anciennete),
-        "autres_gains":    float(primes + heures_sup),
+        "autres_gains":    float(primes + valeur_hs),   # Montant MAD (pas les heures brutes)
         "salaire_brut":    float(salaire_brut),
         "cnss_salarie":    float(cnss["salarie"]),
         "amo_salarie":     float(amo["salarie"]),

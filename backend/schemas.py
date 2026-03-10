@@ -17,6 +17,7 @@ class SocieteIn(BaseModel):
     ice: Optional[str] = None
     rc: Optional[str] = None
     adresse: Optional[str] = None
+    cnss: Optional[str] = None
 
 
 class SocieteUpdate(BaseModel):
@@ -25,6 +26,7 @@ class SocieteUpdate(BaseModel):
     ice: Optional[str] = None
     rc: Optional[str] = None
     adresse: Optional[str] = None
+    cnss: Optional[str] = None
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -40,6 +42,7 @@ class SocieteOut(BaseModel):
     rc: Optional[str] = None
     patente: Optional[str] = None
     adresse: Optional[str] = None
+    cnss: Optional[str] = None
     logo_path: Optional[str] = None
     created_at: Optional[datetime] = None
 
@@ -324,6 +327,14 @@ class BulletinPaieOut(BaseModel):
     id: int
     employe_id: int
     employe_nom: Optional[str] = None
+    employe_cin: Optional[str] = None
+    employe_cnss: Optional[str] = None
+    employe_date_embauche: Optional[date] = None
+    societe_nom: Optional[str] = None
+    societe_adresse: Optional[str] = None
+    societe_ice: Optional[str] = None
+    societe_rc: Optional[str] = None
+    societe_cnss: Optional[str] = None
     mois: int
     annee: int
     salaire_base: float

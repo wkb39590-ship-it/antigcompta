@@ -146,6 +146,15 @@ export interface BulletinPaie {
     id: number
     employe_id: number
     employe_nom?: string
+    employe_cin?: string
+    employe_cnss?: string
+    employe_date_embauche?: string
+    societe_nom?: string
+    societe_adresse?: string
+    societe_ice?: string
+    societe_rc?: string
+    societe_cnss?: string
+
     mois: number
     annee: number
     salaire_base: number
@@ -176,6 +185,7 @@ export interface Employe {
     salaire_base: number
     nb_enfants: number
     anciennete_pct: number
+    numero_cnss?: string
 }
 
 export interface LigneAmort {

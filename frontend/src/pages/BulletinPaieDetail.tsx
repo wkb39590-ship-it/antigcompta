@@ -9,8 +9,10 @@ import {
     Clock,
     User as UserIcon,
     Calendar,
-    ArrowLeft
+    ArrowLeft,
+    Download
 } from 'lucide-react'
+import html2pdf from 'html2pdf.js';
 
 export default function BulletinPaieDetail() {
     const { id } = useParams<{ id: string }>()
@@ -64,6 +66,22 @@ export default function BulletinPaieDetail() {
         }
     }
 
+    const handlePrint = () => {
+        const element = document.getElementById('bulletin-pdf-template')
+        if (!element || !bulletin) return
+
+        const opt = {
+            margin: 10,
+            filename: `Bulletin_Paie_${(bulletin.employe_nom || 'Employe').replace(/\s+/g, '_')}_${bulletin.mois}_${bulletin.annee}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }
+
+        html2pdf().from(element).set(opt).save()
+    }
+
+
     if (loading) return <div className="page-content">Chargement...</div>
     if (error || !bulletin) return <div className="page-content">{error || 'Bulletin introuvable'}</div>
 
@@ -82,7 +100,7 @@ export default function BulletinPaieDetail() {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-ghost"><Printer size={18} /> Imprimer</button>
+                    <button className="btn btn-ghost" onClick={handlePrint}><Download size={18} /> Télécharger PDF</button>
                     {bulletin.statut !== 'VALIDE' && (
                         <button className="btn btn-primary" onClick={handleValidate}>
                             <CheckCircle2 size={18} /> Valider le bulletin
@@ -214,6 +232,149 @@ export default function BulletinPaieDetail() {
                                 <span style={{ fontWeight: 'bold', color: 'var(--accent)' }}>{(bulletin.salaire_brut + bulletin.total_patronal).toLocaleString()} MAD</span>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Modèle de Bulletin pour le PDF (Caché à l'écran) */}
+            <div style={{ position: 'absolute', top: '-10000px', left: '-10000px' }}>
+                <div id="bulletin-pdf-template" style={{ width: '700px', padding: '30px', background: 'white', color: 'black', fontFamily: 'Arial, sans-serif', fontSize: '11px', boxSizing: 'border-box' }}>
+
+                    {/* En-tête de l'entreprise */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid black', paddingBottom: '20px', marginBottom: '30px' }}>
+                        <div>
+                            <h2 style={{ margin: '0 0 5px 0', fontSize: '20px', textTransform: 'uppercase' }}>{bulletin.societe_nom || 'VOTRE SOCIETE'}</h2>
+                            <p style={{ margin: '0 0 3px 0' }}>{bulletin.societe_adresse || "Adresse de l'entreprise, CP Ville"}</p>
+                            <p style={{ margin: '0 0 3px 0' }}>RC : {bulletin.societe_rc || '123456'}</p>
+                            <p style={{ margin: '0 0 3px 0' }}>ICE : {bulletin.societe_ice || '123456789012345'}</p>
+                            <p style={{ margin: 0 }}>N° CNSS : {bulletin.societe_cnss || '1234567'}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <h1 style={{ margin: '0 0 10px 0', fontSize: '24px', color: '#444' }}>BULLETIN DE PAIE</h1>
+                            <p style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: 'bold' }}>Période : {bulletin.mois.toString().padStart(2, '0')} / {bulletin.annee}</p>
+                        </div>
+                    </div>
+
+                    {/* Informations du salarié */}
+                    <div style={{ border: '1px solid black', borderRadius: '4px', padding: '15px', marginBottom: '30px' }}>
+                        <div style={{ display: 'flex', gap: '40px' }}>
+                            <div style={{ flex: 1 }}>
+                                <p style={{ margin: '0 0 8px 0' }}><strong>Nom complet :</strong> {bulletin.employe_nom}</p>
+                                <p style={{ margin: '0 0 8px 0' }}><strong>Matricule :</strong> {bulletin.employe_id}</p>
+                                <p style={{ margin: '0 0 0 0' }}><strong>Occupation :</strong> Employé</p>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <p style={{ margin: '0 0 8px 0' }}><strong>N° CIN :</strong> {bulletin.employe_cin || 'Non renseigné'}</p>
+                                <p style={{ margin: '0 0 8px 0' }}><strong>N° CNSS :</strong> {bulletin.employe_cnss || 'Non renseigné'}</p>
+                                <p style={{ margin: '0 0 0 0' }}><strong>Date d'embauche :</strong> {bulletin.employe_date_embauche ? new Date(bulletin.employe_date_embauche).toLocaleDateString() : 'Non renseignée'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tableau des rubriques */}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', border: '1px solid black' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: '#f0f0f0' }}>
+                                <th style={{ border: '1px solid black', padding: '8px', textAlign: 'left', width: '5%' }}>N°</th>
+                                <th style={{ border: '1px solid black', padding: '8px', textAlign: 'left', width: '40%' }}>Désignation Rubrique</th>
+                                <th style={{ border: '1px solid black', padding: '8px', textAlign: 'right', width: '15%' }}>Base</th>
+                                <th style={{ border: '1px solid black', padding: '8px', textAlign: 'right', width: '10%' }}>Taux</th>
+                                <th style={{ border: '1px solid black', padding: '8px', textAlign: 'right', width: '15%' }}>A Payer</th>
+                                <th style={{ border: '1px solid black', padding: '8px', textAlign: 'right', width: '15%' }}>A Retenir</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {/* Gains */}
+                            <tr>
+                                <td style={{ border: '1px solid black', padding: '8px' }}>100</td>
+                                <td style={{ border: '1px solid black', padding: '8px' }}>Salaire de Base</td>
+                                <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.salaire_base.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.salaire_base.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                            </tr>
+                            {bulletin.prime_anciennete > 0 && (
+                                <tr>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>110</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>Prime d'ancienneté</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.salaire_base.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.prime_anciennete.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                </tr>
+                            )}
+                            {bulletin.autres_gains > 0 && (
+                                <tr>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>200</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>Primes et Heures Sup.</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.autres_gains.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                </tr>
+                            )}
+
+                            {/* Retenues */}
+                            {bulletin.cnss_salarie > 0 && (
+                                <tr>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>700</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>CNSS Salarié</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{Math.min(bulletin.salaire_brut, 6000).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>4.48%</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.cnss_salarie.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            )}
+                            {bulletin.amo_salarie > 0 && (
+                                <tr>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>710</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>AMO Salarié</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.salaire_brut.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>2.26%</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.amo_salarie.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            )}
+                            {bulletin.ir_retenu > 0 && (
+                                <tr>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>750</td>
+                                    <td style={{ border: '1px solid black', padding: '8px' }}>I.G.R. / I.R.</td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'right' }}>{bulletin.ir_retenu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr style={{ border: '2px solid black' }}>
+                                <td colSpan={2} style={{ padding: '8px', fontWeight: 'bold' }}>TOTAUX</td>
+                                <td colSpan={2}></td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{bulletin.salaire_brut.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{bulletin.total_retenues.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    {/* Footer Totaux */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                        <div style={{ border: '2px solid black', padding: '15px 30px', textAlign: 'center', width: '250px' }}>
+                            <p style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: 'bold' }}>NET À PAYER</p>
+                            <h2 style={{ margin: 0, fontSize: '24px' }}>{bulletin.salaire_net.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD</h2>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+                        <div>
+                            <p style={{ margin: 0, textDecoration: 'underline' }}>Signature de l'employeur</p>
+                        </div>
+                        <div>
+                            <p style={{ margin: 0, textDecoration: 'underline' }}>Signature du salarié</p>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '60px', borderTop: '1px solid #ccc', paddingTop: '10px', textAlign: 'center', fontSize: '10px', color: '#666' }}>
+                        Pour vous aider à faire valoir vos droits, conservez ce bulletin de paie sans limitation de durée.
                     </div>
                 </div>
             </div>
