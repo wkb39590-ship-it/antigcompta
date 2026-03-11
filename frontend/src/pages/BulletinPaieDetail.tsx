@@ -73,9 +73,9 @@ export default function BulletinPaieDetail() {
         const opt = {
             margin: 10,
             filename: `Bulletin_Paie_${(bulletin.employe_nom || 'Employe').replace(/\s+/g, '_')}_${bulletin.mois}_${bulletin.annee}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
+            image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            jsPDF: { unit: 'mm' as 'mm', format: 'a4' as 'a4', orientation: 'portrait' as 'portrait' }
         }
 
         html2pdf().from(element).set(opt).save()

@@ -12,7 +12,8 @@ import {
     UploadCloud,
     BookOpen,
     Eye,
-    Trash2
+    Trash2,
+    Settings
 } from 'lucide-react'
 
 export default function Releves() {
@@ -85,10 +86,10 @@ export default function Releves() {
                 <p className="page-subtitle">Importation et extraction automatique des transactions bancaires pour le rapprochement.</p>
             </div>
 
-            <div className="two-col" style={{ gridTemplateColumns: 'minmax(300px, 1fr) 2fr' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
                 {/* Section IMPORT */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div>
                     <div className="card">
                         <div className="card-header">
                             <div className="card-title">Importer un Relevé</div>
@@ -144,9 +145,9 @@ export default function Releves() {
                             disabled={loading || !file || !currentSociete}
                         >
                             {loading ? (
-                                <><div className="spinner" /> Extraction en cours...</>
+                                <><div className="spinner" /> Traitement en cours...</>
                             ) : (
-                                <><Zap size={18} /> Lancer l'extraction IA</>
+                                <><Settings size={18} /> Lancer le traitement</>
                             )}
                         </button>
                     </div>
