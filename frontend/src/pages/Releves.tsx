@@ -77,6 +77,20 @@ export default function Releves() {
         }
     }
 
+    const handleDelete = async (id: number, name: string) => {
+        if (!window.confirm(`Êtes-vous sûr de vouloir supprimer le relevé "${name}" ? Cette action est irréversible.`)) {
+            return
+        }
+
+        try {
+            await apiService.deleteReleve(id)
+            setSuccess(`Le relevé "${name}" a été supprimé avec succès.`)
+            loadReleves()
+        } catch (err: any) {
+            setError(`Erreur lors de la suppression: ${err.message}`)
+        }
+    }
+
     return (
         <div>
             <div className="page-header" style={{ marginBottom: '32px' }}>
@@ -207,10 +221,25 @@ export default function Releves() {
                                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                                     <button
                                                         className="btn btn-secondary"
-                                                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                                                        style={{ padding: '6px 10px', fontSize: '11px', gap: '4px' }}
                                                         onClick={() => navigate(`/releves/${r.id}/rapprochement`)}
+                                                        title="Rapprocher"
                                                     >
-                                                        <Eye size={14} /> Rapprocher
+                                                        <Eye size={14} /> Traiter
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-secondary"
+                                                        style={{
+                                                            padding: '6px',
+                                                            fontSize: '11px',
+                                                            color: 'var(--error)',
+                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                            border: 'none'
+                                                        }}
+                                                        onClick={() => handleDelete(r.id, r.file_name || 'Sans nom')}
+                                                        title="Supprimer"
+                                                    >
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
                                             </td>

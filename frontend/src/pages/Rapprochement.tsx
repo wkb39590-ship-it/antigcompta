@@ -11,7 +11,8 @@ import {
     Search,
     ChevronDown,
     AlertCircle,
-    ArrowLeft
+    ArrowLeft,
+    Zap
 } from 'lucide-react'
 
 // --- COMPOSANT SÉLECTEUR DE COMPTE PCM ---
@@ -325,9 +326,9 @@ function RapprochementInner() {
                     <div className="card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div className="card-title" style={{ fontSize: '15px' }}>
-                                Lignes du Relevé
-                                <span className="badge" style={{ marginLeft: '10px', background: 'var(--bg2)', color: 'var(--text2)' }}>
-                                    {lignesNonRapprochees.length} en attente
+                                Opérations Bancaires
+                                <span className="badge" style={{ marginLeft: '10px', background: 'var(--bg3)', color: 'var(--text2)', fontWeight: 600 }}>
+                                    {lignesNonRapprochees.length} à traiter
                                 </span>
                             </div>
                             <div className="search-bar" style={{ width: '200px' }}>
@@ -342,10 +343,10 @@ function RapprochementInner() {
                             <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Libellé Bancaire</th>
+                                    <th>Libellé / Opération</th>
                                     <th style={{ textAlign: 'right' }}>Débit</th>
                                     <th style={{ textAlign: 'right' }}>Crédit</th>
-                                    <th style={{ width: '40px' }}></th>
+                                    <th style={{ width: '120px', textAlign: 'right' }}>Statut / Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -366,46 +367,51 @@ function RapprochementInner() {
                                                 }
                                             }}
                                         >
-                                            <td style={{ color: 'var(--text3)' }}>{ligne.date_operation}</td>
-                                            <td style={{ fontWeight: 500 }}>{ligne.description}</td>
-                                            <td style={{ textAlign: 'right', color: 'var(--error)' }}>
+                                            <td style={{ color: 'var(--text3)', width: '90px' }}>{ligne.date_operation}</td>
+                                            <td style={{ fontWeight: 500, color: 'var(--text)' }}>
+                                                {ligne.description}
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--error)' }}>
                                                 {Number(ligne.debit) > 0 ? formatAmount(ligne.debit) : ''}
                                             </td>
-                                            <td style={{ textAlign: 'right', color: 'var(--success)' }}>
+                                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--success)' }}>
                                                 {Number(ligne.credit) > 0 ? formatAmount(ligne.credit) : ''}
                                             </td>
-                                            <td style={{ padding: '12px', borderBottom: '1px solid var(--bg2)' }}>
+                                            <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>
                                                 {ligne.is_rapproche ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--success)', fontSize: '12px', fontWeight: 600 }}>
-                                                        <CheckCircle2 size={14} /> Rapproché
+                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--success)', fontSize: '11px', fontWeight: 700, background: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px' }}>
+                                                        <CheckCircle2 size={12} /> OK
                                                     </div>
                                                 ) : bulkSuggestions[ligne.id] ? (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const suggestion = bulkSuggestions[ligne.id];
-                                                            if (suggestion.type === 'exact') {
-                                                                apiService.rapprocher(ligne.id, suggestion.entry_line_id)
-                                                                    .then(() => loadReleve(selectedReleve.id));
-                                                            } else if (suggestion.type === 'ai') {
-                                                                apiService.genererEcriture(ligne.id, suggestion.account_code)
-                                                                    .then(() => loadReleve(selectedReleve.id));
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            padding: '4px 10px',
-                                                            background: bulkSuggestions[ligne.id].type === 'ai' ? 'var(--accent)' : 'var(--success)',
-                                                            color: '#fff',
-                                                            border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer',
-                                                            display: 'flex', alignItems: 'center', gap: '4px',
-                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                                        }}
-                                                    >
-                                                        <Link2 size={12} />
-                                                        {bulkSuggestions[ligne.id].type === 'ai' ? `Lier (${bulkSuggestions[ligne.id].account_code})` : 'Lier'}
-                                                    </button>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const suggestion = bulkSuggestions[ligne.id];
+                                                                if (suggestion.type === 'exact') {
+                                                                    apiService.rapprocher(ligne.id, suggestion.entry_line_id)
+                                                                        .then(() => loadReleve(selectedReleve.id));
+                                                                } else if (suggestion.type === 'ai') {
+                                                                    apiService.genererEcriture(ligne.id, suggestion.account_code)
+                                                                        .then(() => loadReleve(selectedReleve.id));
+                                                                }
+                                                            }}
+                                                            className="btn btn-primary"
+                                                            style={{
+                                                                padding: '4px 8px',
+                                                                fontSize: '10px',
+                                                                fontWeight: 700,
+                                                                borderRadius: '4px',
+                                                                background: bulkSuggestions[ligne.id].type === 'ai' ? 'var(--accent)' : 'var(--success)',
+                                                                border: 'none',
+                                                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                                            }}
+                                                        >
+                                                            {bulkSuggestions[ligne.id].type === 'ai' ? `IMPUTER (${bulkSuggestions[ligne.id].account_code})` : 'LIER'}
+                                                        </button>
+                                                    </div>
                                                 ) : (
-                                                    <span style={{ fontSize: '12px', color: 'var(--text3)' }}>À traiter</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 600, opacity: 0.6 }}>À TRAITER</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -433,99 +439,150 @@ function RapprochementInner() {
                                 <div>
                                     <LinkIcon size={48} opacity={0.2} style={{ margin: '0 auto 16px auto' }} />
                                     <p style={{ maxWidth: '300px', margin: '0 auto', fontSize: '13px', lineHeight: 1.5 }}>
-                                        Cliquez sur l'icône de liaison d'une transaction bancaire pour rechercher et associer une écriture comptable correspondante.
+                                        Sélectionnez une transaction bancaire à gauche pour l'affecter ou la lier.
                                     </p>
                                 </div>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                                 {/* Info Box Transaction */}
-                                <div style={{ padding: '16px', background: 'rgba(99, 102, 241, 0.05)', borderBottom: '1px solid var(--border)' }}>
-                                    <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '8px' }}>
-                                        Transaction à rapprocher
+                                <div style={{ padding: '16px 20px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                        <div style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+                                            Détail de l'opération
+                                        </div>
+                                        <button onClick={() => setSelectedLigne(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
+                                            <X size={16} />
+                                        </button>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{selectedLigne.description}</div>
-                                            <div style={{ fontSize: '12px', color: 'var(--text2)' }}>Date : {selectedLigne.date_operation}</div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--text)' }}>{selectedLigne.description}</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>{selectedLigne.date_operation}</div>
                                         </div>
-                                        <div style={{ textAlign: 'right', fontSize: '18px', fontWeight: 'bold', color: Number(selectedLigne.debit) > 0 ? 'var(--error)' : 'var(--success)' }}>
-                                            {Number(selectedLigne.debit) > 0 ? `-${formatAmount(selectedLigne.debit)}` : `+${formatAmount(selectedLigne.credit)}`} <span style={{ fontSize: '12px', color: 'var(--text3)' }}>MAD</span>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '18px', fontWeight: '800', color: Number(selectedLigne.debit) > 0 ? 'var(--error)' : 'var(--success)' }}>
+                                                {Number(selectedLigne.debit) > 0 ? `-${formatAmount(selectedLigne.debit)}` : `+${formatAmount(selectedLigne.credit)}`}
+                                                <span style={{ fontSize: '11px', color: 'var(--text3)', marginLeft: '4px' }}>MAD</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Real Suggestions List */}
-                                <div style={{ flexGrow: 1, overflowY: 'auto', padding: '16px' }}>
-                                    <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 600 }}>Écritures suggérées</div>
-                                        <div className="search-bar" style={{ width: '180px' }}>
-                                            <Search size={14} />
-                                            <input type="text" placeholder="Filtrer..." style={{ fontSize: '11px', padding: '4px' }} />
-                                        </div>
-                                    </div>
+                                {/* Business Actions Sections */}
+                                <div style={{ flexGrow: 1, overflowY: 'auto' }}>
 
-                                    {loadingSuggestions ? (
-                                        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text3)' }}>
-                                            <div className="spinner" style={{ margin: '0 auto 10px auto' }} />
-                                            Recherche de correspondances...
-                                        </div>
-                                    ) : suggestions.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '30px', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text3)', fontSize: '13px' }}>
-                                            Aucune écriture correspondante trouvée dans le journal de banque.
-                                        </div>
-                                    ) : (
-                                        suggestions.map(s => (
-                                            <div key={s.id} style={{
-                                                padding: '12px',
-                                                border: '1px solid var(--border)',
-                                                borderRadius: '8px',
-                                                marginBottom: '8px',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                cursor: 'pointer',
-                                                transition: 'border-color 0.2s'
-                                            }}
-                                                onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
-                                                onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-                                            >
-                                                <div>
-                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                                                        <span className="badge" style={{ background: 'var(--bg2)', color: 'var(--text2)', fontSize: '10px' }}>BQ</span>
-                                                        <span style={{ fontSize: '13px', fontWeight: 600 }}>{s.description || 'Sans libellé'}</span>
-                                                    </div>
-                                                    <div style={{ fontSize: '11px', color: 'var(--text3)' }}>Compte : {s.account_code} {s.account_label}</div>
-                                                    <div style={{ fontSize: '11px', color: 'var(--text3)' }}>Date : {s.date} | Réf : {s.reference || '-'}</div>
+                                    {/* SECTION 1: SUGGESTION DE LIEN (Si trouvée) */}
+                                    {suggestions.filter(s => s.score > 0 || suggestions.length === 1).length > 0 && (
+                                        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: 'rgba(16, 185, 129, 0.05)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                <div style={{ fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)' }}>
+                                                    <Link2 size={16} /> 1. Paiement de facture (Détecté)
                                                 </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>
-                                                        {Number(s.debit) > 0 ? formatAmount(s.debit) : formatAmount(s.credit)} <span style={{ fontSize: '10px', color: 'var(--text3)' }}>MAD</span>
-                                                    </div>
-                                                    <button
-                                                        className="btn btn-primary"
-                                                        style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', background: 'var(--success)' }}
-                                                        onClick={() => handleLink(s.id)}
-                                                        disabled={processing}
-                                                    >
-                                                        {processing ? '...' : 'Lier'}
-                                                    </button>
-                                                </div>
+                                                {suggestions[0]?.score > 40 && (
+                                                    <span style={{ fontSize: '10px', fontWeight: 700, background: 'var(--success)', color: '#fff', padding: '2px 8px', borderRadius: '4px' }}>CONFIDENCE ÉLEVÉE</span>
+                                                )}
                                             </div>
-                                        ))
+                                            <p style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '16px' }}>
+                                                {suggestions[0]?.score > 0
+                                                    ? "Nous avons trouvé une écriture avec des références correspondantes."
+                                                    : "Nous avons trouvé une écriture du même montant à cette date."}
+                                            </p>
+
+                                            {suggestions.filter(s => s.score > 0 || suggestions.length === 1).slice(0, 3).map((s, idx) => (
+                                                <div key={s.id} style={{
+                                                    padding: '12px',
+                                                    border: idx === 0 && s.score > 0 ? '2px solid var(--success)' : '1px solid var(--border)',
+                                                    borderRadius: '8px',
+                                                    marginBottom: '10px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    background: '#fff',
+                                                    boxShadow: idx === 0 && s.score > 0 ? '0 4px 6px rgba(16, 185, 129, 0.1)' : 'none'
+                                                }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                                                            {/* Highlight matching parts if possible */}
+                                                            {s.description || 'Facture'}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text3)' }}>
+                                                            Réf: <span style={{ fontWeight: 700, color: 'var(--text)' }}>{s.reference || '-'}</span> | {s.account_code}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text3)' }}>Date écriture: {s.date}</div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right', marginLeft: '12px' }}>
+                                                        <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text)', marginBottom: '4px' }}>
+                                                            {formatAmount(Number(s.debit) > 0 ? s.debit : s.credit)}
+                                                        </div>
+                                                        <button
+                                                            className="btn btn-success"
+                                                            style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700 }}
+                                                            onClick={() => handleLink(s.id)}
+                                                            disabled={processing}
+                                                        >
+                                                            CONFIRMER
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {suggestions.length > 3 && (
+                                                <div style={{ fontSize: '11px', color: 'var(--text3)', textAlign: 'center' }}>
+                                                    + {suggestions.length - 3} autres correspondances masquées par manque de précision.
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
 
-                                    <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '12px', color: 'var(--text3)', marginBottom: '12px' }}>L'écriture n'existe pas encore ?</p>
+                                    {/* SECTION 2: AFFECTATION (Visible si pas de suggest ou en option secondaire) */}
+                                    <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: suggestions.length === 0 ? 'rgba(99, 102, 241, 0.03)' : 'transparent' }}>
+                                        <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: suggestions.length === 0 ? 'var(--accent)' : 'var(--text2)' }}>
+                                            <Zap size={16} /> {suggestions.length === 0 ? '1. Nouvelle opération (Sans facture)' : '2. Autre option : Nouvelle imputation'}
+                                        </div>
+                                        <p style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '16px' }}>
+                                            {suggestions.length === 0
+                                                ? "Aucune facture trouvée. Imputez cette opération directement à un compte (ex: Frais, Commissions, Salaires)."
+                                                : "Si vous ne voulez pas lier à la facture ci-dessus, créez une nouvelle écriture."}
+                                        </p>
+
                                         <button
-                                            className="btn btn-secondary"
-                                            style={{ fontSize: '12px' }}
+                                            className="btn btn-primary"
+                                            style={{
+                                                width: '100%',
+                                                justifyContent: 'center',
+                                                padding: '12px',
+                                                background: suggestions.length > 0 ? 'var(--bg3)' : 'var(--accent)',
+                                                color: suggestions.length > 0 ? 'var(--text2)' : '#fff',
+                                                border: 'none',
+                                                fontWeight: 600
+                                            }}
                                             onClick={handleGenerate}
                                             disabled={processing}
                                         >
-                                            {processing ? 'Génération...' : 'Générer l\'écriture comptable'}
+                                            {processing ? (
+                                                <><div className="spinner" style={{ width: '14px', height: '14px' }} /> Analyse...</>
+                                            ) : (
+                                                <>{suggestions.length === 0 ? 'CHOISIR UNE CATÉGORIE (PCM)' : 'CRÉER UNE NOUVELLE IMPUTATION'}</>
+                                            )}
                                         </button>
                                     </div>
+
+                                    {/* SECTION 3: RECHERCHE MANUELLE (Affiche si suggestions vides) */}
+                                    {suggestions.length === 0 && (
+                                        <div style={{ padding: '20px', textAlign: 'center' }}>
+                                            {loadingSuggestions ? (
+                                                <div style={{ color: 'var(--text3)', fontSize: '12px' }}>
+                                                    <div className="spinner" style={{ margin: '0 auto 10px auto' }} />
+                                                    Recherche de correspondances...
+                                                </div>
+                                            ) : (
+                                                <div style={{ fontSize: '11px', color: 'var(--text3)', fontStyle: 'italic' }}>
+                                                    Avertissement : Si une facture existe, elle devrait apparaître ici automatiquement.
+                                                    Vérifiez le montant s'il y a un décalage.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

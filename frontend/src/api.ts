@@ -362,7 +362,10 @@ export const apiService = {
         api.get(`/releves/suggest-account/${ligneId}`).then(r => r.data),
 
     getAllSuggestions: (releveId: number) =>
-        api.get(`/releves/suggestions-all/${releveId}`).then(r => r.data)
+        api.get(`/releves/suggestions-all/${releveId}`).then(r => r.data),
+
+    deleteReleve: (id: number) =>
+        api.delete(`/releves/${id}`).then(r => r.data),
 }
 
 export default apiService

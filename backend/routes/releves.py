@@ -5,8 +5,9 @@ import os
 import uuid
 import hashlib
 from pathlib import Path
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+import re
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
@@ -94,6 +95,7 @@ def upload_releve(
         try:
             image_data, mime_type = _get_image_data(str(dest))
             extracted_data = extract_bank_statement(image_data, mime_type=mime_type)
+            print(f"DEBUG: Data extraite: {extracted_data}")
             
             # Update releve header
             from utils.parsers import parse_date_fr
@@ -178,24 +180,61 @@ def get_releve(releve_id: int, db: Session = Depends(get_db), session: dict = De
 def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """
     Recherche des suggestions d'écritures pour une ligne de relevé donnée.
+    Amélioration : Filtre par date (+/- 15 jours) et calcul de pertinence par texte.
     """
     societe_id = session.get("societe_id")
     ligne = db.query(LigneReleve).filter(LigneReleve.id == ligne_id).first()
     if not ligne:
         raise HTTPException(404, "Ligne de relevé introuvable")
     
-    # Critères : Même montant, journal BQ, pas encore rapproché
+    # 1. Définir la plage de dates
+    try:
+        base_date = datetime.strptime(ligne.date_operation, "%Y-%m-%d")
+    except:
+        base_date = datetime.now()
+    
+    date_min = (base_date - timedelta(days=15)).strftime("%Y-%m-%d")
+    date_max = (base_date + timedelta(days=15)).strftime("%Y-%m-%d")
+
+    # 2. Requête filtrée par montant et date
     query = db.query(EntryLine).join(JournalEntry).filter(
+        JournalEntry.societe_id == societe_id,
         JournalEntry.journal_code == 'BQ',
         EntryLine.debit == ligne.debit,
-        EntryLine.credit == ligne.credit
+        EntryLine.credit == ligne.credit,
+        JournalEntry.entry_date >= date_min,
+        JournalEntry.entry_date <= date_max
     )
     
-    # TODO: Ajouter un filtre par date (+/- 15 jours par exemple)
-    
     suggestions = query.all()
-    return [
-        {
+
+    # 3. Calculer un score de pertinence basé sur le texte
+    def calculate_score(s: EntryLine, bank_desc: str) -> float:
+        score = 0.0
+        s_desc = (s.journal_entry.description or "").upper()
+        s_ref = (s.journal_entry.reference or "").upper()
+        bank_desc = bank_desc.upper()
+        
+        # Reels matches (mots clés ou numéros complexes)
+        bank_words = set(re.findall(r'\w+', bank_desc))
+        s_words = set(re.findall(r'\w+', s_desc + " " + s_ref))
+        
+        overlap = bank_words.intersection(s_words)
+        # On ignore les mots trop courts (< 3 car) sauf si c'est des chiffres
+        meaningful_overlap = [w for w in overlap if len(w) > 2 or w.isdigit()]
+        score += len(meaningful_overlap) * 10
+        
+        # Bonus si exact string match partiel
+        if s_ref and s_ref in bank_desc: score += 50
+        if s_desc and (s_desc in bank_desc or bank_desc in s_desc): score += 30
+        
+        return score
+
+    # Transformer et trier
+    results = []
+    for s in suggestions:
+        score = calculate_score(s, ligne.description)
+        results.append({
             "id": s.id,
             "account_code": s.account_code,
             "account_label": s.account_label,
@@ -203,9 +242,14 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
             "credit": s.credit,
             "date": s.journal_entry.entry_date,
             "description": s.journal_entry.description,
-            "reference": s.journal_entry.reference
-        } for s in suggestions
-    ]
+            "reference": s.journal_entry.reference,
+            "score": score
+        })
+    
+    # Trier par score décroissant, puis par date
+    results.sort(key=lambda x: (x["score"], x["date"]), reverse=True)
+    
+    return results
 
 @router.get("/suggestions-all/{releve_id}")
 def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
@@ -223,27 +267,65 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
         if ligne.is_rapproche:
             continue
             
-        # 1. Recherche exacte par montant (Journal BQ)
-        match = db.query(EntryLine).join(JournalEntry).filter(
+        # 1. Recherche exacte par montant + date + texte (Journal BQ)
+        try:
+            base_date = datetime.strptime(ligne.date_operation, "%Y-%m-%d")
+            date_min = (base_date - timedelta(days=20)).strftime("%Y-%m-%d")
+            date_max = (base_date + timedelta(days=20)).strftime("%Y-%m-%d")
+        except:
+            date_min, date_max = None, None
+
+        q = db.query(EntryLine).join(JournalEntry).filter(
             JournalEntry.journal_code == 'BQ',
             JournalEntry.societe_id == releve.societe_id,
             EntryLine.debit == ligne.debit,
             EntryLine.credit == ligne.credit
-        ).first()
+        )
+        if date_min:
+            q = q.filter(JournalEntry.entry_date >= date_min, JournalEntry.entry_date <= date_max)
         
-        if match:
+        potential_matches = q.all()
+        
+        # Trouver le meilleur match parmi les potentiels
+        best_match = None
+        max_score = -1.0
+        
+        bank_desc = (ligne.description or "").upper()
+        bank_numbers = set(re.findall(r'\d+', bank_desc))
+
+        for m in potential_matches:
+            score = 0
+            m_desc = (m.journal_entry.description or "").upper()
+            m_ref = (m.journal_entry.reference or "").upper()
+            
+            # Match référence ou numéro (très fort)
+            for num in bank_numbers:
+                if len(num) > 3: # On ignore les petits chiffres
+                    if num in m_desc or num in m_ref:
+                        score += 100
+            
+            # Match texte
+            if m_desc in bank_desc or bank_desc in m_desc:
+                score += 50
+            
+            if score > max_score:
+                max_score = score
+                best_match = m
+
+        # On ne valide le match automatique que si le score est suffisant (> 40)
+        # ou s'il n'y a qu'un seul match possible et que la date est proche
+        if best_match and (max_score > 40 or len(potential_matches) == 1):
             results[ligne.id] = {
                 "type": "exact",
-                "entry_line_id": match.id,
-                "account_code": match.account_code,
-                "account_label": match.account_label,
-                "description": match.journal_entry.description
+                "entry_line_id": best_match.id,
+                "account_code": best_match.account_code,
+                "account_label": best_match.account_label,
+                "description": best_match.journal_entry.description,
+                "score": max_score
             }
         else:
             # 2. IA Suggestion pour création d'écriture
             try:
-                # Limitation : seulement pour les 5 premières lignes non-matchées pour éviter lenteur
-                # (On pourrait augmenter ou paralléliser plus tard)
                 ai_suggest = classify_bank_transaction(ligne.description, float(ligne.debit), float(ligne.credit))
                 results[ligne.id] = {
                     "type": "ai",
@@ -256,6 +338,28 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
                 pass
             
     return results
+
+@router.delete("/{releve_id}")
+def delete_releve(releve_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+    """
+    Supprime un relevé, ses lignes (via cascade) et le fichier physique.
+    """
+    releve = db.query(ReleveBancaire).filter(ReleveBancaire.id == releve_id).first()
+    if not releve or releve.societe_id != session.get("societe_id"):
+        raise HTTPException(404, "Relevé introuvable")
+
+    # 1. Supprimer le fichier physique s'il existe
+    if releve.file_path and os.path.exists(releve.file_path):
+        try:
+            os.remove(releve.file_path)
+        except Exception as e:
+            print(f"Erreur lors de la suppression du fichier {releve.file_path}: {e}")
+
+    # 2. Supprimer de la base (la cascade supprimera les LigneReleve automatiquement)
+    db.delete(releve)
+    db.commit()
+
+    return {"status": "success", "message": "Relevé supprimé avec succès"}
 
 @router.get("/suggest-account/{ligne_id}")
 def suggest_account(ligne_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):

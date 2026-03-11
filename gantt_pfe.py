@@ -1,8 +1,7 @@
-
 """
 Diagramme de Gantt — PFE Zéro Saisie Comptable
 Design : Heatmap de progression (Rouge -> Jaune -> Vert)
-Aujourd'hui : 05/03/2026
+Mise à jour : 11/03/2026
 """
 
 import matplotlib.pyplot as plt
@@ -12,7 +11,7 @@ import matplotlib.colors as mcolors
 from datetime import date, timedelta
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
-TODAY = date(2026, 3, 5)
+TODAY = date(2026, 3, 11)  # <--- AUJOURD'HUI
 START = date(2026, 2, 2)
 END   = date(2026, 6, 20)
 
@@ -23,10 +22,10 @@ TASKS = [
     ("Analyse des besoins des utilisateurs",  date(2026,2,10), date(2026,2,20), 100),
     ("Planification du projet",               date(2026,2,20), date(2026,2,25), 100),
     ("Conception de l’architecture du système",date(2026,2,25), date(2026,3,3),  100),
-    ("Conception de la base de données",      date(2026,3,3),  date(2026,3,8),  60),  # <--- AUJOURD'HUI
-    ("Conception des interfaces (Admin/User)",date(2026,3,8),  date(2026,3,18), 0),
-    ("Développement du frontend",             date(2026,3,18), date(2026,4,10), 0),
-    ("Développement du backend",              date(2026,4,1),  date(2026,4,25), 0),
+    ("Conception de la base de données",      date(2026,3,3),  date(2026,3,8),  100), # <--- TERMINÉ
+    ("Conception des interfaces (Admin/User)",date(2026,3,8),  date(2026,3,12), 80),  
+    ("Développement du backend",              date(2026,3,10), date(2026,4,5),  15),  # <--- AUJOURD'HUI (En cours)
+    ("Développement du frontend",             date(2026,4,1),  date(2026,4,25), 0),
     ("Intégration des modules du système",    date(2026,4,20), date(2026,5,2),  0),
     ("Développement fonctionnalités compta",  date(2026,4,28), date(2026,5,15), 0),
     ("Génération rapports & tableaux de bord",date(2026,5,12), date(2026,5,22), 0),
@@ -36,10 +35,15 @@ TASKS = [
 
 # ── PREPARATION ───────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 8))
-plt.subplots_adjust(right=0.85) # Faire de la place pour la colorbar
+plt.subplots_adjust(top=0.9, right=0.85) # Faire de la place pour la colorbar et le label Today
 
 # Colormap : Rouge -> Jaune -> Vert
-cmap = cm.get_cmap('RdYlGn')
+# Note: matplotlib 3.7+ utilise cm.get_cmap, sinon utilisez plt.get_cmap
+try:
+    cmap = cm.get_cmap('RdYlGn')
+except AttributeError:
+    cmap = plt.get_cmap('RdYlGn')
+    
 norm = mcolors.Normalize(vmin=0, vmax=100)
 
 for i, (name, start, end, pct) in enumerate(TASKS):
@@ -64,9 +68,10 @@ ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
 plt.xticks(rotation=45, fontsize=9)
 
-# Ligne Aujourd'hui (Optionnel mais utile)
+# Ligne Aujourd'hui
 today_v = mdates.date2num(TODAY)
-ax.axvline(today_v, color='grey', linestyle='--', linewidth=1, alpha=0.5)
+ax.axvline(today_v, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
+ax.text(today_v, -1, 'Aujourd\'hui', color='red', ha='center', fontweight='bold')
 
 # Grille
 ax.grid(axis='x', linestyle=':', alpha=0.4)
@@ -87,6 +92,6 @@ plt.suptitle("Planning PFE : Zéro Saisie Comptable", fontsize=16, fontweight='b
 plt.title(f"État au {TODAY.strftime('%d/%m/%Y')}", fontsize=12, color='grey', loc='left')
 
 # Sauvegarde
-plt.savefig("gantt_pfe_v2.png", dpi=200, bbox_inches="tight")
-print("✅ Nouveau diagramme généré : gantt_pfe_v2.png")
+plt.savefig("gantt_pfe_v3.png", dpi=200, bbox_inches="tight")
+print(f"✅ Nouveau diagramme généré : gantt_pfe_v3.png (Date: {TODAY.strftime('%d/%m/%Y')})")
 plt.show()
