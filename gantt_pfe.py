@@ -1,7 +1,7 @@
 """
 Diagramme de Gantt — PFE Zéro Saisie Comptable
 Design : Heatmap de progression (Rouge -> Jaune -> Vert)
-Mise à jour : 11/03/2026
+Mise à jour : 12/03/2026
 """
 
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ import matplotlib.colors as mcolors
 from datetime import date, timedelta
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
-TODAY = date(2026, 3, 11)  # <--- AUJOURD'HUI
+TODAY = date(2026, 3, 12)  # <--- AUJOURD'HUI
 START = date(2026, 2, 2)
 END   = date(2026, 6, 20)
 
@@ -89,7 +89,7 @@ ax.spines['right'].set_visible(False)
 ax.spines['left'].set_visible(False)
 
 plt.suptitle("Planning PFE : Zéro Saisie Comptable", fontsize=16, fontweight='bold', x=0.4)
-plt.title(f"État au {TODAY.strftime('%d/%m/%Y')}", fontsize=12, color='grey', loc='left')
+
 
 # Sauvegarde
 plt.savefig("gantt_pfe_v3.png", dpi=200, bbox_inches="tight")
