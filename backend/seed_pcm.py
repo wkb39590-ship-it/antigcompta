@@ -24,9 +24,19 @@ PCM_ACCOUNTS = [
     ("2321", "Bâtiments", 2, "23", "ACTIF", False, None),
     ("2340", "Matériel de transport", 2, "23", "ACTIF", False, None),
     ("2350", "Matériel de bureau et mobilier", 2, "23", "ACTIF", False, None),
+    ("2351", "Mobilier de bureau", 2, "23", "ACTIF", False, None),
+    ("2352", "Matériel de bureau", 2, "23", "ACTIF", False, None),
     ("2355", "Matériel informatique", 2, "23", "ACTIF", False, None),
     ("2360", "Agencements et installations", 2, "23", "ACTIF", False, None),
     ("2400", "Immobilisations incorporelles", 2, "24", "ACTIF", False, None),
+    
+    # ── Classe 2 — Amortissements (28xx) ────────────────────────
+    ("2823", "Amortissements des bâtiments", 2, "28", "ACTIF", False, None),
+    ("2834", "Amortissements du matériel de transport", 2, "28", "ACTIF", False, None),
+    ("2835", "Amortissements du matériel de bureau et mobilier", 2, "28", "ACTIF", False, None),
+    ("28351", "Amortissements du mobilier de bureau", 2, "28", "ACTIF", False, None),
+    ("28352", "Amortissements du matériel de bureau", 2, "28", "ACTIF", False, None),
+    ("28355", "Amortissements du matériel informatique", 2, "28", "ACTIF", False, None),
 
     # ── Classe 3 — Comptes d'actif circulant ────────────────────
     ("3111", "Marchandises", 3, "31", "ACTIF", False, None),
@@ -73,7 +83,8 @@ PCM_ACCOUNTS = [
     ("6161", "Impôts et taxes directs", 6, "61", "CHARGE", False, None),
     ("6171", "Rémunérations du personnel", 6, "61", "CHARGE", False, None),
     ("6174", "Charges sociales", 6, "61", "CHARGE", False, None),
-    ("6181", "Dotations aux amortissements", 6, "61", "CHARGE", False, None),
+    ("6181", "Dotations d'exploitation aux amortissements des immobilisations incorporelles", 6, "61", "CHARGE", False, None),
+    ("6193", "Dotations d'exploitation aux amortissements des immobilisations corporelles", 6, "61", "CHARGE", False, None),
     ("6300", "Impôts sur les résultats", 6, "63", "CHARGE", False, None),
 
     # ── Classe 7 — Comptes de produits ──────────────────────────
@@ -109,6 +120,15 @@ def seed():
                     is_tva_account=is_tva,
                     tva_type=tva_type,
                 ))
+                count += 1
+            else:
+                # Mise à jour des libellés et types si déjà présent
+                existing.label = label
+                existing.pcm_class = pcm_class
+                existing.group_code = group_code
+                existing.account_type = account_type
+                existing.is_tva_account = is_tva
+                existing.tva_type = tva_type
                 count += 1
         db.commit()
         print(f"✅ Seed PCM terminé: {count} comptes insérés ({len(PCM_ACCOUNTS)} total)")
