@@ -206,7 +206,7 @@ def generer_ecriture_dotation(immo: Immobilisation, annee: int, db: Session) -> 
         entry_date=date(annee, 12, 31),
         reference=f"DOT-{immo.id}-{annee}",
         description=f"Dotation amortissement {annee} — {immo.designation}",
-        is_validated=False,
+        is_validated=True,
     )
     db.add(entry)
     db.flush()

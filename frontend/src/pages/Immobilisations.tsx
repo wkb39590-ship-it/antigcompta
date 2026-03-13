@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import apiService, { Immo } from '../api'
 import {
     Building2,
@@ -63,9 +63,9 @@ function detectImmoDefaults(designation: string): { duree: string; categorie: st
 export default function Immobilisations() {
     const [immos, setImmos] = useState<Immo[]>([])
     const [loading, setLoading] = useState(true)
-    const [selected, setSelected] = useState<Immo | null>(null)
     const [showForm, setShowForm] = useState(false)
     const [msg, setMsg] = useState('')
+    const navigate = useNavigate()
     const [form, setForm] = useState({
         designation: '', categorie: 'CORPORELLE', date_acquisition: '',
         valeur_acquisition: '', tva_acquisition: '0', duree_amortissement: '5',
@@ -86,13 +86,8 @@ export default function Immobilisations() {
         } finally { setLoading(false) }
     }
 
-    const loadDetail = async (id: number) => {
-        try {
-            const data = await apiService.getImmobilisation(id)
-            setSelected(data)
-        } catch (err) {
-            console.error(err)
-        }
+    const loadDetail = (id: number) => {
+        navigate(`/immobilisations/${id}`)
     }
 
     useEffect(() => { load() }, [])
@@ -141,7 +136,7 @@ export default function Immobilisations() {
             setMsg('✅ Immobilisation créée')
             setShowForm(false)
             load()
-            setSelected(data)
+            navigate(`/immobilisations/${data.id}`)
         } catch (err: any) {
             setMsg('❌ ' + (err.response?.data?.detail || 'Erreur'))
         }
@@ -151,7 +146,7 @@ export default function Immobilisations() {
         try {
             await apiService.generateDotation(immoId, annee)
             setMsg(`✅ Dotation ${annee} générée`)
-            loadDetail(immoId)
+            load()
         } catch (err: any) {
             setMsg('❌ ' + (err.response?.data?.detail || 'Erreur'))
         }
@@ -268,7 +263,7 @@ export default function Immobilisations() {
                 </form>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 500px' : '1fr', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
                 {/* Liste */}
                 <div>
                     {loading ? (
@@ -287,8 +282,8 @@ export default function Immobilisations() {
                             {immos.map(im => (
                                 <div key={im.id} onClick={() => loadDetail(im.id)}
                                     style={{
-                                        background: selected?.id === im.id ? 'rgba(99,102,241,0.08)' : 'var(--card)',
-                                        border: `1px solid ${selected?.id === im.id ? 'var(--accent)' : 'var(--border)'} `,
+                                        background: 'var(--card)',
+                                        border: '1px solid var(--border)',
                                         borderRadius: '14px', padding: '20px', cursor: 'pointer', transition: 'all 0.2s',
                                         display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '16px'
                                     }}>
@@ -325,112 +320,6 @@ export default function Immobilisations() {
                     )}
                 </div>
 
-                {/* Panneau plan d'amortissement */}
-                {selected && (
-                    <div style={{
-                        background: 'var(--card)', border: '1px solid var(--border)',
-                        borderRadius: '16px', padding: '24px', height: 'fit-content',
-                        position: 'sticky', top: '20px', maxHeight: '85vh', overflowY: 'auto'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                            <div>
-                                <h3 style={{ margin: 0, color: 'var(--text)', fontSize: '16px' }}>{selected.designation}</h3>
-                                <p style={{ margin: '4px 0 0', color: 'var(--text2)', fontSize: '12px' }}>
-                                    {selected.categorie} · {selected.methode} · {selected.duree_amortissement} ans
-                                </p>
-                            </div>
-                            <button onClick={() => setSelected(null)} style={{
-                                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: '18px'
-                            }}>✕</button>
-                        </div>
-
-                        {/* Résumé */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                            {[
-                                { label: 'Valeur HT', value: `${fmt(selected.valeur_acquisition)} MAD` },
-                                { label: 'TVA', value: `${fmt(selected.tva_acquisition)} MAD` },
-                                { label: 'Durée', value: `${selected.duree_amortissement} ans` },
-                                { label: 'Taux', value: `${((selected.taux_amortissement || 0) * 100).toFixed(2)}% ` },
-                            ].map(({ label, value }) => (
-                                <div key={label} style={{
-                                    background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                                    padding: '12px', border: '1px solid var(--border)'
-                                }}>
-                                    <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '4px' }}>{label}</div>
-                                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>{value}</div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Comptes PCM */}
-                        <div style={{ marginBottom: '20px', fontSize: '12px', color: 'var(--text2)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            {[
-                                { label: 'Actif', code: selected.compte_actif_pcm },
-                                { label: 'Amort.', code: selected.compte_amort_pcm },
-                                { label: 'Dotation', code: selected.compte_dotation_pcm },
-                            ].map(({ label, code }) => (
-                                <span key={label} style={{
-                                    background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
-                                    padding: '3px 10px', borderRadius: '6px', color: '#818cf8', fontSize: '11px'
-                                }}>
-                                    {label}: <strong>{code}</strong>
-                                </span>
-                            ))}
-                        </div>
-
-                        {/* Plan d'amortissement */}
-                        <h4 style={{ color: 'var(--text)', margin: '0 0 12px', fontSize: '14px' }}>
-                            📊 Plan d'amortissement
-                        </h4>
-                        {selected.plan_amortissement && selected.plan_amortissement.length > 0 ? (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                            {['Année', 'Dotation', 'Cumul', 'VNC', 'Action'].map(h => (
-                                                <th key={h} style={{ padding: '8px 4px', textAlign: h === 'Action' ? 'center' : 'right', color: 'var(--text2)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                                    {h === 'Année' ? <span style={{ textAlign: 'left', display: 'block' }}>{h}</span> : h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {selected.plan_amortissement.map((l, i) => (
-                                            <tr key={l.annee} style={{
-                                                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                                background: l.annee === currentYear ? 'rgba(99,102,241,0.06)' : 'transparent'
-                                            }}>
-                                                <td style={{ padding: '8px 4px', color: l.annee === currentYear ? '#818cf8' : 'var(--text)', fontWeight: l.annee === currentYear ? 700 : 400 }}>
-                                                    {l.annee}{l.annee === currentYear && <span style={{ fontSize: '10px', color: '#818cf8', marginLeft: '4px' }}>◀</span>}
-                                                </td>
-                                                <td style={{ textAlign: 'right', padding: '8px 4px', color: '#f59e0b' }}>{fmt(l.dotation_annuelle)}</td>
-                                                <td style={{ textAlign: 'right', padding: '8px 4px', color: 'var(--text2)' }}>{fmt(l.amortissement_cumule)}</td>
-                                                <td style={{ textAlign: 'right', padding: '8px 4px', color: '#10b981' }}>{fmt(l.valeur_nette_comptable)}</td>
-                                                <td style={{ textAlign: 'center', padding: '8px 4px' }}>
-                                                    {!l.ecriture_generee ? (
-                                                        <button onClick={(e) => { e.stopPropagation(); genDotation(selected.id, l.annee) }}
-                                                            title="Générer écriture dotation"
-                                                            style={{
-                                                                background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.2)',
-                                                                color: '#818cf8', borderRadius: '6px', padding: '3px 8px',
-                                                                cursor: 'pointer', fontSize: '11px'
-                                                            }}>⚡</button>
-                                                    ) : (
-                                                        <span title="Écriture générée" style={{ color: '#10b981', fontSize: '14px' }}>✅</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div style={{ color: 'var(--text2)', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
-                                Aucun plan calculé
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     )

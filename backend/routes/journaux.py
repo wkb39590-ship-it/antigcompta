@@ -221,3 +221,38 @@ def export_journal_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# POST /journaux/{entry_id}/valider — Validation manuelle
+# ──────────────────────────────────────────────────────────────────────────
+@router.post("/{entry_id}/valider")
+def validate_entry(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session),
+):
+    """Valide manuellement une écriture journalière."""
+    societe_id = session.get("societe_id")
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == entry_id,
+        JournalEntry.societe_id == societe_id
+    ).first()
+
+    if not entry:
+        raise HTTPException(404, "Écriture introuvable")
+
+    if entry.is_validated:
+        return {"message": "Écriture déjà validée", "id": entry.id}
+
+    entry.is_validated = True
+    entry.validated_at = func.now()
+    entry.validated_by = session.get("username", "system")
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(400, f"Erreur lors de la validation : {e}")
+
+    return {"message": "Écriture validée avec succès", "id": entry.id}
