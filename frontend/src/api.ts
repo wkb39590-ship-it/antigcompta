@@ -283,6 +283,7 @@ export const apiService = {
     getProfile: (token: string) => api.get(`/auth/me?token=${token}`).then(r => r.data),
     getAgentStats: (token: string) => api.get(`/auth/stats?token=${token}`).then(r => r.data),
     getFileUrl: (id: number) => `${API_BASE}/factures/${id}/file`,
+    getFileBlob: (id: number) => api.get(`/factures/${id}/file`, { responseType: 'blob' }).then(r => r.data),
 
     listMappings: () => api.get('/mappings/').then(r => r.data),
     deleteMapping: (id: number) => api.delete(`/mappings/${id}`).then(r => r.data),
