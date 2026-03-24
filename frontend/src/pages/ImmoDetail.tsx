@@ -199,7 +199,15 @@ export default function ImmoDetail() {
                                         <td style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--text2)' }}>{fmt(l.amortissement_cumule)}</td>
                                         <td style={{ textAlign: 'right', padding: '12px 16px', color: '#10b981', fontWeight: 600 }}>{fmt(l.valeur_nette_comptable)}</td>
                                         <td style={{ textAlign: 'right', padding: '12px 16px' }}>
-                                            {!l.ecriture_generee ? (
+                                            {l.ecriture_generee ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', color: '#10b981', fontSize: '13px' }}>
+                                                    <CheckCircle2 size={16} /> Écriture générée
+                                                </div>
+                                            ) : l.annee > currentYear ? (
+                                                <div style={{ color: 'var(--text3)', fontSize: '12px', fontStyle: 'italic', padding: '6px 0', textAlign: 'right' }}>
+                                                    🔒 À venir
+                                                </div>
+                                            ) : (
                                                 <button onClick={() => genDotation(immo.id, l.annee)}
                                                     title="Générer l'écriture comptable de dotation"
                                                     style={{ 
@@ -208,10 +216,6 @@ export default function ImmoDetail() {
                                                     }}>
                                                     Générer
                                                 </button>
-                                            ) : (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', color: '#10b981', fontSize: '13px' }}>
-                                                    <CheckCircle2 size={16} /> Écriture générée
-                                                </div>
                                             )}
                                         </td>
                                     </tr>

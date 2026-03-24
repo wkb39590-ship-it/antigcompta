@@ -358,14 +358,10 @@ function RapprochementInner() {
                                             style={{
                                                 opacity: ligne.is_rapproche ? 0.5 : 1,
                                                 background: isSelected ? 'var(--bg2)' : (ligne.is_rapproche ? 'var(--bg2)' : 'transparent'),
-                                                cursor: ligne.is_rapproche ? 'default' : 'pointer',
+                                                cursor: 'pointer',
                                                 borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent'
                                             }}
-                                            onClick={() => {
-                                                if (!ligne.is_rapproche) {
-                                                    setSelectedLigne(ligne)
-                                                }
-                                            }}
+                                            onClick={() => setSelectedLigne(ligne)}
                                         >
                                             <td style={{ color: 'var(--text3)', width: '90px' }}>{ligne.date_operation}</td>
                                             <td style={{ fontWeight: 500, color: 'var(--text)' }}>
@@ -470,7 +466,19 @@ function RapprochementInner() {
                                 </div>
 
                                 {/* Business Actions Sections */}
-                                <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+                                {selectedLigne.is_rapproche ? (
+                                    <div style={{ padding: '60px 40px', textAlign: 'center' }}>
+                                        <CheckCircle2 size={64} color="var(--success)" style={{ marginBottom: '20px', opacity: 0.8 }} />
+                                        <h3 style={{ color: 'var(--text)', marginBottom: '8px' }}>Opération Traitée</h3>
+                                        <p style={{ color: 'var(--text3)', fontSize: '14px' }}>
+                                            Cette transaction bancaire a déjà été rapprochée avec succès et a généré une écriture comptable.
+                                        </p>
+                                        <p style={{ color: 'var(--text3)', fontSize: '12px', marginTop: '16px', fontStyle: 'italic' }}>
+                                            (La possibilité d'annuler un rapprochement sera bientôt disponible).
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div style={{ flexGrow: 1, overflowY: 'auto' }}>
 
                                     {/* SECTION 1: SUGGESTION DE LIEN (Si trouvée) */}
                                     {suggestions.filter(s => s.score > 0 || suggestions.length === 1).length > 0 && (
@@ -584,6 +592,7 @@ function RapprochementInner() {
                                         </div>
                                     )}
                                 </div>
+                                )}
                             </div>
                         )}
                     </div>
