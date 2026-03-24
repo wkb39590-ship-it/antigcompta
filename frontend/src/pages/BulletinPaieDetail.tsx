@@ -128,7 +128,7 @@ export default function BulletinPaieDetail() {
                                 <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{bulletin.employe_nom}</div>
                                 <div style={{ color: 'var(--text3)', display: 'flex', gap: '12px', fontSize: '13px', marginTop: '4px' }}>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><UserIcon size={14} /> Matricule: #{bulletin.employe_id}</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> Période: {bulletin.mois}/{bulletin.annee}</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> Période : du 01/{bulletin.mois.toString().padStart(2, '0')}/{bulletin.annee} au {new Date(bulletin.annee, bulletin.mois, 0).getDate()}/{bulletin.mois.toString().padStart(2, '0')}/{bulletin.annee}</span>
                                 </div>
                             </div>
                             <div className={`badge badge-${bulletin.statut === 'VALIDE' ? 'validated' : 'draft'}`} style={{ fontSize: '12px', padding: '6px 12px' }}>
@@ -251,7 +251,7 @@ export default function BulletinPaieDetail() {
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <h1 style={{ margin: '0 0 10px 0', fontSize: '24px', color: '#444' }}>BULLETIN DE PAIE</h1>
-                            <p style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: 'bold' }}>Période : {bulletin.mois.toString().padStart(2, '0')} / {bulletin.annee}</p>
+                            <p style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: 'bold' }}>Période : du 01/{bulletin.mois.toString().padStart(2, '0')}/{bulletin.annee} au {new Date(bulletin.annee, bulletin.mois, 0).getDate()}/{bulletin.mois.toString().padStart(2, '0')}/{bulletin.annee}</p>
                         </div>
                     </div>
 
