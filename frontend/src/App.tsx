@@ -9,6 +9,7 @@ import History from './pages/History'
 import SupplierDirectory from './pages/SupplierDirectory'
 import Login from './pages/Login'
 import Avoirs from './pages/Avoirs'
+import AvoirDetailView from './pages/AvoirDetail'
 import Immobilisations from './pages/Immobilisations'
 import ImmoDetail from './pages/ImmoDetail'
 import JournalComptable from './pages/JournalComptable'
@@ -394,6 +395,7 @@ export default function App() {
                 <Route path="mappings" element={<ProtectedRoute><SupplierDirectory /></ProtectedRoute>} />
                 <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="avoirs" element={<ProtectedRoute><Avoirs /></ProtectedRoute>} />
+                <Route path="avoirs/:id" element={<ProtectedRoute><AvoirDetailView /></ProtectedRoute>} />
                 <Route path="immobilisations" element={<ProtectedRoute><Immobilisations /></ProtectedRoute>} />
                 <Route path="immobilisations/:id" element={<ProtectedRoute><ImmoDetail /></ProtectedRoute>} />
                 <Route path="journal" element={<ProtectedRoute><JournalComptable /></ProtectedRoute>} />
