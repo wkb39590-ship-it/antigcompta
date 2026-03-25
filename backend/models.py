@@ -99,10 +99,35 @@ class Societe(Base):
         secondary="agents_societes",
         back_populates="societes"
     )
+    
+    journaux = relationship("JournalComptable", back_populates="societe", cascade="all, delete-orphan")
     factures = relationship("Facture", back_populates="societe", foreign_keys="[Facture.societe_id]", cascade="all, delete-orphan")
     compteurs = relationship("CompteurFacturation", back_populates="societe", cascade="all, delete-orphan")
     immobilisations = relationship("Immobilisation", back_populates="societe", cascade="all, delete-orphan")
     employes = relationship("Employe", back_populates="societe", cascade="all, delete-orphan")
+
+
+# ─────────────────────────────────────────────
+# Journal Comptable (ACH, VTE, BQ, etc.)
+# ─────────────────────────────────────────────
+class JournalComptable(Base):
+    """
+    Représente un journal auxiliaire pour une société donnée.
+    Permet d'avoir plusieurs journaux de banque (BQ1, BQ2, etc.).
+    """
+    __tablename__ = "journaux_comptables"
+
+    id = Column(Integer, primary_key=True, index=True)
+    societe_id = Column(Integer, ForeignKey("societes.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    code = Column(String(10), nullable=False) # ACH, VTE, BQ1, BQ2, OD, PAYE...
+    label = Column(String(100), nullable=False) # Journal des Achats, Banque BMCE, etc.
+    type = Column(String(20), nullable=False)   # ACHAT, VENTE, BANQUE, CAISSE, OD, PAIE
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    societe = relationship("Societe", back_populates="journaux")
 
 
 # ─────────────────────────────────────────────

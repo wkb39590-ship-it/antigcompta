@@ -71,19 +71,20 @@ interface Totaux {
     }>
 }
 
-const JOURNALS = [
-    { code: '', label: 'Tous', icon: <Layers size={16} />, color: '#6366f1' },
-    { code: 'ACH', label: 'Achats', icon: <ShoppingCart size={16} />, color: '#f59e0b' },
-    { code: 'VTE', label: 'Ventes', icon: <TrendingUp size={16} />, color: '#10b981' },
-    { code: 'IMMO', label: 'Immos', icon: <Scale size={16} />, color: '#ec4899' },
-    { code: 'PAYE', label: 'Paie', icon: <FileText size={16} />, color: '#f43f5e' },
-    { code: 'OD', label: 'OD', icon: <FileJson size={16} />, color: '#8b5cf6' },
-    { code: 'BQ', label: 'Banque', icon: <Banknote size={16} />, color: '#3b82f6' },
-]
+const DEFAULT_JOURNAL_ICONS: Record<string, { icon: any, color: string }> = {
+    'ACH': { icon: <ShoppingCart size={16} />, color: '#f59e0b' },
+    'VTE': { icon: <TrendingUp size={16} />, color: '#10b981' },
+    'IMMO': { icon: <Scale size={16} />, color: '#ec4899' },
+    'PAYE': { icon: <FileText size={16} />, color: '#f43f5e' },
+    'OD': { icon: <FileJson size={16} />, color: '#8b5cf6' },
+    'BANQUE': { icon: <Banknote size={16} />, color: '#3b82f6' },
+    'BQ': { icon: <Banknote size={16} />, color: '#3b82f6' },
+}
 
 const fmt = (n?: number) => n != null ? n.toLocaleString('fr-MA', { minimumFractionDigits: 2 }) : '0,00'
 
 export default function JournalComptable() {
+    const [journals, setJournals] = useState<any[]>([])
     const [activeJournal, setActiveJournal] = useState('')
     const [data, setData] = useState<JournalResponse | null>(null)
     const [totaux, setTotaux] = useState<Totaux | null>(null)
@@ -92,6 +93,10 @@ export default function JournalComptable() {
     const [annee, setAnnee] = useState(new Date().getFullYear())
     const [mois, setMois] = useState(new Date().getMonth() + 1)
     const [filterMode, setFilterMode] = useState<'tout' | 'annee' | 'mois'>('tout')
+
+    // Modal nouveau journal
+    const [showJournalModal, setShowJournalModal] = useState(false)
+    const [newJournal, setNewJournal] = useState({ code: '', label: '', type: 'BANQUE' })
 
     // Saisie manuelle
     const [showManualForm, setShowManualForm] = useState(false)
@@ -245,7 +250,34 @@ export default function JournalComptable() {
         if (r.ok) setTotaux(await r.json())
     }
 
+    const fetchJournals = async () => {
+        try {
+            const data = await apiService.getJournalsConfig()
+            if (data && data.length > 0) {
+                setJournals(data)
+            }
+        } catch (err) {
+            console.error("Erreur lors de la récupération des journaux:", err)
+        }
+    }
+
+    useEffect(() => {
+        fetchJournals()
+    }, [])
+
     useEffect(() => { load(); loadTotaux() }, [activeJournal, annee, mois, filterMode])
+
+    const handleCreateJournal = async () => {
+        if (!newJournal.code || !newJournal.label) return
+        try {
+            await apiService.createJournalConfig(newJournal)
+            setNewJournal({ code: '', label: '', type: 'BANQUE' })
+            setShowJournalModal(false)
+            fetchJournals()
+        } catch (err) {
+            alert("Erreur lors de la création du journal. Le code existe peut-être déjà.")
+        }
+    }
 
     const exportCSV = () => {
         const params = buildParams()
@@ -378,16 +410,18 @@ export default function JournalComptable() {
             {totaux && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px', marginBottom: '24px' }}>
                     {Object.values(totaux.totaux_par_journal).map(t => {
-                        const jInfo = JOURNALS.find(j => j.code === t.journal_code)
+                        const journal = journals.find((j) => j.code === t.journal_code)
+                        const iconData = DEFAULT_JOURNAL_ICONS[t.journal_code] || (journal ? DEFAULT_JOURNAL_ICONS[journal.type] : null) || { icon: <Layers size={14} />, color: '#64748b' }
+                        
                         return (
                             <div key={t.journal_code} onClick={() => setActiveJournal(t.journal_code)}
                                 style={{
-                                    background: activeJournal === t.journal_code ? `${jInfo?.color}18` : 'var(--card)',
-                                    border: `1px solid ${activeJournal === t.journal_code ? jInfo?.color : 'var(--border)'}`,
+                                    background: activeJournal === t.journal_code ? `${iconData.color}18` : 'var(--card)',
+                                    border: `1px solid ${activeJournal === t.journal_code ? iconData.color : 'var(--border)'}`,
                                     borderRadius: '14px', padding: '16px', cursor: 'pointer', transition: 'all 0.2s'
                                 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                    <span style={{ fontWeight: 700, color: jInfo?.color || 'var(--text)', fontSize: '13px' }}>{jInfo?.label || t.journal_code}</span>
+                                    <span style={{ fontWeight: 700, color: iconData.color, fontSize: '13px' }}>{journal?.label || t.journal_code}</span>
                                     <span style={{
                                         background: t.equilibre ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
                                         color: t.equilibre ? '#10b981' : '#ef4444',
@@ -413,15 +447,37 @@ export default function JournalComptable() {
                 display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap',
                 background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '8px'
             }}>
-                {JOURNALS.map(j => (
-                    <button key={j.code} onClick={() => setActiveJournal(j.code)} style={{
-                        background: activeJournal === j.code ? j.color : 'transparent',
-                        color: activeJournal === j.code ? 'white' : 'var(--text2)',
-                        border: `1px solid ${activeJournal === j.code ? j.color : 'transparent'}`,
-                        padding: '7px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-                        transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '8px'
-                    }}>{j.icon}{j.label}</button>
-                ))}
+                <button onClick={() => setActiveJournal('')} style={{
+                    background: activeJournal === '' ? 'var(--accent)' : 'transparent',
+                    color: activeJournal === '' ? 'white' : 'var(--text2)',
+                    border: `1px solid ${activeJournal === '' ? 'var(--accent)' : 'transparent'}`,
+                    padding: '7px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '8px'
+                }}><Layers size={16} />Tous</button>
+
+                {journals.map(j => {
+                    const iconData = DEFAULT_JOURNAL_ICONS[j.code] || DEFAULT_JOURNAL_ICONS[j.type] || { icon: <FileText size={16} />, color: '#64748b' }
+                    return (
+                        <button key={j.id} onClick={() => setActiveJournal(j.code)} style={{
+                            background: activeJournal === j.code ? iconData.color : 'transparent',
+                            color: activeJournal === j.code ? 'white' : 'var(--text2)',
+                            border: `1px solid ${activeJournal === j.code ? iconData.color : 'transparent'}`,
+                            padding: '7px 18px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                            transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '8px'
+                        }}>{iconData.icon}{j.label}</button>
+                    )
+                })}
+
+                <button
+                    onClick={() => setShowJournalModal(true)}
+                    style={{
+                        background: 'transparent', color: 'var(--text3)', border: '1px dashed var(--border)',
+                        padding: '7px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px',
+                        display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto'
+                    }}
+                >
+                    <Plus size={14} /> Nouveau Journal
+                </button>
             </div>
 
             {/* Formulaire Saisie Manuelle (Optionnel) */}
@@ -770,6 +826,67 @@ export default function JournalComptable() {
                     </>
                 )}
             </div>
+
+            {/* Modal Nouveau Journal */}
+            {showJournalModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000, backdropFilter: 'blur(10px)'
+                }}>
+                    <div style={{
+                        background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px',
+                        padding: '32px', width: '450px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Nouveau Journal de Banque 🏦</h3>
+                            <button onClick={() => setShowJournalModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Code (ex: BQ2, BQ_BMCE)</label>
+                                <input
+                                    type="text"
+                                    value={newJournal.code}
+                                    onChange={e => setNewJournal({ ...newJournal, code: e.target.value.toUpperCase(), type: 'BANQUE' })}
+                                    style={{
+                                        width: '100%', padding: '12px', borderRadius: '10px', border: '2px solid #e2e8f0',
+                                        background: 'white', color: '#1e293b', fontSize: '14px'
+                                    }}
+                                    placeholder="BQ2"
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Libellé (ex: Banque Populaire)</label>
+                                <input
+                                    type="text"
+                                    value={newJournal.label}
+                                    onChange={e => setNewJournal({ ...newJournal, label: e.target.value })}
+                                    style={{
+                                        width: '100%', padding: '12px', borderRadius: '10px', border: '2px solid #e2e8f0',
+                                        background: 'white', color: '#1e293b', fontSize: '14px'
+                                    }}
+                                    placeholder="Banque Populaire"
+                                />
+                            </div>
+                            {/* Le type est forcé sur BANQUE par défaut */}
+
+                            <button
+                                onClick={handleCreateJournal}
+                                style={{
+                                    marginTop: '8px', padding: '12px', borderRadius: '10px', background: 'var(--accent)',
+                                    color: 'white', fontWeight: 600, border: 'none', cursor: 'pointer'
+                                }}
+                            >
+                                Créer le journal
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

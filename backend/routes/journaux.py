@@ -7,7 +7,7 @@ import io
 import re
 import calendar as cal
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse, Response
@@ -15,29 +15,65 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
 from database import get_db
-from models import JournalEntry, EntryLine, Facture, Employe, Societe
-from schemas import ManualEntryCreate
+from models import JournalEntry, EntryLine, Facture, Employe, Societe, JournalComptable
+from schemas import ManualEntryCreate, JournalComptableOut, JournalComptableCreate
 from routes.deps import get_current_session
 
 router = APIRouter(prefix="/journaux", tags=["journaux"])
 
-# Codes journal disponibles
-CODES_JOURNAL = {
-    "ACH": "Journal des Achats",
-    "VTE": "Journal des Ventes",
-    "OD":  "Opérations Diverses",
-    "BQ":  "Banque",
-    "IMMO": "Journal des Immobilisations",
-    "PAYE": "Journal de Paie",
+# On garde CODES_JOURNAL uniquement comme fallback ou pour les types par défaut
+TYPES_JOURNAL_DEFAUT = {
+    "ACHAT": "Journal des Achats",
+    "VENTE": "Journal des Ventes",
+    "OD": "Opérations Diverses",
+    "BANQUE": "Banque",
+    "PAIE": "Journal de Paie",
 }
 
+@router.get("/config", response_model=List[JournalComptableOut])
+def get_journals_config(
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session)
+):
+    """Retourne la liste des journaux paramétrés pour la société active."""
+    societe_id = session.get("societe_id")
+    return db.query(JournalComptable).filter(JournalComptable.societe_id == societe_id).all()
 
-def _entry_to_dict(entry: JournalEntry) -> dict:
+@router.post("/config", response_model=JournalComptableOut)
+def create_journal_config(
+    req: JournalComptableCreate,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session)
+):
+    """Ajoute un nouveau journal (ex: une nouvelle banque)."""
+    societe_id = session.get("societe_id")
+    
+    # Vérifier si le code existe déjà pour cette société
+    existant = db.query(JournalComptable).filter(
+        JournalComptable.societe_id == societe_id,
+        JournalComptable.code == req.code.upper()
+    ).first()
+    if existant:
+        raise HTTPException(400, f"Le code journal {req.code} existe déjà.")
+
+    nouveau = JournalComptable(
+        societe_id=societe_id,
+        code=req.code.upper(),
+        label=req.label,
+        type=req.type.upper()
+    )
+    db.add(nouveau)
+    db.commit()
+    db.refresh(nouveau)
+    return nouveau
+
+
+def _entry_to_dict(entry: JournalEntry, journals_map: dict) -> dict:
     """Convertit une écriture journal en dict de réponse."""
     return {
         "id": entry.id,
         "journal_code": entry.journal_code,
-        "journal_label": CODES_JOURNAL.get(entry.journal_code, entry.journal_code),
+        "journal_label": journals_map.get(entry.journal_code, entry.journal_code),
         "entry_date": str(entry.entry_date) if entry.entry_date else None,
         "reference": entry.reference,
         "description": entry.description,
@@ -88,7 +124,7 @@ def _build_query(db: Session, societe_id: int, journal_code: Optional[str],
 # ──────────────────────────────────────────────────────────────────────────
 @router.get("/", response_model=dict)
 def list_journal(
-    journal_code: Optional[str] = Query(None, description="ACH | VTE | OD | BQ"),
+    journal_code: Optional[str] = Query(None, description="Code du journal (ex: ACH, BQ1)"),
     date_debut: Optional[date] = Query(None, description="Date de début (YYYY-MM-DD)"),
     date_fin: Optional[date] = Query(None, description="Date de fin (YYYY-MM-DD)"),
     valide_seulement: bool = Query(True, description="N'afficher que les écritures validées"),
@@ -103,8 +139,14 @@ def list_journal(
     """
     societe_id = session.get("societe_id")
 
-    if journal_code and journal_code.upper() not in CODES_JOURNAL:
-        raise HTTPException(400, f"Code journal invalide. Valeurs acceptées : {list(CODES_JOURNAL.keys())}")
+    # Charger les journaux dynamiques de cette société
+    journaux = db.query(JournalComptable).filter(JournalComptable.societe_id == societe_id).all()
+    journals_map = {j.code: j.label for j in journaux}
+
+    if journal_code and journal_code.upper() not in journals_map:
+        # Fallback pour les codes standards si pas encore migrés (sécurité)
+        if journal_code.upper() not in ["ACH", "VTE", "OD", "BQ", "PAYE"]:
+            raise HTTPException(400, f"Code journal {journal_code} inconnu.")
 
     q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement)
 
@@ -117,7 +159,7 @@ def list_journal(
 
     return {
         "journal_code": journal_code,
-        "journal_label": CODES_JOURNAL.get(journal_code, "Tous les journaux") if journal_code else "Tous les journaux",
+        "journal_label": journals_map.get(journal_code, "Tous les journaux") if journal_code else "Tous les journaux",
         "date_debut": str(date_debut) if date_debut else None,
         "date_fin": str(date_fin) if date_fin else None,
         "total_ecritures": total,
@@ -126,7 +168,7 @@ def list_journal(
         "total_debit": round(total_debit, 2),
         "total_credit": round(total_credit, 2),
         "equilibre": round(abs(total_debit - total_credit), 2) <= 0.01,
-        "ecritures": [_entry_to_dict(e) for e in entries],
+        "ecritures": [_entry_to_dict(e, journals_map) for e in entries],
     }
 
 
@@ -157,14 +199,16 @@ def get_totaux_par_journal(
         date_fin = date(annee, 12, 31)
 
     totaux = {}
-    for code, label in CODES_JOURNAL.items():
-        q = _build_query(db, societe_id, code, date_debut, date_fin, valide_seulement=valide_seulement)
+    journaux = db.query(JournalComptable).filter(JournalComptable.societe_id == societe_id).all()
+
+    for jnl in journaux:
+        q = _build_query(db, societe_id, jnl.code, date_debut, date_fin, valide_seulement=valide_seulement)
         entries = q.all()
         debit = sum(float(e.total_debit or 0) for e in entries)
         credit = sum(float(e.total_credit or 0) for e in entries)
-        totaux[code] = {
-            "journal_code": code,
-            "journal_label": label,
+        totaux[jnl.code] = {
+            "journal_code": jnl.code,
+            "journal_label": jnl.label,
             "nb_ecritures": len(entries),
             "total_debit": round(debit, 2),
             "total_credit": round(credit, 2),

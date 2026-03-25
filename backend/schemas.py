@@ -243,6 +243,22 @@ class CompteurFacturationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class JournalComptableOut(BaseModel):
+    id: int
+    societe_id: int
+    code: str
+    label: str
+    type: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class JournalComptableCreate(BaseModel):
+    code: str
+    label: str
+    type: str
+
+
 class SocieteCreateUpdate(BaseModel):
     raison_sociale: str
     ice: Optional[str] = None

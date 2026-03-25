@@ -440,6 +440,11 @@ export const apiService = {
     accepterTransmissionDoc: (id: number) => api.post(`/transmission/${id}/accepter`).then(r => r.data),
     rejeterTransmissionDoc: (id: number) => api.post(`/transmission/${id}/rejeter`).then(r => r.data),
     clientDeleteTransmissionDoc: (id: number) => api.delete(`/transmission/${id}/client`).then(r => r.data),
+
+    // ── Journaux Routes ────────────────────────────────────────
+    getJournalsConfig: () => api.get('/journaux/config').then(r => r.data),
+    createJournalConfig: (data: { code: string; label: string; type: string }) =>
+        api.post('/journaux/config', data).then(r => r.data),
 }
 
 export default apiService
