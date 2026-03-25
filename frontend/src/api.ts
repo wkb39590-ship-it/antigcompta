@@ -22,10 +22,11 @@ const api = axios.create({
  */
 api.interceptors.request.use((config) => {
     try {
+        const client = typeof window !== 'undefined' ? localStorage.getItem('client_token') : null
         const session = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
         const access = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-        const tokenToUse = session || access
-        const tokenType = session ? 'SESSION' : (access ? 'ACCESS' : 'NONE')
+        const tokenToUse = client || session || access
+        const tokenType = client ? 'CLIENT' : (session ? 'SESSION' : (access ? 'ACCESS' : 'NONE'))
 
         console.log(`[Axios Interceptor] Request to: ${config.url} | Token: ${tokenType}`)
 
@@ -236,6 +237,32 @@ export interface ReleveBancaire {
     lignes?: LigneReleve[]
 }
 
+
+export interface UtilisateurClient {
+    id: number
+    societe_id: number
+    username: string
+    email: string
+    nom: string | null
+    prenom: string | null
+    is_active: boolean
+    created_at: string
+}
+
+export interface DocumentTransmis {
+    id: number
+    societe_id: number
+    client_id: number | null
+    file_path: string
+    file_name: string
+    type_document: string
+    statut: string
+    notes_client: string | null
+    date_upload: string
+    date_traitement: string | null
+    client?: UtilisateurClient
+}
+
 // ── API calls ──────────────────────────────────────────────
 
 /**
@@ -367,6 +394,30 @@ export const apiService = {
 
     deleteReleve: (id: number) =>
         api.delete(`/releves/${id}`).then(r => r.data),
+
+    // ── Transmission (Dépôt & Tableau de bord) ───────────────
+    clientLogin: (data: any) => api.post('/client/login', data).then(r => r.data),
+    clientRegister: (societeId: number, data: any) => api.post(`/client/register?societe_id=${societeId}`, data).then(r => r.data),
+    clientUploadDocument: (file: File, typeDocument: string, notes?: string) => {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('type_document', typeDocument)
+        if (notes) form.append('notes', notes)
+        return api.post('/transmission/upload', form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        }).then(r => r.data)
+    },
+    clientGetHistorique: () => api.get('/transmission/client/historique').then(r => r.data),
+
+    getTransmissionDashboard: () => api.get('/transmission/dashboard').then(r => r.data),
+    listTransmissionDocs: (societeId?: number, statut: string = 'A_TRAITER') => {
+        let url = `/transmission/documents?statut=${statut}`
+        if (societeId) url += `&societe_id=${societeId}`
+        return api.get(url).then(r => r.data)
+    },
+    accepterTransmissionDoc: (id: number) => api.post(`/transmission/${id}/accepter`).then(r => r.data),
+    rejeterTransmissionDoc: (id: number) => api.post(`/transmission/${id}/rejeter`).then(r => r.data),
+    clientDeleteTransmissionDoc: (id: number) => api.delete(`/transmission/${id}/client`).then(r => r.data),
 }
 
 export default apiService

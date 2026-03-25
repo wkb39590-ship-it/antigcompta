@@ -24,6 +24,7 @@ CODES_JOURNAL = {
     "VTE": "Journal des Ventes",
     "OD":  "Opérations Diverses",
     "BQ":  "Banque",
+    "IMMO": "Journal des Immobilisations",
 }
 
 
@@ -132,6 +133,7 @@ def list_journal(
 def get_totaux_par_journal(
     annee: Optional[int] = Query(None, description="Année comptable"),
     mois: Optional[int] = Query(None, ge=1, le=12, description="Mois (1-12)"),
+    valide_seulement: bool = Query(True, description="Inclure uniquement les écritures validées"),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
 ):
@@ -152,7 +154,7 @@ def get_totaux_par_journal(
 
     totaux = {}
     for code, label in CODES_JOURNAL.items():
-        q = _build_query(db, societe_id, code, date_debut, date_fin, valide_seulement=True)
+        q = _build_query(db, societe_id, code, date_debut, date_fin, valide_seulement=valide_seulement)
         entries = q.all()
         debit = sum(float(e.total_debit or 0) for e in entries)
         credit = sum(float(e.total_credit or 0) for e in entries)
@@ -179,13 +181,14 @@ def export_journal_csv(
     journal_code: Optional[str] = Query(None, description="ACH | VTE | OD | BQ"),
     date_debut: Optional[date] = Query(None),
     date_fin: Optional[date] = Query(None),
+    valide_seulement: bool = Query(True),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
 ):
     """Exporte le journal comptable au format CSV."""
     societe_id = session.get("societe_id")
 
-    q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement=True)
+    q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement=valide_seulement)
     entries = q.all()
 
     output = io.StringIO()

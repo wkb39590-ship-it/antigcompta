@@ -8,10 +8,12 @@ import Profile from './pages/Profile'
 import History from './pages/History'
 import SupplierDirectory from './pages/SupplierDirectory'
 import Login from './pages/Login'
+import ClientPortal from './pages/ClientPortal'
 import Avoirs from './pages/Avoirs'
 import AvoirDetailView from './pages/AvoirDetail'
 import Immobilisations from './pages/Immobilisations'
 import ImmoDetail from './pages/ImmoDetail'
+import TransmissionDashboard from './pages/TransmissionDashboard'
 import JournalComptable from './pages/JournalComptable'
 import Paie from './pages/Paie'
 import BulletinPaieDetail from './pages/BulletinPaieDetail'
@@ -33,7 +35,8 @@ import {
     LogOut,
     ChevronUp,
     ChevronDown,
-    Zap
+    Zap,
+    Inbox
 } from 'lucide-react'
 
 import CabinetSelector from './pages/CabinetSelector'
@@ -87,7 +90,8 @@ function Sidebar() {
 
     const navItems = [
         { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={18} /> },
-        { to: '/upload', label: 'Transmission', icon: <UploadIcon size={18} /> },
+        { to: '/transmission', label: 'Boîte de Réception', icon: <Inbox size={18} /> },
+        { to: '/upload', label: 'Import Manuel (OCR)', icon: <UploadIcon size={18} /> },
         { to: '/history', label: 'Historique', icon: <HistoryIcon size={18} /> },
         { to: '/avoirs', label: 'Avoirs', icon: <FileText size={18} /> },
         { to: '/immobilisations', label: 'Immobilisations', icon: <Building2 size={18} /> },
@@ -301,6 +305,7 @@ export default function App() {
             {/* Public Auth Pages */}
             <Route path="/login" element={<Login />} />
             <Route path="/select-cabinet" element={<CabinetSelector />} />
+            <Route path="/client/*" element={<ClientPortal />} />
 
             {/* Admin Protected Routes */}
             <Route
@@ -388,6 +393,7 @@ export default function App() {
             >
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="transmission" element={<ProtectedRoute><TransmissionDashboard /></ProtectedRoute>} />
                 <Route path="upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
                 <Route path="factures/:id" element={<ProtectedRoute><FactureDetail /></ProtectedRoute>} />
                 <Route path="pcm" element={<ProtectedRoute><PcmPage /></ProtectedRoute>} />

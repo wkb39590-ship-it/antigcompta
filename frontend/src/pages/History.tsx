@@ -11,7 +11,8 @@ import {
     XCircle,
     Construction,
     BadgeCheck,
-    ArrowRight
+    ArrowRight,
+    Trash2
 } from 'lucide-react'
 
 function StatusBadge({ status }: { status: string }) {
@@ -59,6 +60,17 @@ export default function History() {
     }
 
     useEffect(() => { load() }, [])
+
+    const handleDelete = async (e: React.MouseEvent, id: number) => {
+        e.stopPropagation()
+        if (!window.confirm("Voulez-vous vraiment supprimer définitivement cette facture ? Cette action est irréversible.")) return
+        try {
+            await apiService.deleteFacture(id)
+            load()
+        } catch (err: any) {
+            alert("Erreur lors de la suppression: " + (err.response?.data?.detail || err.message))
+        }
+    }
 
     useEffect(() => {
         let result = [...factures]
@@ -251,6 +263,14 @@ export default function History() {
                                                     <BadgeCheck size={14} /> Immobilisé
                                                 </span>
                                             )}
+                                            <button 
+                                                className="btn btn-ghost" 
+                                                style={{ color: 'var(--danger)', padding: '6px' }}
+                                                onClick={(e) => handleDelete(e, f.id)}
+                                                title="Supprimer la facture"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

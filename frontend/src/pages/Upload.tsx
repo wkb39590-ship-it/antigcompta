@@ -25,6 +25,21 @@ export default function Upload() {
     const fileRef = useRef<HTMLInputElement>(null)
     const navigate = useNavigate()
 
+    const [pendingDocs, setPendingDocs] = useState<any[]>([])
+    const [loadingPending, setLoadingPending] = useState(false)
+
+    const loadPending = async () => {
+        setLoadingPending(true)
+        try {
+            const data = await apiService.listFactures('IMPORTED')
+            setPendingDocs(data)
+        } catch (e) {
+            console.error('Error loading pending:', e)
+        } finally {
+            setLoadingPending(false)
+        }
+    }
+
     useEffect(() => {
         // Get current societe from session token
         const societe = getCurrentSociete()
@@ -32,6 +47,7 @@ export default function Upload() {
         if (societe) {
             setCurrentSociete(societe)
             setError('')
+            loadPending()
         } else {
             setError('Aucune session active. Veuillez sélectionner une société d\'abord.')
         }
@@ -212,6 +228,54 @@ export default function Upload() {
                         )}
                     </button>
                 </div>
+            </div>
+
+            {/* Documents en attente */}
+            <div className="card" style={{ marginTop: '32px' }}>
+                <div className="card-header">
+                    <div>
+                        <div className="card-title">📂 Documents en attente de traitement</div>
+                        <div className="card-subtitle">Documents reçus du portail client ou importés manuellement sans analyse.</div>
+                    </div>
+                </div>
+                {loadingPending ? (
+                    <div style={{ padding: '24px', textAlign: 'center' }}>Chargement...</div>
+                ) : pendingDocs.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text3)' }}>
+                        Aucun document en attente pour cette société.
+                    </div>
+                ) : (
+                    <div className="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Nom du fichier / N° Facture</th>
+                                    <th>Fournisseur</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pendingDocs.map(d => (
+                                    <tr key={d.id}>
+                                        <td style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{d.id}</td>
+                                        <td style={{ fontWeight: 600 }}>{d.numero_facture || 'Document non analysé'}</td>
+                                        <td>{d.supplier_name || '—'}</td>
+                                        <td>
+                                            <button 
+                                                className="btn btn-ghost" 
+                                                onClick={() => navigate(`/factures/${d.id}`)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                                            >
+                                                <Zap size={14} /> Lancer l'analyse AI →
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     )

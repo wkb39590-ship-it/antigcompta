@@ -132,6 +132,19 @@ export default function FactureDetail() {
         }
     }, [factureId])
 
+    const handleDelete = async () => {
+        if (!window.confirm("Supprimer définitivement cette facture ? Cette opération est irréversible.")) return
+        setActionLoading(true)
+        try {
+            await apiService.deleteFacture(factureId)
+            navigate('/dashboard')
+        } catch (e: any) {
+            setMsg({ type: 'error', text: `Erreur suppression: ${e.response?.data?.detail || e.message}` })
+        } finally {
+            setActionLoading(true)
+        }
+    }
+
     const saveHeader = async () => {
         if (!facture) return
         setActionLoading(true)
@@ -281,10 +294,13 @@ export default function FactureDetail() {
                         </button>
                     )}
                     {['EXTRACTED', 'CLASSIFIED', 'DRAFT'].includes(facture.status) && (
-                        <button className="btn btn-danger btn-ghost" disabled={actionLoading} onClick={() => runAction(() => apiService.rejectFacture(factureId, 'Rejeté manuellement'), '❌ Facture rejetée')}>
-                            <Trash2 size={16} />
+                        <button className="btn btn-warning btn-ghost" disabled={actionLoading} onClick={() => runAction(() => apiService.rejectFacture(factureId, 'Rejeté manuellement'), '❌ Facture rejetée')}>
+                            <AlertTriangle size={16} /> Rejeter
                         </button>
                     )}
+                    <button className="btn btn-danger" disabled={actionLoading} onClick={handleDelete} title="Suppression définitive">
+                        <Trash2 size={16} /> Supprimer
+                    </button>
                 </div>
             </div>
 

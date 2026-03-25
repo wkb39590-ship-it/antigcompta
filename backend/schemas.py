@@ -355,3 +355,47 @@ class BulletinPaieOut(BaseModel):
     lignes: List[LignePaieOut] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# SCHÉMAS TRANSMISSION (Client / Boîte de réception)
+# ──────────────────────────────────────────────────────────────────────────
+class UtilisateurClientCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    nom: Optional[str] = None
+    prenom: Optional[str] = None
+
+
+class UtilisateurClientOut(BaseModel):
+    id: int
+    societe_id: int
+    username: str
+    email: str
+    nom: Optional[str] = None
+    prenom: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentTransmisOut(BaseModel):
+    id: int
+    societe_id: int
+    client_id: Optional[int] = None
+    file_path: str
+    file_name: str
+    type_document: str
+    statut: str
+    notes_client: Optional[str] = None
+    date_upload: datetime
+    date_traitement: Optional[datetime] = None
+    
+    facture_id: Optional[int] = None
+    
+    client: Optional[UtilisateurClientOut] = None
+
+    model_config = ConfigDict(from_attributes=True)
+

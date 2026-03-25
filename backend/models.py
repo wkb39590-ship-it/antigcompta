@@ -384,6 +384,55 @@ class ActionLog(Base):
     cabinet = relationship("Cabinet")
     agent = relationship("Agent")
 
+# ─────────────────────────────────────────────
+# Client (Utilisateur de la Société)
+# ─────────────────────────────────────────────
+class UtilisateurClient(Base):
+    __tablename__ = "utilisateurs_clients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    societe_id = Column(Integer, ForeignKey("societes.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    username = Column(String(100), nullable=False, unique=True)
+    email = Column(String(255), nullable=False, unique=True)
+    password_hash = Column(String(500), nullable=False)
+    nom = Column(String(255), nullable=True)
+    prenom = Column(String(255), nullable=True)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # Relations
+    societe = relationship("Societe")
+
+# ─────────────────────────────────────────────
+# Document Transmission (Boîte de réception)
+# ─────────────────────────────────────────────
+class DocumentTransmis(Base):
+    __tablename__ = "documents_transmis"
+
+    id = Column(Integer, primary_key=True, index=True)
+    societe_id = Column(Integer, ForeignKey("societes.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id = Column(Integer, ForeignKey("utilisateurs_clients.id", ondelete="SET NULL"), nullable=True)
+
+    file_path = Column(String(500), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    type_document = Column(String(50), nullable=False, server_default="FACTURE") # FACTURE_ACHAT, VENTE, TICKET, AUTRE
+    
+    statut = Column(String(30), nullable=False, server_default="A_TRAITER") # A_TRAITER, VALIDE, REJETE
+    notes_client = Column(Text, nullable=True)
+    
+    date_upload = Column(DateTime, nullable=False, server_default=func.now())
+    date_traitement = Column(DateTime, nullable=True)
+    
+    facture_id = Column(Integer, ForeignKey("factures.id"), nullable=True)
+
+    # Relations
+    societe = relationship("Societe")
+    client = relationship("UtilisateurClient")
+    facture = relationship("Facture")
+
+
 # Fin du fichier modèles.
 
 

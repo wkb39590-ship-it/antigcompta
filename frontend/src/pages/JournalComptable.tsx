@@ -68,6 +68,7 @@ const JOURNALS = [
     { code: '', label: 'Tous', icon: <Layers size={16} />, color: '#6366f1' },
     { code: 'ACH', label: 'Achats', icon: <ShoppingCart size={16} />, color: '#f59e0b' },
     { code: 'VTE', label: 'Ventes', icon: <TrendingUp size={16} />, color: '#10b981' },
+    { code: 'IMMO', label: 'Immos', icon: <Scale size={16} />, color: '#ec4899' },
     { code: 'OD', label: 'OD', icon: <FileJson size={16} />, color: '#8b5cf6' },
     { code: 'BQ', label: 'Banque', icon: <Banknote size={16} />, color: '#3b82f6' },
 ]
@@ -99,6 +100,7 @@ export default function JournalComptable() {
             params.append('date_fin', `${annee}-${mm}-${lastDay}`)
         }
         // filterMode === 'tout' => pas de filtre date => toutes les écritures
+        params.append('valide_seulement', 'false')
         return params
     }
 
@@ -118,6 +120,7 @@ export default function JournalComptable() {
             params.append('mois', String(mois))
         }
         // filterMode === 'tout' => pas de filtre annee
+        params.append('valide_seulement', 'false')
         const r = await fetch(`${API_CONFIG.BASE_URL}/journaux/totaux?${params}`)
         if (r.ok) setTotaux(await r.json())
     }
@@ -195,7 +198,7 @@ export default function JournalComptable() {
 
             {/* Cartes totaux par journal */}
             {totaux && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px', marginBottom: '24px' }}>
                     {Object.values(totaux.totaux_par_journal).map(t => {
                         const jInfo = JOURNALS.find(j => j.code === t.journal_code)
                         return (

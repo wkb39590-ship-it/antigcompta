@@ -66,7 +66,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         "AVOIR_ACHAT": "ACH",
         "AVOIR_VENTE": "VTE",
         "NOTE_FRAIS": "OD",
-        "IMMOBILISATION": "ACH",
+        "IMMOBILISATION": "IMMO",
+        "immobilisation": "IMMO",
     }
     journal_code = journal_map.get(invoice_type, "OD")
 
