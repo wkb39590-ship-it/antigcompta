@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
+import { useLocation } from 'react-router-dom'
+import apiService from '../api'
 import { API_CONFIG } from '../config/apiConfig'
 import {
     Calendar,
@@ -15,7 +17,11 @@ import {
     Download,
     ChevronUp,
     ChevronDown,
-    FileText
+    FileText,
+    Plus,
+    Trash,
+    Edit,
+    X
 } from 'lucide-react'
 
 interface EntryLine {
@@ -87,6 +93,118 @@ export default function JournalComptable() {
     const [mois, setMois] = useState(new Date().getMonth() + 1)
     const [filterMode, setFilterMode] = useState<'tout' | 'annee' | 'mois'>('tout')
 
+    // Saisie manuelle
+    const [showManualForm, setShowManualForm] = useState(false)
+    const [manualHeader, setManualHeader] = useState({
+        entry_date: new Date().toISOString().split('T')[0],
+        reference: '',
+        description: 'Écriture de paie mensuelle'
+    })
+    const [manualLines, setManualLines] = useState<any[]>([
+        { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+        { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+        { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+        { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+    ])
+
+    const [employees, setEmployees] = useState<any[]>([])
+    const [showQuickAdd, setShowQuickAdd] = useState(false)
+    const [newEmp, setNewEmp] = useState({
+        nom: '',
+        prenom: '',
+        salaire_base: 0,
+        cin: '',
+        poste: '',
+        date_naissance: '',
+        date_embauche: new Date().toISOString().split('T')[0],
+        numero_cnss: '',
+        nb_enfants: 0
+    })
+
+    const [editingId, setEditingId] = useState<number | null>(null)
+
+    const handleEdit = (entry: any) => {
+        setEditingId(entry.id)
+        setManualHeader({
+            entry_date: entry.entry_date,
+            reference: entry.reference || '',
+            description: entry.description || ''
+        })
+        setManualLines(entry.entry_lines.map((l: any) => ({
+            account_code: l.account_code,
+            account_label: l.account_label,
+            debit: l.debit,
+            credit: l.credit,
+            tiers_name: l.tiers_name || ''
+        })))
+        setShowManualForm(true)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm("Supprimer cette écriture ?")) return
+        try {
+            const r = await fetch(`${API_CONFIG.BASE_URL}/journaux/${id}?token=${token()}`, { method: 'DELETE' })
+            if (!r.ok) throw new Error("Erreur suppression")
+            load(); loadTotaux()
+        } catch (e) {
+            alert("Erreur lors de la suppression")
+        }
+    }
+
+    const loadEmployees = async () => {
+        try {
+            const data = await apiService.listEmployes()
+            setEmployees(data)
+        } catch (e) {
+            console.error("Erreur chargement employés", e)
+        }
+    }
+
+    useEffect(() => {
+        loadEmployees()
+    }, [])
+
+    const handleQuickAdd = async () => {
+        if (!newEmp.nom || !newEmp.prenom) return
+        try {
+            const payload: any = {
+                ...newEmp,
+                statut: 'ACTIF'
+            }
+            if (!payload.date_naissance) delete payload.date_naissance
+
+            await apiService.createEmploye(payload)
+            setShowQuickAdd(false)
+            setNewEmp({
+                nom: '',
+                prenom: '',
+                salaire_base: 0,
+                cin: '',
+                poste: '',
+                date_naissance: '',
+                date_embauche: new Date().toISOString().split('T')[0],
+                numero_cnss: '',
+                nb_enfants: 0
+            })
+            loadEmployees()
+        } catch (e) {
+            alert("Erreur lors de l'ajout rapide")
+        }
+    }
+
+    const location = useLocation()
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search)
+        if (params.get('showForm') === 'true') {
+            setShowManualForm(true)
+            if (params.get('ref')) {
+                setManualHeader(h => ({ ...h, reference: params.get('ref') || '' }))
+            }
+        }
+    }, [location.search])
+
     const token = () => localStorage.getItem('session_token') || ''
 
     const buildParams = () => {
@@ -132,6 +250,64 @@ export default function JournalComptable() {
     const exportCSV = () => {
         const params = buildParams()
         window.open(`${API_CONFIG.BASE_URL}/journaux/export?${params}`, '_blank')
+    }
+
+    const handleSaveManual = async () => {
+        const totalDebit = manualLines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0)
+        const totalCredit = manualLines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0)
+
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+            alert(`L'écriture n'est pas équilibrée ! Différence : ${Math.abs(totalDebit - totalCredit).toFixed(2)} MAD`)
+            return
+        }
+
+        setLoading(true)
+        const url = editingId
+            ? `${API_CONFIG.BASE_URL}/journaux/${editingId}?token=${token()}`
+            : `${API_CONFIG.BASE_URL}/journaux/manual?token=${token()}`;
+
+        try {
+            const r = await fetch(url, {
+                method: editingId ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    journal_code: activeJournal || 'PAYE',
+                    ...manualHeader,
+                    lines: manualLines.filter(l => l.account_code || l.debit > 0 || l.credit > 0)
+                })
+            })
+            if (r.ok) {
+                setShowManualForm(false)
+                setEditingId(null)
+                setManualHeader({ entry_date: new Date().toISOString().split('T')[0], reference: '', description: 'Écriture de paie mensuelle' })
+                setManualLines([
+                    { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+                    { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+                    { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+                    { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+                ])
+                load(); loadTotaux()
+            } else {
+                const err = await r.json()
+                alert(`Erreur: ${err.detail || 'Inconnue'}`)
+            }
+        } catch (e) {
+            alert("Erreur réseau")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleCancelManual = () => {
+        setShowManualForm(false)
+        setEditingId(null)
+        setManualHeader({ entry_date: new Date().toISOString().split('T')[0], reference: '', description: 'Écriture de paie mensuelle' })
+        setManualLines([
+            { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+            { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+            { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+            { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
+        ])
     }
 
     const MONTHS = ['', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
@@ -248,6 +424,205 @@ export default function JournalComptable() {
                 ))}
             </div>
 
+            {/* Formulaire Saisie Manuelle (Optionnel) */}
+            {activeJournal === 'PAYE' && (
+                <div style={{ marginBottom: '24px' }}>
+                    {!showManualForm ? (
+                        <button onClick={() => setShowManualForm(true)} style={{
+                            display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px',
+                            background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px',
+                            fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px var(--accent-light)'
+                        }}>
+                            <Plus size={18} /> Nouvelle Écriture de Paie
+                        </button>
+                    ) : (
+                        <div style={{ background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: '16px', padding: '24px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '8px', height: '24px', background: 'var(--accent)', borderRadius: '4px' }}></div>
+                                    {editingId ? 'Modification de l\'écriture' : 'Saisie Nouvelle Écriture de Paie'}
+                                </h2>
+                                <button onClick={handleCancelManual} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '16px', marginBottom: '24px' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--text3)', marginBottom: '6px' }}>Date d'écriture</label>
+                                    <input type="date" value={manualHeader.entry_date} onChange={e => setManualHeader({...manualHeader, entry_date: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--text3)', marginBottom: '6px' }}>Référence</label>
+                                    <input type="text" placeholder="ex: PAIE/03-24" value={manualHeader.reference} onChange={e => setManualHeader({...manualHeader, reference: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--text3)', marginBottom: '6px' }}>Libellé de l'écriture</label>
+                                    <input type="text" placeholder="Description globale..." value={manualHeader.description} onChange={e => setManualHeader({...manualHeader, description: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                            </div>
+
+                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg)', textAlign: 'left' }}>
+                                        <th style={{ padding: '12px', fontSize: '12px', color: 'var(--text3)' }}>Compte</th>
+                                        <th style={{ padding: '12px', fontSize: '12px', color: 'var(--text3)' }}>Libellé ligne</th>
+                                        <th style={{ padding: '12px', fontSize: '12px', color: 'var(--text3)' }}>Salarié / Tiers</th>
+                                        <th style={{ padding: '12px', fontSize: '12px', color: 'var(--text3)', textAlign: 'right', width: '130px' }}>Débit</th>
+                                        <th style={{ padding: '12px', fontSize: '12px', color: 'var(--text3)', textAlign: 'right', width: '130px' }}>Crédit</th>
+                                        <th style={{ width: '50px' }}></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {manualLines.map((line, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                            <td style={{ padding: '8px' }}>
+                                                <input type="text" placeholder="6171" value={line.account_code} onChange={e => {
+                                                    const nl = [...manualLines]; nl[idx].account_code = e.target.value; setManualLines(nl)
+                                                }} style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }} />
+                                            </td>
+                                            <td style={{ padding: '8px' }}>
+                                                <input type="text" placeholder="..." value={line.account_label} onChange={e => {
+                                                    const nl = [...manualLines]; nl[idx].account_label = e.target.value; setManualLines(nl)
+                                                }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }} />
+                                            </td>
+                                            <td style={{ padding: '8px' }}>
+                                                <select value={line.tiers_name} onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (val === 'NEW') {
+                                                        setShowQuickAdd(true)
+                                                    } else {
+                                                        const nl = [...manualLines];
+                                                        nl[idx].tiers_name = val;
+                                                        // Si c'est la première ligne, on propage aux autres
+                                                        if (idx === 0) {
+                                                            nl.forEach((l, i) => { if (i > 0) l.tiers_name = val; });
+                                                        }
+                                                        setManualLines(nl)
+                                                    }
+                                                }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}>
+                                                    <option value="">(Aucun)</option>
+                                                    {employees.map(emp => (
+                                                        <option key={emp.id} value={`${emp.nom} ${emp.prenom}`}>{emp.nom} {emp.prenom}</option>
+                                                    ))}
+                                                    <option value="NEW" style={{ color: 'var(--accent)', fontWeight: 'bold' }}>+ Nouveau Salarié...</option>
+                                                </select>
+                                            </td>
+                                            <td style={{ padding: '8px' }}>
+                                                <input type="number" step="0.01" value={line.debit} onChange={e => {
+                                                    const nl = [...manualLines]; nl[idx].debit = e.target.value; setManualLines(nl)
+                                                }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', textAlign: 'right' }} />
+                                            </td>
+                                            <td style={{ padding: '8px' }}>
+                                                <input type="number" step="0.01" value={line.credit} onChange={e => {
+                                                    const nl = [...manualLines]; nl[idx].credit = e.target.value; setManualLines(nl)
+                                                }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', textAlign: 'right' }} />
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <button onClick={() => setManualLines(manualLines.filter((_, i) => i !== idx))} style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }}><Trash size={16} /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <button onClick={() => setManualLines([...manualLines, { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' }])}
+                                    style={{ padding: '8px 16px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                                    + Ajouter une ligne
+                                </button>
+
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '30px', marginBottom: '16px', fontSize: '14px', fontWeight: 600 }}>
+                                        <div>Débit: <span style={{ color: 'var(--text)' }}>{fmt(manualLines.reduce((s, l) => s+parseFloat(l.debit||0), 0))}</span></div>
+                                        <div>Crédit: <span style={{ color: 'var(--text)' }}>{fmt(manualLines.reduce((s, l) => s+parseFloat(l.credit||0), 0))}</span></div>
+                                        <div style={{ color: Math.abs(manualLines.reduce((s,l) => s+parseFloat(l.debit||0),0) - manualLines.reduce((s,l) => s+parseFloat(l.credit||0),0)) < 0.01 ? '#10b981' : '#ef4444' }}>
+                                            Écart: {fmt(Math.abs(manualLines.reduce((s,l) => s+parseFloat(l.debit||0),0) - manualLines.reduce((s,l) => s+parseFloat(l.credit||0),0)))}
+                                        </div>
+                                    </div>
+                                    <button onClick={handleSaveManual} disabled={loading} style={{
+                                        padding: '12px 30px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer'
+                                    }}>
+                                        {loading ? '⏳...' : 'Enregistrer l\'écriture'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Modal Ajout Rapide Employé */}
+            {showQuickAdd && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{ background: 'var(--card)', padding: '30px', borderRadius: '16px', width: '500px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Nouveau Salarié (Complet)</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Prénom *</label>
+                                    <input placeholder="Prénom" value={newEmp.prenom} onChange={e => setNewEmp({...newEmp, prenom: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Nom *</label>
+                                    <input placeholder="Nom" value={newEmp.nom} onChange={e => setNewEmp({...newEmp, nom: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>CIN</label>
+                                    <input placeholder="CIN" value={newEmp.cin} onChange={e => setNewEmp({...newEmp, cin: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Poste</label>
+                                    <input placeholder="Poste" value={newEmp.poste} onChange={e => setNewEmp({...newEmp, poste: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>CNSS (8 chiffres)</label>
+                                    <input placeholder="12345678" value={newEmp.numero_cnss} onChange={e => setNewEmp({...newEmp, numero_cnss: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Salaire Base *</label>
+                                    <input type="number" placeholder="MAD" value={newEmp.salaire_base || ''} onChange={e => setNewEmp({...newEmp, salaire_base: parseFloat(e.target.value) || 0})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Date de naissance</label>
+                                    <input type="date" value={newEmp.date_naissance || ''} onChange={e => setNewEmp({...newEmp, date_naissance: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Date d'embauche *</label>
+                                    <input type="date" value={newEmp.date_embauche || ''} onChange={e => setNewEmp({...newEmp, date_embauche: e.target.value})}
+                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowQuickAdd(false)} className="btn btn-ghost">Annuler</button>
+                            <button onClick={handleQuickAdd} className="btn btn-primary">Enregistrer</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Table journal */}
             <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
                 {loading ? (
@@ -262,42 +637,79 @@ export default function JournalComptable() {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                             <thead>
                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border)' }}>
-                                    {['Journal', 'Date', 'N° Pièce', 'Libellé', 'Débit', 'Crédit', 'État', ''].map(h => (
-                                        <th key={h} style={{ padding: '14px 16px', textAlign: h === 'Débit' || h === 'Crédit' ? 'right' : 'left', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>{h}</th>
-                                    ))}
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>Date / Journal</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>N° Pièce</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>Libellé</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>Débit</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>Crédit</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>État</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'center', width: '80px', color: 'var(--text2)', fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.ecritures.map(e => (
-                                    <>
-                                        <tr key={e.id}
+                                {data.ecritures.map((e) => (
+                                    <Fragment key={e.id}>
+                                        <tr 
                                             onClick={() => setExpanded(expanded === e.id ? null : e.id)}
-                                            style={{
-                                                borderBottom: '1px solid var(--border)', cursor: 'pointer',
-                                                background: expanded === e.id ? 'rgba(99,102,241,0.05)' : 'transparent',
-                                                transition: 'background 0.15s'
-                                            }}>
-                                            <td style={{ padding: '12px 16px' }}>
-                                                <span style={{
-                                                    background: JOURNALS.find(j => j.code === e.journal_code)?.color + '22' || 'rgba(99,102,241,0.15)',
-                                                    color: JOURNALS.find(j => j.code === e.journal_code)?.color || '#818cf8',
-                                                    padding: '3px 10px', borderRadius: '20px', fontWeight: 700, fontSize: '11px'
-                                                }}>{e.journal_code}</span>
+                                            style={{ borderTop: '1px solid var(--border)', transition: 'background 0.2s', cursor: 'pointer', background: expanded === e.id ? 'rgba(99,102,241,0.05)' : 'transparent' }} 
+                                            className="journal-row">
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ fontWeight: 600 }}>{e.entry_date}</div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text3)' }}>{e.journal_code}</div>
                                             </td>
-                                            <td style={{ padding: '12px 16px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{e.entry_date || '—'}</td>
-                                            <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 600 }}>{e.reference || '—'}</td>
-                                            <td style={{ padding: '12px 16px', color: 'var(--text2)', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>{fmt(e.total_debit)}</td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right', color: '#ef4444', fontWeight: 600 }}>{fmt(e.total_credit)}</td>
-                                            <td style={{ padding: '12px 16px' }}>
-                                                <span style={{
-                                                    background: e.is_validated ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
-                                                    color: e.is_validated ? '#10b981' : '#f59e0b',
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ fontWeight: 600, color: 'var(--accent)' }}>{e.reference || '-'}</div>
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ fontWeight: 500 }}>{e.description}</div>
+                                            </td>
+                                            <td style={{ padding: '16px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                                                {fmt(e.total_debit)}
+                                            </td>
+                                            <td style={{ padding: '16px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>
+                                                {fmt(e.total_credit)}
+                                            </td>
+                                            <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                <span style={{ 
                                                     padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
-                                                    display: 'inline-flex', alignItems: 'center', gap: '6px'
-                                                }}>{e.is_validated ? <><CheckCircle2 size={12} /> Validé</> : <><Clock size={12} /> Brouillon</>}</span>
+                                                    background: e.is_validated ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                                    color: e.is_validated ? '#10b981' : '#f59e0b',
+                                                    border: `1px solid ${e.is_validated ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
+                                                }}>
+                                                    {e.is_validated ? 'Validé' : 'Brouillon'}
+                                                </span>
                                             </td>
-                                            <td style={{ padding: '12px 16px', color: 'var(--text2)' }}>{expanded === e.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
+                                            <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }} onClick={ev => ev.stopPropagation()}>
+                                                    <button onClick={() => handleEdit(e)} title="Modifier" style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: '4px' }}>
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(e.id)} title="Supprimer" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                                                        <Trash size={16} />
+                                                    </button>
+                                                    {e.journal_code === 'PAYE' && (
+                                                        <button
+                                                            title="Télécharger bulletin PDF"
+                                                            style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: '4px' }}
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const filename = `Bulletin_Paie_${e.reference?.replace(/\//g, '-') || `Entry_${e.id}`}.pdf`
+                                                                    // Si c'est un bulletin auto-généré (PAIE-X-...), on l'indique,
+                                                                    // mais dans tous les cas on passe par le nouvel endpoint qui lit les lignes.
+                                                                    await apiService.downloadBulletinFromEntry(e.id, filename)
+                                                                } catch {
+                                                                    alert('Erreur lors du téléchargement du PDF')
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Download size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '16px', color: 'var(--text2)', textAlign: 'center' }}>
+                                                {expanded === e.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                            </td>
                                         </tr>
                                         {expanded === e.id && (
                                             <tr key={`${e.id}-detail`}>
@@ -329,7 +741,7 @@ export default function JournalComptable() {
                                                 </td>
                                             </tr>
                                         )}
-                                    </>
+                                    </Fragment>
                                 ))}
                             </tbody>
                         </table>

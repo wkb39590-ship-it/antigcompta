@@ -526,7 +526,7 @@ class Employe(Base):
 
     # Identité
     nom            = Column(String(100), nullable=False)
-    prenom         = Column(String(100), nullable=True)
+    prenom         = Column(String(100), nullable=False)
     cin            = Column(String(20), nullable=True, unique=False)
     date_naissance = Column(Date, nullable=True)
 

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/employes", tags=["employes"])
 # ──────────────────────────────────────────────────────────────────────────
 class EmployeBase(BaseModel):
     nom: str
-    prenom: Optional[str] = None
+    prenom: str
     cin: Optional[str] = None
     date_naissance: Optional[date] = None
     poste: Optional[str] = None

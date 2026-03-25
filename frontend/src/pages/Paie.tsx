@@ -148,13 +148,31 @@ export default function Paie() {
                                                 </span>
                                             </td>
                                             <td>
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    style={{ padding: '8px', borderRadius: '8px' }}
-                                                    onClick={(e) => { e.stopPropagation(); navigate(`/paie/${b.id}`); }}
-                                                >
-                                                    <Eye size={16} />
-                                                </button>
+                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                    <button
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: '6px', borderRadius: '8px' }}
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/paie/${b.id}`); }}
+                                                        title="Voir le bulletin"
+                                                    >
+                                                        <Eye size={16} />
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: '6px', borderRadius: '8px', color: 'var(--accent)' }}
+                                                        title="Télécharger PDF"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation()
+                                                            const MOIS = ['', 'Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
+                                                                'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre']
+                                                            const filename = `Bulletin_Paie_${(b.employe_nom || 'Employe').replace(/\s+/g, '_')}_${MOIS[b.mois]}_${b.annee}.pdf`
+                                                            try { await apiService.downloadBulletinPdf(b.id, filename) }
+                                                            catch { alert('Erreur PDF') }
+                                                        }}
+                                                    >
+                                                        <Download size={16} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

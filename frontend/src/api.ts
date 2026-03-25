@@ -350,6 +350,28 @@ export const apiService = {
         api.post('/paie/', data).then(r => r.data),
     validateBulletin: (id: number) => api.post(`/paie/${id}/validate`).then(r => r.data),
     getBulletinEntries: (id: number) => api.get(`/paie/${id}/entries`).then(r => r.data),
+    downloadBulletinPdf: async (id: number, filename: string) => {
+        const response = await api.get(`/paie/${id}/pdf`, { responseType: 'blob' })
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+    },
+    downloadBulletinFromEntry: async (entryId: number, filename: string) => {
+        const response = await api.get(`/journaux/${entryId}/bulletin-pdf`, { responseType: 'blob' })
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+    },
 
     // ── Employés Routes ────────────────────────────────────────
     listEmployes: (statut?: string) => api.get('/employes/', { params: { statut } }).then(r => r.data),

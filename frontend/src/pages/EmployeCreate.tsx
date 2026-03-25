@@ -14,6 +14,7 @@ export default function EmployeCreate() {
         nom: '',
         cin: '',
         poste: '',
+        date_naissance: '',
         date_embauche: new Date().toISOString().split('T')[0],
         salaire_base: 0,
         nb_enfants: 0,
@@ -31,12 +32,13 @@ export default function EmployeCreate() {
                 nom: employe.nom,
                 cin: employe.cin,
                 poste: employe.poste,
+                date_naissance: employe.date_naissance || undefined,
                 date_embauche: employe.date_embauche,
                 salaire_base: employe.salaire_base,
                 nb_enfants: employe.nb_enfants,
                 anciennete_pct: employe.anciennete_pct,
                 numero_cnss: employe.numero_cnss,
-                statut: 'ACTIF' // Implicit status on creation
+                statut: 'ACTIF' 
             })
             // Redirect back to Paie dashboard after success
             navigate('/paie')
@@ -125,6 +127,15 @@ export default function EmployeCreate() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
+                            <label className="form-label">Date de Naissance</label>
+                            <input
+                                type="date"
+                                className="form-input"
+                                value={employe.date_naissance}
+                                onChange={e => setEmploye({ ...employe, date_naissance: e.target.value })}
+                            />
+                        </div>
+                        <div className="form-group">
                             <label className="form-label">Date d'embauche *</label>
                             <input
                                 type="date"
@@ -134,29 +145,30 @@ export default function EmployeCreate() {
                                 onChange={e => setEmploye({ ...employe, date_embauche: e.target.value })}
                             />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                            <div className="form-group">
-                                <label className="form-label">Numéro de CNSS</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="8 chiffres (ex: 12345678)"
-                                    value={employe.numero_cnss}
-                                    onChange={e => setEmploye({ ...employe, numero_cnss: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Salaire de Base (MAD) *</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    className="form-input"
-                                    required
-                                    value={employe.salaire_base || ''}
-                                    onChange={e => setEmploye({ ...employe, salaire_base: parseFloat(e.target.value) || 0 })}
-                                />
-                            </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div className="form-group">
+                            <label className="form-label">Numéro de CNSS</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="8 chiffres (ex: 12345678)"
+                                value={employe.numero_cnss}
+                                onChange={e => setEmploye({ ...employe, numero_cnss: e.target.value })}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Salaire de Base (MAD) *</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="form-input"
+                                required
+                                value={employe.salaire_base || ''}
+                                onChange={e => setEmploye({ ...employe, salaire_base: parseFloat(e.target.value) || 0 })}
+                            />
                         </div>
                     </div>
 

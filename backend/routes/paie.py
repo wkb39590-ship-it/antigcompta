@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from typing import List
 from decimal import Decimal
@@ -7,6 +7,7 @@ from database import get_db
 from models import Employe, BulletinPaie, JournalEntry
 from schemas import BulletinPaieOut, BulletinPaieCreate
 from services.paie_service import calculer_bulletin, sauvegarder_bulletin, generer_ecriture_paie
+from services.pdf_service import generer_bulletin_pdf
 from routes.deps import get_current_session
 
 router = APIRouter(prefix="/paie", tags=["paie"])
@@ -179,8 +180,9 @@ def valider_bulletin(
     from datetime import datetime
     bulletin.valide_at = datetime.now()
     
-    # Génération écriture
-    generer_ecriture_paie(bulletin, db)
+    # bulletin.statut = "VALIDE"
+    # generer_ecriture_paie(bulletin, db)
+    # NOTE: Saisie manuelle demandée par l'utilisateur dans le Journal Comptable
     
     db.commit()
     db.refresh(bulletin)
@@ -247,3 +249,33 @@ def get_bulletin_entries(
             ]
         }
     }
+
+@router.get("/{bulletin_id}/pdf")
+def telecharger_bulletin_pdf(
+    bulletin_id: int,
+    db: Session = Depends(get_db),
+    context: dict = Depends(get_current_session)
+):
+    """Génère et retourne le bulletin de paie en PDF professionnel."""
+    societe_id = context['societe_id']
+    bulletin = db.query(BulletinPaie).join(Employe).filter(
+        BulletinPaie.id == bulletin_id,
+        Employe.societe_id == societe_id
+    ).first()
+
+    if not bulletin:
+        raise HTTPException(status_code=404, detail="Bulletin introuvable.")
+
+    employe = bulletin.employe
+    societe = employe.societe if employe else None
+
+    pdf_bytes = generer_bulletin_pdf(bulletin, employe, societe)
+
+    nom = f"{getattr(employe, 'prenom', '') or ''} {getattr(employe, 'nom', '') or ''}".strip().replace(" ", "_")
+    filename = f"Bulletin_Paie_{nom}_{bulletin.mois:02d}_{bulletin.annee}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )

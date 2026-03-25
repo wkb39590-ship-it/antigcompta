@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Optional, List
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 """
@@ -398,4 +399,23 @@ class DocumentTransmisOut(BaseModel):
     client: Optional[UtilisateurClientOut] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# MANUEL JOURNAL ENTRY SCHEMAS
+# ──────────────────────────────────────────────────────────────────────────
+
+class ManualEntryLine(BaseModel):
+    account_code: str
+    account_label: str = ""
+    debit: Decimal = Decimal("0")
+    credit: Decimal = Decimal("0")
+    tiers_name: Optional[str] = None
+
+class ManualEntryCreate(BaseModel):
+    journal_code: str
+    entry_date: date
+    reference: str = ""
+    description: str = ""
+    lines: List[ManualEntryLine]
 

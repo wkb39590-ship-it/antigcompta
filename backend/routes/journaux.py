@@ -4,16 +4,19 @@ Consultation et export des écritures par journal (ACH / VTE / OD / BQ)
 """
 import csv
 import io
+import re
+import calendar as cal
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
 from database import get_db
-from models import JournalEntry, EntryLine, Facture
+from models import JournalEntry, EntryLine, Facture, Employe, Societe
+from schemas import ManualEntryCreate
 from routes.deps import get_current_session
 
 router = APIRouter(prefix="/journaux", tags=["journaux"])
@@ -260,3 +263,325 @@ def validate_entry(
         raise HTTPException(400, f"Erreur lors de la validation : {e}")
 
     return {"message": "Écriture validée avec succès", "id": entry.id}
+
+
+@router.post("/manual")
+def create_manual_entry(
+    req: ManualEntryCreate,
+    db: Session = Depends(get_db),
+    context: dict = Depends(get_current_session)
+):
+    """Crée une écriture journal saisie manuellement par l'agent."""
+    societe_id = context['societe_id']
+    
+    # Vérification balance
+    total_debit = sum(l.debit for l in req.lines)
+    total_credit = sum(l.credit for l in req.lines)
+    
+    if abs(total_debit - total_credit) > 0.001:
+         raise HTTPException(status_code=400, detail=f"L'écriture n'est pas équilibrée (Debit: {total_debit}, Credit: {total_credit})")
+
+    entry = JournalEntry(
+        societe_id=societe_id,
+        journal_code=req.journal_code,
+        entry_date=req.entry_date,
+        reference=req.reference,
+        description=req.description,
+        total_debit=total_debit,
+        total_credit=total_credit,
+        is_validated=True
+    )
+    db.add(entry)
+    db.flush()
+    
+    for i, line in enumerate(req.lines):
+        # Ignorer les lignes vides (débit et crédit à 0)
+        if line.debit == 0 and line.credit == 0:
+            continue
+            
+        db.add(EntryLine(
+            ecriture_journal_id=entry.id,
+            line_order=i+1,
+            account_code=line.account_code,
+            account_label=line.account_label,
+            debit=line.debit,
+            credit=line.credit,
+            tiers_name=line.tiers_name
+        ))
+    
+    db.commit()
+    return {"id": entry.id, "message": "Écriture enregistrée avec succès"}
+
+
+@router.delete("/{entry_id}")
+def delete_entry(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session)
+):
+    """Supprime une écriture journal (si non liée à une facture auto)."""
+    societe_id = session.get("societe_id")
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == entry_id,
+        JournalEntry.societe_id == societe_id
+    ).first()
+
+    if not entry:
+        raise HTTPException(404, "Écriture introuvable")
+
+    if entry.facture_id:
+        raise HTTPException(400, "Impossible de supprimer une écriture liée à une facture (générée automatiquement).")
+
+    # Supprimer les lignes d'abord (cascade normalement gérée par le modèle, mais faisons-le explicitement ou flash)
+    db.query(EntryLine).filter(EntryLine.ecriture_journal_id == entry_id).delete()
+    db.delete(entry)
+    db.commit()
+    return {"message": "Écriture supprimée"}
+
+
+@router.put("/{entry_id}")
+def update_manual_entry(
+    entry_id: int,
+    req: ManualEntryCreate,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session)
+):
+    """Met à jour une écriture journal manuelle."""
+    societe_id = session.get("societe_id")
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == entry_id,
+        JournalEntry.societe_id == societe_id
+    ).first()
+
+    if not entry:
+        raise HTTPException(404, "Écriture introuvable")
+
+    if entry.facture_id:
+        raise HTTPException(400, "Impossible de modifier une écriture liée à une facture (générée automatiquement).")
+
+    # Recalcul totaux
+    total_debit = sum(l.debit for l in req.lines)
+    total_credit = sum(l.credit for l in req.lines)
+
+    if abs(total_debit - total_credit) > 0.001:
+         raise HTTPException(status_code=400, detail="L'écriture n'est pas équilibrée.")
+
+    # Mise à jour entête
+    entry.entry_date = req.entry_date
+    entry.reference = req.reference
+    entry.description = req.description
+    entry.total_debit = total_debit
+    entry.total_credit = total_credit
+    entry.journal_code = req.journal_code
+
+    # Remplacement des lignes
+    db.query(EntryLine).filter(EntryLine.ecriture_journal_id == entry_id).delete()
+    
+    for i, line in enumerate(req.lines):
+        if line.debit == 0 and line.credit == 0:
+            continue
+        db.add(EntryLine(
+            ecriture_journal_id=entry.id,
+            line_order=i+1,
+            account_code=line.account_code,
+            account_label=line.account_label,
+            debit=line.debit,
+            credit=line.credit,
+            tiers_name=line.tiers_name
+        ))
+
+    db.commit()
+    return {"id": entry.id, "message": "Écriture mise à jour"}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# GET /journaux/{entry_id}/bulletin-pdf — Bulletin de paie depuis une écriture PAYE
+# ──────────────────────────────────────────────────────────────────────────
+@router.get("/{entry_id}/bulletin-pdf")
+def telecharger_bulletin_depuis_ecriture(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    session: dict = Depends(get_current_session)
+):
+    """
+    Génère un bulletin de paie PDF professionnel directement à partir des lignes
+    d'une écriture du journal de paie (PAYE).
+    Extrait les montants depuis les comptes PCM :
+      6171 → Salaire Brut, 4441 → Net à Payer, 4443 → CNSS, 4444 → IR, 4447 → AMO
+    """
+    societe_id = session.get("societe_id")
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == entry_id,
+        JournalEntry.societe_id == societe_id
+    ).first()
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Écriture introuvable.")
+
+    if entry.journal_code != "PAYE":
+        raise HTTPException(status_code=400, detail="Cette écriture n'est pas une écriture de paie.")
+
+    # ── Extraction des montants depuis les lignes comptables ──────────────
+    lines = sorted(entry.entry_lines, key=lambda x: x.line_order or 0)
+
+    salaire_brut   = 0.0
+    charges_pat    = 0.0
+    net_a_payer    = 0.0
+    cnss_total     = 0.0
+    amo_total      = 0.0
+    ir_retenu      = 0.0
+    nom_salarie    = ""
+
+    rubriques_gains = []
+    for line in lines:
+        code = (line.account_code or "").strip()
+        label = (line.account_label or "").strip().lower()
+        debit  = float(line.debit or 0)
+        credit = float(line.credit or 0)
+
+        # Matching plus souple pour les GAINS
+        is_gain = (code.startswith("6171") or 
+                   any(k in label for k in ["brut", "appointement", "salaire", "prime", "indemnité", "gratification"]))
+        
+        if is_gain and debit > 0:
+            rubriques_gains.append({
+                "nom": (line.account_label or "Salaire").strip(),
+                "montant": debit
+            })
+            salaire_brut += debit
+        elif code.startswith("6174") or "charge" in label or "patronal" in label:
+            charges_pat = max(charges_pat, debit)
+        elif code.startswith("4441") or "rémunération" in label or "due" in label or "net" in label:
+            net_a_payer = max(net_a_payer, credit)
+        elif "cnss" in label and "amo" in label:
+            cnss_total += credit  # Ligne combinée
+        elif code.startswith("4443") or "cnss" in label:
+            cnss_total += credit
+        elif code.startswith("4447") or "amo" in label:
+            amo_total += credit
+        elif code.startswith("4444") or "igr" in label or "ir " in label or "impôt" in label:
+            ir_retenu = max(ir_retenu, credit)
+
+        # Nom du salarié (présent sur la ligne de net à payer ou d'autres)
+        if not nom_salarie and line.tiers_name:
+            nom_salarie = line.tiers_name
+        elif line.tiers_name and ("rémunération" in label or code.startswith("4441")):
+            nom_salarie = line.tiers_name
+
+    # Recalcul des retenues salariales (CNSS + AMO + IR)
+    # L'écriture manuelle ne sépare pas toujours CNSS/AMO
+    total_retenues = round(salaire_brut - net_a_payer, 2)
+    cnss_sal = min(salaire_brut, 6000) * 0.0448
+    amo_sal  = salaire_brut * 0.0226
+    
+    # Si on a un IGR explicite, on l'utilise, sinon on déduit
+    if ir_retenu == 0 and total_retenues > 0:
+        ir_retenu = max(total_retenues - cnss_sal - amo_sal, 0)
+    elif ir_retenu > 0:
+        # Ajustement cnss/amo si la somme dépasse les retenues totales à cause d'arrondis
+        if cnss_sal + amo_sal + ir_retenu > total_retenues + 1:
+            cnss_sal = max(total_retenues - ir_retenu - amo_sal, 0)
+
+    # ── Déduction période depuis la référence ou la date ─────────────────
+    mois = entry.entry_date.month if entry.entry_date else date.today().month
+    annee = entry.entry_date.year if entry.entry_date else date.today().year
+
+    if entry.reference:
+        m = re.search(r'(\d{2})[/-](\d{4})', entry.reference)
+        if m:
+            try:
+                mois = int(m.group(1))
+                annee = int(m.group(2))
+            except:
+                pass
+
+    # ── Récupération infos employé (par nom si possible) ─────────────────
+    employe = None
+    if nom_salarie:
+        n_search = nom_salarie.lower().strip()
+        search_words = set(n_search.split())
+        tous_employes = db.query(Employe).filter(Employe.societe_id == societe_id).all()
+        
+        best_emp = None
+        best_score = 0
+        
+        for emp in tous_employes:
+            nom_emp = (emp.nom or "").lower()
+            prenom_emp = (emp.prenom or "").lower()
+            
+            # Intersection des mots
+            emp_words = set(f"{nom_emp} {prenom_emp}".split())
+            score = len(search_words.intersection(emp_words))
+            
+            # Correspondance exacte (bonus)
+            complet_np = f"{nom_emp} {prenom_emp}".strip()
+            complet_pn = f"{prenom_emp} {nom_emp}".strip()
+            if n_search == complet_np or n_search == complet_pn:
+                score += 100
+                
+            if score > best_score:
+                best_score = score
+                best_emp = emp
+                
+        if best_score > 0:
+            employe = best_emp
+
+    # Société
+    societe = db.query(Societe).filter(Societe.id == societe_id).first()
+
+    # ── Génération PDF via un objet proxy ─────────────────────────────────
+    from services.pdf_service import generer_bulletin_pdf
+
+    class BulletinProxy:
+        """Proxy pour simuler l'objet BulletinPaie attendu par pdf_service."""
+        def __init__(self):
+            self.mois            = mois
+            self.annee           = annee
+            self.rubriques_gains = rubriques_gains
+            self.salaire_base    = salaire_brut
+            self.prime_anciennete= 0.0
+            self.autres_gains    = 0.0
+            self.salaire_brut    = salaire_brut
+            self.cnss_salarie    = round(cnss_sal, 2)
+            self.amo_salarie     = round(amo_sal, 2)
+            self.ir_retenu       = round(max(total_retenues - cnss_sal - amo_sal, 0), 2)
+            self.total_retenues  = total_retenues
+            self.cnss_patronal   = round(salaire_brut * 0.1064, 2)
+            self.amo_patronal    = round(salaire_brut * 0.0394, 2)
+            self.total_patronal  = charges_pat
+            self.salaire_net     = net_a_payer
+
+    class EmployeProxy:
+        """Proxy pour simuler l'objet Employe attendu par pdf_service."""
+        def __init__(self):
+            if employe:
+                self.id              = employe.id
+                self.nom             = employe.nom
+                self.prenom          = employe.prenom or ""
+                self.cin             = employe.cin or ""
+                self.poste           = employe.poste or "Employé"
+                self.date_embauche   = employe.date_embauche
+                self.numero_cnss     = employe.numero_cnss or ""
+            else:
+                parts = nom_salarie.strip().split() if nom_salarie else ["—"]
+                self.id              = entry_id
+                self.nom             = parts[-1] if len(parts) >= 2 else nom_salarie
+                self.prenom          = " ".join(parts[:-1]) if len(parts) >= 2 else ""
+                self.cin             = ""
+                self.poste           = "Employé"
+                self.date_embauche   = None
+                self.numero_cnss     = ""
+
+    bulletin_proxy = BulletinProxy()
+    employe_proxy  = EmployeProxy()
+
+    pdf_bytes = generer_bulletin_pdf(bulletin_proxy, employe_proxy, societe)
+
+    nom_file = nom_salarie.replace(" ", "_") if nom_salarie else f"entry_{entry_id}"
+    filename = f"Bulletin_Paie_{nom_file}_{mois:02d}_{annee}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )

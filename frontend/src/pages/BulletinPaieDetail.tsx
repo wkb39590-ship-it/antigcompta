@@ -10,9 +10,10 @@ import {
     User as UserIcon,
     Calendar,
     ArrowLeft,
-    Download
+    Download,
+    Plus,
+    Loader
 } from 'lucide-react'
-import html2pdf from 'html2pdf.js';
 
 export default function BulletinPaieDetail() {
     const { id } = useParams<{ id: string }>()
@@ -21,6 +22,7 @@ export default function BulletinPaieDetail() {
     const [entries, setEntries] = useState<JournalEntry | null>(null)
     const [loading, setLoading] = useState(true)
     const [loadingEntries, setLoadingEntries] = useState(false)
+    const [downloading, setDownloading] = useState(false)
     const [error, setError] = useState('')
 
     useEffect(() => {
@@ -66,19 +68,19 @@ export default function BulletinPaieDetail() {
         }
     }
 
-    const handlePrint = () => {
-        const element = document.getElementById('bulletin-pdf-template')
-        if (!element || !bulletin) return
-
-        const opt = {
-            margin: 10,
-            filename: `Bulletin_Paie_${(bulletin.employe_nom || 'Employe').replace(/\s+/g, '_')}_${bulletin.mois}_${bulletin.annee}.pdf`,
-            image: { type: 'jpeg' as 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm' as 'mm', format: 'a4' as 'a4', orientation: 'portrait' as 'portrait' }
+    const handleDownloadPdf = async () => {
+        if (!bulletin) return
+        setDownloading(true)
+        try {
+            const MOIS = ['', 'Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
+                'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre']
+            const filename = `Bulletin_Paie_${(bulletin.employe_nom || 'Employe').replace(/\s+/g, '_')}_${MOIS[bulletin.mois]}_${bulletin.annee}.pdf`
+            await apiService.downloadBulletinPdf(bulletin.id, filename)
+        } catch (err) {
+            alert('Erreur lors de la génération du PDF. Veuillez réessayer.')
+        } finally {
+            setDownloading(false)
         }
-
-        html2pdf().from(element).set(opt).save()
     }
 
 
@@ -100,7 +102,15 @@ export default function BulletinPaieDetail() {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="btn btn-ghost" onClick={handlePrint}><Download size={18} /> Télécharger PDF</button>
+                    <button
+                        className="btn btn-ghost"
+                        onClick={handleDownloadPdf}
+                        disabled={downloading}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        {downloading ? <Loader size={18} className="spin" /> : <Download size={18} />}
+                        {downloading ? 'Génération...' : 'Télécharger PDF'}
+                    </button>
                     {bulletin.statut !== 'VALIDE' && (
                         <button className="btn btn-primary" onClick={handleValidate}>
                             <CheckCircle2 size={18} /> Valider le bulletin
@@ -183,7 +193,10 @@ export default function BulletinPaieDetail() {
                                 </div>
                             ) : (
                                 <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)' }}>
-                                    Aucune écriture trouvée pour ce bulletin.
+                                    <p style={{ marginBottom: '16px' }}>Aucune écriture trouvée pour ce bulletin.</p>
+                                    <button className="btn btn-outline" onClick={() => navigate(`/journal?journal=PAYE&showForm=true&ref=PAIE-${bulletin.id}`)} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}>
+                                        <Plus size={16} /> Saisir l'écriture manuellement
+                                     </button>
                                 </div>
                             )}
                         </div>
