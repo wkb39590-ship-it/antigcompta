@@ -271,7 +271,7 @@ def generer_ecriture_paie(bulletin: BulletinPaie, db: Session) -> JournalEntry:
     entry = JournalEntry(
         societe_id  = employe.societe_id if employe else None,
         facture_id  = None,
-        journal_code= "OD",
+        journal_code= "PAYE",
         entry_date  = date(bulletin.annee, bulletin.mois, 28),  # Fin de mois approx.
         reference   = f"PAIE-{bulletin.id}-{mois_label}",
         description = f"Bulletin de paie {mois_label} — {nom_emp}",

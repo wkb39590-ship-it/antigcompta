@@ -14,7 +14,8 @@ import {
     CheckCircle2,
     Download,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    FileText
 } from 'lucide-react'
 
 interface EntryLine {
@@ -69,6 +70,7 @@ const JOURNALS = [
     { code: 'ACH', label: 'Achats', icon: <ShoppingCart size={16} />, color: '#f59e0b' },
     { code: 'VTE', label: 'Ventes', icon: <TrendingUp size={16} />, color: '#10b981' },
     { code: 'IMMO', label: 'Immos', icon: <Scale size={16} />, color: '#ec4899' },
+    { code: 'PAYE', label: 'Paie', icon: <FileText size={16} />, color: '#f43f5e' },
     { code: 'OD', label: 'OD', icon: <FileJson size={16} />, color: '#8b5cf6' },
     { code: 'BQ', label: 'Banque', icon: <Banknote size={16} />, color: '#3b82f6' },
 ]

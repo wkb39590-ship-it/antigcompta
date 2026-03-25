@@ -25,6 +25,7 @@ CODES_JOURNAL = {
     "OD":  "Opérations Diverses",
     "BQ":  "Banque",
     "IMMO": "Journal des Immobilisations",
+    "PAYE": "Journal de Paie",
 }
 
 
