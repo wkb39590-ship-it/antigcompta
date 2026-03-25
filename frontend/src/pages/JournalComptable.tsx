@@ -839,7 +839,7 @@ export default function JournalComptable() {
                         padding: '32px', width: '450px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Nouveau Journal de Banque 🏦</h3>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Nouveau Journal de Banque</h3>
                             <button onClick={() => setShowJournalModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
                                 <X size={20} />
                             </button>

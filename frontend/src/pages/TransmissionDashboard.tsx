@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService, { DocumentTransmis } from '../api'
 import { Inbox, CheckCircle2, XCircle, AlertCircle, FileText, ChevronRight, Clock, Search, Filter } from 'lucide-react'
+import { getCurrentSociete } from '../utils/tokenDecoder'
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
@@ -12,9 +13,10 @@ export default function TransmissionDashboard() {
     const [docs, setDocs] = useState<DocumentTransmis[]>([])
     const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
-
+    const currentSociete = getCurrentSociete()
+    
     // Filters
-    const [filterSociete, setFilterSociete] = useState<number | ''>('')
+    const [filterSociete, setFilterSociete] = useState<number | ''>(currentSociete ? currentSociete.id : '')
     const [filterStatut, setFilterStatut] = useState('A_TRAITER')
     
     // Action loading
@@ -76,7 +78,7 @@ export default function TransmissionDashboard() {
                 <div>
                     <h1 style={{ margin: 0, fontSize: '28px', color: 'var(--text)', fontWeight: 800, letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <Inbox size={32} color="var(--accent)" />
-                        Boîte de Réception Clients
+                        {currentSociete ? `Boîte de Réception - ${currentSociete.raison_sociale}` : 'Boîte de Réception Clients'}
                     </h1>
                     <p style={{ margin: '8px 0 0', color: 'var(--text3)', fontSize: '15px' }}>
                         Gérez les documents envoyés par vos clients depuis leur portail.
@@ -136,17 +138,23 @@ export default function TransmissionDashboard() {
 
             {/* Toolbar */}
             <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center', background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                    <Filter size={18} color="var(--text3)" />
-                    <select value={filterSociete} onChange={e => setFilterSociete(e.target.value === '' ? '' : Number(e.target.value))} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none', background: 'var(--bg)', width: '250px' }}>
-                        <option value="">Toutes les sociétés</option>
-                        {allSocietes.map(s => (
-                            <option key={s.id} value={s.id}>
-                                {s.raison_sociale} {stats.find(st => st.societe_id === s.id)?.A_TRAITER > 0 ? `(${stats.find(st => st.societe_id === s.id).A_TRAITER})` : ''}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {!currentSociete && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                        <Filter size={18} color="var(--text3)" />
+                        <select 
+                            value={filterSociete} 
+                            onChange={e => setFilterSociete(e.target.value === '' ? '' : Number(e.target.value))} 
+                            style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none', background: 'var(--bg)', width: '250px' }}
+                        >
+                            <option value="">Toutes les sociétés</option>
+                            {allSocietes.map(s => (
+                                <option key={s.id} value={s.id}>
+                                    {s.raison_sociale} {stats.find(st => st.societe_id === s.id)?.A_TRAITER > 0 ? `(${stats.find(st => st.societe_id === s.id).A_TRAITER})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 <div style={{ display: 'flex', background: 'var(--bg)', padding: '4px', borderRadius: '8px', gap: '4px' }}>
                     <button onClick={() => setFilterStatut('A_TRAITER')} style={{ padding: '6px 16px', background: filterStatut === 'A_TRAITER' ? 'white' : 'transparent', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', color: filterStatut === 'A_TRAITER' ? 'var(--text)' : 'var(--text3)', boxShadow: filterStatut === 'A_TRAITER' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', cursor: 'pointer' }}>À Traiter</button>
                     <button onClick={() => setFilterStatut('VALIDE')} style={{ padding: '6px 16px', background: filterStatut === 'VALIDE' ? 'white' : 'transparent', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', color: filterStatut === 'VALIDE' ? 'var(--text)' : 'var(--text3)', boxShadow: filterStatut === 'VALIDE' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', cursor: 'pointer' }}>Validés</button>
