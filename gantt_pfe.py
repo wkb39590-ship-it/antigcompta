@@ -11,7 +11,7 @@ import matplotlib.colors as mcolors
 from datetime import date, timedelta
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
-TODAY = date(2026, 3, 12)  # <--- AUJOURD'HUI
+TODAY = date(2026, 3, 25)  # <--- AUJOURD'HUI (25 Mars)
 START = date(2026, 2, 2)
 END   = date(2026, 6, 20)
 
@@ -22,13 +22,13 @@ TASKS = [
     ("Analyse des besoins des utilisateurs",  date(2026,2,10), date(2026,2,20), 100),
     ("Planification du projet",               date(2026,2,20), date(2026,2,25), 100),
     ("Conception de l’architecture du système",date(2026,2,25), date(2026,3,3),  100),
-    ("Conception de la base de données",      date(2026,3,3),  date(2026,3,8),  100), # <--- TERMINÉ
-    ("Conception des interfaces (Admin/User)",date(2026,3,8),  date(2026,3,12), 80),  
-    ("Développement du backend",              date(2026,3,10), date(2026,4,5),  15),  # <--- AUJOURD'HUI (En cours)
-    ("Développement du frontend",             date(2026,4,1),  date(2026,4,25), 0),
-    ("Intégration des modules du système",    date(2026,4,20), date(2026,5,2),  0),
-    ("Développement fonctionnalités compta",  date(2026,4,28), date(2026,5,15), 0),
-    ("Génération rapports & tableaux de bord",date(2026,5,12), date(2026,5,22), 0),
+    ("Conception de la base de données",      date(2026,3,3),  date(2026,3,8),  100),
+    ("Conception des interfaces (Admin/User)",date(2026,3,5),  date(2026,3,12), 100), # <--- FINI
+    ("Développement du backend (FastAPI)",   date(2026,3,10), date(2026,4,15), 85),  # <--- EN PARALLÈLE
+    ("Développement du frontend (React)",    date(2026,3,12), date(2026,4,25), 75),  # <--- EN PARALLÈLE
+    ("Intégration des modules (IA/Inbox)",    date(2026,3,15), date(2026,4,25), 60),
+    ("Développement fonctionnalités compta",  date(2026,3,18), date(2026,5,15), 90),
+    ("Génération rapports & tableaux de bord",date(2026,5,12), date(2026,5,22), 20),
     ("Tests et validation du système",        date(2026,5,20), date(2026,6,5),  0),
     ("Déploiement de l’application",          date(2026,6,10), date(2026,6,15), 0),
 ]
