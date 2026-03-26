@@ -12,7 +12,10 @@ import {
   Trash2,
   MapPin,
   Fingerprint,
-  Building2
+  Building2,
+  KeyRound,
+  UserPlus,
+  Users
 } from 'lucide-react';
 
 interface Societe {
@@ -31,6 +34,15 @@ interface Cabinet {
   nom: string;
 }
 
+interface ClientUser {
+  id: number;
+  username: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  is_active: boolean;
+}
+
 export const AdminSocietes: React.FC = () => {
   const navigate = useNavigate();
   const [societes, setSocietes] = useState<Societe[]>([]);
@@ -39,6 +51,11 @@ export const AdminSocietes: React.FC = () => {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingSociete, setEditingSociete] = useState<Societe | null>(null);
+  const [clientModal, setClientModal] = useState<Societe | null>(null);
+  const [clients, setClients] = useState<ClientUser[]>([]);
+  const [clientLoading, setClientLoading] = useState(false);
+  const [clientForm, setClientForm] = useState({ username: '', email: '', password: '', nom: '', prenom: '' });
+  const [clientError, setClientError] = useState('');
   const [formData, setFormData] = useState({
     raison_sociale: '',
     ice: '',
@@ -177,6 +194,45 @@ export const AdminSocietes: React.FC = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openClientModal = async (societe: Societe) => {
+    setClientModal(societe);
+    setClientError('');
+    setClientForm({ username: '', email: '', password: '', nom: '', prenom: '' });
+    setClientLoading(true);
+    try {
+      const data = await apiService.adminListClientUsers(societe.id);
+      setClients(Array.isArray(data) ? data : []);
+    } catch {
+      setClients([]);
+    } finally {
+      setClientLoading(false);
+    }
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientModal) return;
+    setClientError('');
+    try {
+      await apiService.adminCreateClientUser(clientModal.id, clientForm);
+      setClientForm({ username: '', email: '', password: '', nom: '', prenom: '' });
+      const data = await apiService.adminListClientUsers(clientModal.id);
+      setClients(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setClientError(err.response?.data?.detail || 'Erreur lors de la création');
+    }
+  };
+
+  const handleDeleteClient = async (clientId: number) => {
+    if (!window.confirm('Révoquer cet accès client ?')) return;
+    try {
+      await apiService.adminDeleteClientUser(clientId);
+      setClients(prev => prev.filter(c => c.id !== clientId));
+    } catch (err: any) {
+      setClientError(err.response?.data?.detail || 'Erreur lors de la suppression');
     }
   };
 
@@ -370,6 +426,13 @@ export const AdminSocietes: React.FC = () => {
                             >
                               <LayoutDashboard size={14} /> <span>Ouvrir</span>
                             </button>
+                            <button
+                              className="icon-btn key-btn"
+                              title="Gérer accès client"
+                              onClick={() => openClientModal(societe)}
+                            >
+                              <KeyRound size={16} />
+                            </button>
                             <button className="icon-btn edit" title="Modifier" onClick={() => handleEditClick(societe)}>
                               <Pencil size={16} />
                             </button>
@@ -387,6 +450,67 @@ export const AdminSocietes: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* === Modal Gestion Accès Client === */}
+      {clientModal && (
+        <div className="client-modal-overlay" onClick={() => setClientModal(null)}>
+          <div className="client-modal-box" onClick={e => e.stopPropagation()}>
+            <div className="client-modal-header">
+              <div className="client-modal-title">
+                <KeyRound size={20} />
+                <div>
+                  <h2>Portail Client</h2>
+                  <p>{clientModal.raison_sociale}</p>
+                </div>
+              </div>
+              <button onClick={() => setClientModal(null)} className="icon-btn">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Existing clients */}
+            <div className="client-list-section">
+              <div className="client-list-label"><Users size={14} /> Accès actifs ({clients.length})</div>
+              {clientLoading ? (
+                <div className="client-loading">Chargement...</div>
+              ) : clients.length === 0 ? (
+                <div className="client-empty">Aucun accès client pour cette société.</div>
+              ) : (
+                <div className="client-items">
+                  {clients.map(c => (
+                    <div key={c.id} className="client-item">
+                      <div className="client-avatar">{c.username[0].toUpperCase()}</div>
+                      <div className="client-info">
+                        <span className="client-name">{c.prenom} {c.nom}</span>
+                        <span className="client-username">@{c.username} • {c.email}</span>
+                      </div>
+                      <button className="icon-btn del" title="Révoquer" onClick={() => handleDeleteClient(c.id)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Create new client */}
+            <form className="client-form" onSubmit={handleCreateClient}>
+              <div className="client-form-title"><UserPlus size={16} /> Créer un accès</div>
+              {clientError && <div className="client-form-error">{clientError}</div>}
+              <div className="client-form-grid">
+                <input placeholder="Prénom" value={clientForm.prenom} onChange={e => setClientForm({...clientForm, prenom: e.target.value})} className="client-input"/>
+                <input placeholder="Nom" value={clientForm.nom} onChange={e => setClientForm({...clientForm, nom: e.target.value})} className="client-input"/>
+                <input placeholder="Nom d'utilisateur *" required value={clientForm.username} onChange={e => setClientForm({...clientForm, username: e.target.value})} className="client-input"/>
+                <input placeholder="Email *" type="email" required value={clientForm.email} onChange={e => setClientForm({...clientForm, email: e.target.value})} className="client-input"/>
+                <input placeholder="Mot de passe *" type="password" required value={clientForm.password} onChange={e => setClientForm({...clientForm, password: e.target.value})} className="client-input span2"/>
+              </div>
+              <button type="submit" className="aurora-btn-primary full-w-btn">
+                <UserPlus size={16} /> <span>Créer l'accès</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .aurora-page-v2 { animation: fadeIn 0.8s ease-out; padding-bottom: 80px; }
@@ -487,7 +611,48 @@ export const AdminSocietes: React.FC = () => {
         }
         .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.05); transform: translateY(-2px); }
         .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); }
+        .icon-btn.key-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
 
+        /* === Client Modal === */
+        .client-modal-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+          display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+          animation: fadeIn 0.2s;
+        }
+        .client-modal-box {
+          background: white; border-radius: 20px; padding: 30px; width: 580px; max-width: 95vw;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: slideDown 0.3s;
+        }
+        .client-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .client-modal-title { display: flex; align-items: center; gap: 12px; color: var(--accent); }
+        .client-modal-title h2 { margin: 0; font-size: 18px; font-weight: 800; color: var(--text); }
+        .client-modal-title p { margin: 0; font-size: 12px; color: var(--text3); font-weight: 600; }
+        .client-list-section { margin-bottom: 20px; }
+        .client-list-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .client-loading, .client-empty { font-size: 13px; color: var(--text3); padding: 12px; text-align: center; }
+        .client-items { display: flex; flex-direction: column; gap: 8px; }
+        .client-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .client-avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; }
+        .client-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .client-name { font-size: 13px; font-weight: 700; color: var(--text); }
+        .client-username { font-size: 11px; color: var(--text3); font-weight: 600; }
+        .client-form { border-top: 1px solid #f1f5f9; padding-top: 20px; }
+        .client-form-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 14px; }
+        .client-form-error { background: rgba(239,68,68,0.08); color: #ef4444; font-size: 12px; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-weight: 600; }
+        .client-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .client-input { padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+        .client-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        .client-input.span2 { grid-column: span 2; }
+        .full-w-btn { 
+          width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          color: #ffffff !important;
+          font-weight: 700; font-size: 14px;
+          border: none; border-radius: 12px; cursor: pointer;
+          box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+          transition: all 0.2s;
+        }
+        .full-w-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.5); }
         .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); }
         .empty-icon-box { margin-bottom: 20px; opacity: 0.2; }
 

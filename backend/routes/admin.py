@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List
 
 from database import get_db
-from models import Cabinet, Agent, Societe, CompteurFacturation, agents_societes, Facture, ActionLog
+from models import Cabinet, Agent, Societe, CompteurFacturation, agents_societes, Facture, ActionLog, UtilisateurClient
 from schemas import (
     CabinetCreate, CabinetUpdate, CabinetOut,
     AgentOut, AgentCreate, AgentUpdate, SocieteOut, SocieteCreateUpdate,
@@ -625,3 +625,101 @@ async def get_recent_activities(
         ))
         
     return {"activities": final_activities}
+
+
+# ─────────────────────────────────────────────
+# Gestion des Accès Clients (Portail Entreprise)
+# ─────────────────────────────────────────────
+
+from pydantic import BaseModel as PydanticBaseModel
+
+class ClientUserCreate(PydanticBaseModel):
+    username: str
+    email: str
+    password: str
+    nom: str = ""
+    prenom: str = ""
+
+class ClientUserOut(PydanticBaseModel):
+    id: int
+    societe_id: int
+    username: str
+    email: str
+    nom: str = ""
+    prenom: str = ""
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/societes/{societe_id}/clients", response_model=List[ClientUserOut])
+def list_societe_clients(
+    societe_id: int,
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent)
+):
+    """Liste les utilisateurs client d'une société (réservé aux admins)."""
+    if not agent.is_admin and not agent.is_super_admin:
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    societe = db.query(Societe).filter(Societe.id == societe_id).first()
+    if not societe:
+        raise HTTPException(status_code=404, detail="Société introuvable")
+    if not agent.is_super_admin and societe.cabinet_id != agent.cabinet_id:
+        raise HTTPException(status_code=403, detail="Accès refusé à cette société")
+    return db.query(UtilisateurClient).filter(UtilisateurClient.societe_id == societe_id).all()
+
+
+@router.post("/societes/{societe_id}/clients", response_model=ClientUserOut)
+def create_societe_client(
+    societe_id: int,
+    payload: ClientUserCreate,
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent)
+):
+    """Crée un accès Portail Client pour une société (réservé aux admins)."""
+    if not agent.is_admin and not agent.is_super_admin:
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    societe = db.query(Societe).filter(Societe.id == societe_id).first()
+    if not societe:
+        raise HTTPException(status_code=404, detail="Société introuvable")
+    if not agent.is_super_admin and societe.cabinet_id != agent.cabinet_id:
+        raise HTTPException(status_code=403, detail="Accès refusé à cette société")
+    existing = db.query(UtilisateurClient).filter(
+        (UtilisateurClient.username == payload.username) | (UtilisateurClient.email == payload.email)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username ou email déjà utilisé")
+    client = UtilisateurClient(
+        societe_id=societe_id,
+        username=payload.username,
+        email=payload.email,
+        password_hash=hash_password(payload.password),
+        nom=payload.nom,
+        prenom=payload.prenom,
+        is_active=True
+    )
+    db.add(client)
+    db.commit()
+    db.refresh(client)
+    return client
+
+
+@router.delete("/clients/{client_id}")
+def delete_societe_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    agent: Agent = Depends(get_current_agent)
+):
+    """Supprime un accès client (réservé aux admins)."""
+    if not agent.is_admin and not agent.is_super_admin:
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+    client = db.query(UtilisateurClient).filter(UtilisateurClient.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+    societe = db.query(Societe).filter(Societe.id == client.societe_id).first()
+    if societe and not agent.is_super_admin and societe.cabinet_id != agent.cabinet_id:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+    db.delete(client)
+    db.commit()
+    return {"message": "Accès client supprimé avec succès"}

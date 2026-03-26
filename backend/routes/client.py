@@ -58,34 +58,6 @@ async def client_login(payload: AgentLogin, db: Session = Depends(get_db)):
         "societe_nom": societe.raison_sociale if societe else ""
     }
 
-@router.post("/register", response_model=UtilisateurClientOut)
-async def register_client(societe_id: int, payload: UtilisateurClientCreate, db: Session = Depends(get_db)):
-    # Note: In a real app, only the cabinet agent should create client accounts, or with an invite token.
-    # For testing, we allow direct creation if societe_id exists.
-    societe = db.query(Societe).filter(Societe.id == societe_id).first()
-    if not societe:
-        raise HTTPException(status_code=404, detail="Société introuvable")
-        
-    existing = db.query(UtilisateurClient).filter(
-        (UtilisateurClient.username == payload.username) | (UtilisateurClient.email == payload.email)
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Username ou email déjà utilisé")
-        
-    new_client = UtilisateurClient(
-        societe_id=societe_id,
-        username=payload.username,
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        nom=payload.nom,
-        prenom=payload.prenom
-    )
-    
-    db.add(new_client)
-    db.commit()
-    db.refresh(new_client)
-    return new_client
-
 @router.get("/me", response_model=UtilisateurClientOut)
 async def get_client_profile(client: UtilisateurClient = Depends(get_current_client)):
     return client

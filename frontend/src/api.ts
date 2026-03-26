@@ -25,8 +25,12 @@ api.interceptors.request.use((config) => {
         const client = typeof window !== 'undefined' ? localStorage.getItem('client_token') : null
         const session = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
         const access = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-        const tokenToUse = client || session || access
-        const tokenType = client ? 'CLIENT' : (session ? 'SESSION' : (access ? 'ACCESS' : 'NONE'))
+
+        // Client token is only used for client-portal specific endpoints
+        const url = config.url || ''
+        const isClientRoute = url.startsWith('/client') || url === '/transmission/upload' || url.startsWith('/transmission/client')
+        const tokenToUse = (isClientRoute && client) ? client : (session || access)
+        const tokenType = (isClientRoute && client) ? 'CLIENT' : (session ? 'SESSION' : (access ? 'ACCESS' : 'NONE'))
 
         console.log(`[Axios Interceptor] Request to: ${config.url} | Token: ${tokenType}`)
 
@@ -340,6 +344,14 @@ export const apiService = {
         api.post(`/admin/cabinets/${cabinetId}/agents/assign-societe?agent_id=${agentId}&societe_id=${societeId}`).then(r => r.data),
     adminGetLogs: (offset: number = 0, limit: number = 50) =>
         api.get('/admin/logs', { params: { offset, limit } }).then(r => r.data),
+
+    // ── Client Access Management ─────────────────────────────
+    adminListClientUsers: (societeId: number) =>
+        api.get(`/admin/societes/${societeId}/clients`).then(r => r.data),
+    adminCreateClientUser: (societeId: number, data: { username: string; email: string; password: string; nom?: string; prenom?: string }) =>
+        api.post(`/admin/societes/${societeId}/clients`, data).then(r => r.data),
+    adminDeleteClientUser: (clientId: number) =>
+        api.delete(`/admin/clients/${clientId}`).then(r => r.data),
 
     // ── Paie Routes ──────────────────────────────────────────
     listBulletins: () => api.get('/paie/').then(r => r.data),
