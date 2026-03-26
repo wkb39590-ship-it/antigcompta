@@ -7,6 +7,7 @@ from database import SessionLocal, engine, Base
 from models import Cabinet, Agent, Societe, CompteurFacturation
 from routes.auth import hash_password
 from datetime import datetime
+import os
 
 def seed_data():
     """Crée les données de test pour multi-cabinet"""
@@ -43,13 +44,20 @@ def seed_data():
         print("👤 Création des agents...")
         
         # Agents du cabinet 1
-        agent1 = db.query(Agent).filter(Agent.username == "wissal").first()
+        username = os.environ.get("SUPER_ADMIN_USERNAME")
+        password = os.environ.get("SUPER_ADMIN_PASSWORD")
+        
+        if not username or not password:
+            print(" ERREUR : Les variables SUPER_ADMIN_USERNAME et SUPER_ADMIN_PASSWORD doivent être définies dans le fichier .env")
+            return
+        
+        agent1 = db.query(Agent).filter(Agent.username == username).first()
         if not agent1:
             agent1 = Agent(
                 cabinet_id=cabinet1.id,
-                username="wissal",
-                email="wissal@expertise-cpt.ma",
-                password_hash=hash_password("password123"),
+                username=username,
+                email=f"{username}@expertise-cpt.ma",
+                password_hash=hash_password(password),
                 nom="Bennani",
                 prenom="Wissal",
                 is_admin=False,
@@ -60,7 +68,8 @@ def seed_data():
             # Forcer la mise à jour pour les tests
             agent1.is_admin = False
             agent1.is_super_admin = True
-            print("   → Mise à jour des rôles pour wissal (Super Admin uniquement)")
+            agent1.password_hash = hash_password(password)
+            print(f"   → Mise à jour des rôles et MDP pour {username} (Super Admin)")
 
         
         agent2 = db.query(Agent).filter(Agent.username == "fatima").first()
