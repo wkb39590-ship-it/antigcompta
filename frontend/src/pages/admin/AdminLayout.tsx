@@ -39,6 +39,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
     { label: 'Agents', path: '/admin/agents', id: 'agents', icon: <Users size={20} /> },
     { label: 'Liaisons', path: '/admin/associations', id: 'associations', icon: <LinkIcon size={20} />, adminOnly: true },
     { label: 'Historique', path: '/admin/history', id: 'history', icon: <History size={20} /> },
+    { label: 'Performance IA', path: '/admin/ai-performance', id: 'ai-performance', icon: <Zap size={20} /> },
     { label: 'Mon Profil', path: '/admin/profile', id: 'profile', icon: <User size={20} /> },
   ].filter(item => {
     if (item.superOnly && !adminUser?.is_super_admin) return false;

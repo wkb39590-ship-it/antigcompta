@@ -9,6 +9,24 @@ const API_BASE = '/api'
 
 console.log('[API] Initializing with base URL:', API_BASE)
 
+export interface AIPerformanceEntry {
+  id: number;
+  reference?: string;
+}
+
+export interface AIHistoryPoint {
+  date: string;
+  count: number;
+}
+
+export interface AIPerformanceResponse {
+  accuracy: number;
+  avg_time: number;
+  volume: number;
+  correction_rate: number;
+  history: AIHistoryPoint[];
+}
+
 const api = axios.create({
     baseURL: API_BASE,
     timeout: 60000,
@@ -457,6 +475,9 @@ export const apiService = {
     getJournalsConfig: () => api.get('/journaux/config').then(r => r.data),
     createJournalConfig: (data: { code: string; label: string; type: string }) =>
         api.post('/journaux/config', data).then(r => r.data),
+
+    adminGetAIPerformance: (): Promise<AIPerformanceResponse> =>
+        api.get('/admin/ai-performance').then(r => r.data),
 }
 
 export default apiService

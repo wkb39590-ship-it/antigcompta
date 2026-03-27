@@ -435,3 +435,19 @@ class ManualEntryCreate(BaseModel):
     description: str = ""
     lines: List[ManualEntryLine]
 
+
+# ──────────────────────────────────────────────────────────────────────────
+# AI PERFORMANCE SCHEMAS
+# ──────────────────────────────────────────────────────────────────────────
+
+class AIHistoryPoint(BaseModel):
+    date: str
+    count: int
+
+class AIPerformanceResponse(BaseModel):
+    accuracy: float
+    avg_time: float
+    volume: int
+    correction_rate: float
+    history: List[AIHistoryPoint]
+
