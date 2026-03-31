@@ -71,6 +71,40 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     }
     journal_code = journal_map.get(invoice_type, "OD")
 
+    # Déterminer le nom du tiers (doit être l'autre partie, pas la société elle-même)
+    company_name = ""
+    if facture.societe:
+        company_name = (facture.societe.raison_sociale or "").lower().strip()
+    
+    sn = (facture.supplier_name or facture.fournisseur or "").lower().strip()
+    cn = (facture.client_name or "").lower().strip()
+    
+    # Par défaut, on prend le fournisseur
+    actual_tiers_name = facture.supplier_name or facture.fournisseur or "Fournisseur"
+    actual_tiers_ice = facture.supplier_ice or facture.ice_frs
+    
+    # Si c'est une vente, on prend normalement le client
+    if is_vente or is_avoir_vente:
+        actual_tiers_name = facture.client_name or "Client"
+        actual_tiers_ice = facture.client_ice
+        
+    # LOGIQUE INTELLIGENTE : Si le nom choisi semble être la société elle-même, on prend l'autre
+    if company_name:
+        current_choice = (actual_tiers_name or "").lower().strip()
+        # Si notre choix actuel contient le nom de la société (ex: "comptoir arrahma" dans "ste comptoir arrahma")
+        if company_name in current_choice or current_choice in company_name:
+            # On bascule sur l'autre nom disponible
+            if is_vente or is_avoir_vente:
+                # Dans une vente, si le 'client' c'est nous, alors le vrai tiers est dans 'supplier_name'
+                if sn and not (company_name in sn or sn in company_name):
+                    actual_tiers_name = facture.supplier_name or facture.fournisseur
+                    actual_tiers_ice = facture.supplier_ice or facture.ice_frs
+            else:
+                # Dans un achat, si le 'fournisseur' c'est nous, alors le vrai tiers est dans 'client_name'
+                if cn and not (company_name in cn or cn in company_name):
+                    actual_tiers_name = facture.client_name
+                    actual_tiers_ice = facture.client_ice
+
     # Créer l'en-tête de l'écriture
     entry = JournalEntry(
         facture_id=facture.id,
@@ -78,7 +112,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         journal_code=journal_code,
         entry_date=facture.date_facture,
         reference=facture.numero_facture,
-        description=f"Facture {facture.numero_facture or ''} — {facture.supplier_name or facture.fournisseur or ''}",
+        description=f"Facture {facture.numero_facture or ''} — {actual_tiers_name or ''}",
         is_validated=False,
     )
     db.add(entry)
@@ -89,15 +123,9 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     total_credit = Decimal("0")
     line_order = 1
 
-    # Tiers (fournisseur ou client)
-    tiers_name = facture.supplier_name or facture.fournisseur or "Fournisseur"
-    tiers_ice = facture.supplier_ice or facture.ice_frs
-
     if is_vente:
         # ── VENTE STANDARD ───────────────────────────────────────
         ttc_total = _d(facture.montant_ttc)
-        client_name = facture.client_name or "Client"
-        client_ice = facture.client_ice
 
         el = EntryLine(
             ecriture_journal_id=entry.id,
@@ -106,8 +134,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
             account_label="Clients",
             debit=ttc_total,
             credit=Decimal("0"),
-            tiers_name=client_name,
-            tiers_ice=client_ice,
+            tiers_name=actual_tiers_name,
+            tiers_ice=actual_tiers_ice,
         )
         db.add(el)
         entry_lines.append(el)
@@ -125,21 +153,19 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
 
             el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
                               account_label=account_label, debit=Decimal("0"), credit=ht,
-                              tiers_name=client_name, tiers_ice=client_ice)
+                              tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
             db.add(el_ht); entry_lines.append(el_ht); total_credit += ht; line_order += 1
 
             if tva > 0:
                 el_tva = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4455",
                                    account_label="TVA facturée", debit=Decimal("0"), credit=tva,
-                                   tiers_name=client_name, tiers_ice=client_ice)
+                                   tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
                 db.add(el_tva); entry_lines.append(el_tva); total_credit += tva; line_order += 1
 
     elif is_avoir_vente:
         # ── AVOIR CLIENT (VENTE) ─────────────────────────────────
         # Inverse de la vente : Débit 7xxx, Débit 4455, Crédit 3421
         ttc_total = _d(facture.montant_ttc)
-        client_name = facture.client_name or "Client"
-        client_ice = facture.client_ice
 
         for line in facture.lines:
             account_code = line.corrected_account_code or line.pcm_account_code or "7111"
@@ -152,20 +178,20 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
             # Débit HT (Annulation vente)
             el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
                               account_label=account_label, debit=ht, credit=Decimal("0"),
-                              tiers_name=client_name, tiers_ice=client_ice)
+                              tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
             db.add(el_ht); entry_lines.append(el_ht); total_debit += ht; line_order += 1
 
             # Débit TVA (Annulation TVA collectée)
             if tva > 0:
                 el_tva = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4455",
                                    account_label="TVA facturée (Avoir)", debit=tva, credit=Decimal("0"),
-                                   tiers_name=client_name, tiers_ice=client_ice)
+                                   tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
                 db.add(el_tva); entry_lines.append(el_tva); total_debit += tva; line_order += 1
 
         # Crédit 3421 (Client)
         el_client = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="3421",
                               account_label="Clients (Avoir)", debit=Decimal("0"), credit=ttc_total,
-                              tiers_name=client_name, tiers_ice=client_ice)
+                              tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
         db.add(el_client); entry_lines.append(el_client); total_credit += ttc_total; line_order += 1
 
     elif is_avoir_achat:
@@ -174,7 +200,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         ttc_total = _d(facture.montant_ttc)
         el = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4411",
                        account_label="Fournisseurs (Avoir)", debit=ttc_total, credit=Decimal("0"),
-                       tiers_name=tiers_name, tiers_ice=tiers_ice)
+                       tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
         db.add(el); entry_lines.append(el); total_debit += ttc_total; line_order += 1
 
         for line in facture.lines:
@@ -188,13 +214,13 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
 
             el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
                               account_label=account_label, debit=Decimal("0"), credit=ht,
-                              tiers_name=tiers_name, tiers_ice=tiers_ice)
+                              tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
             db.add(el_ht); entry_lines.append(el_ht); total_credit += ht; line_order += 1
 
             if tva > 0:
                 el_tva = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=tva_account,
                                    account_label="TVA récupérable (Avoir)", debit=Decimal("0"), credit=tva,
-                                   tiers_name=tiers_name, tiers_ice=tiers_ice)
+                                   tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
                 db.add(el_tva); entry_lines.append(el_tva); total_credit += tva; line_order += 1
 
     else:
@@ -228,8 +254,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 account_label=account_label,
                 debit=ht,
                 credit=Decimal("0"),
-                tiers_name=tiers_name,
-                tiers_ice=tiers_ice,
+                tiers_name=actual_tiers_name,
+                tiers_ice=actual_tiers_ice,
             )
             db.add(el_ht)
             entry_lines.append(el_ht)
@@ -244,8 +270,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                     account_label="TVA récupérable",
                     debit=tva,
                     credit=Decimal("0"),
-                    tiers_name=tiers_name,
-                    tiers_ice=tiers_ice,
+                    tiers_name=actual_tiers_name,
+                    tiers_ice=actual_tiers_ice,
                 )
                 db.add(el_tva)
                 entry_lines.append(el_tva)
@@ -261,8 +287,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
             account_label="Fournisseurs",
             debit=Decimal("0"),
             credit=ttc_total,
-            tiers_name=tiers_name,
-            tiers_ice=tiers_ice,
+            tiers_name=actual_tiers_name,
+            tiers_ice=actual_tiers_ice,
         )
         db.add(el)
         entry_lines.append(el)

@@ -5,7 +5,7 @@ import os
 import uuid
 import hashlib
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Any, Dict, List, Optional
 import re
 
@@ -189,12 +189,21 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
     
     # 1. Définir la plage de dates
     try:
-        base_date = datetime.strptime(ligne.date_operation, "%Y-%m-%d")
-    except:
-        base_date = datetime.now()
+        if isinstance(ligne.date_operation, date):
+            base_date = ligne.date_operation
+        elif isinstance(ligne.date_operation, str):
+            base_date = datetime.strptime(ligne.date_operation, "%Y-%m-%d").date()
+        else:
+            base_date = datetime.now().date()
+    except Exception:
+        base_date = datetime.now().date()
     
-    date_min = (base_date - timedelta(days=15)).strftime("%Y-%m-%d")
-    date_max = (base_date + timedelta(days=15)).strftime("%Y-%m-%d")
+    try:
+        date_min = (base_date - timedelta(days=15)).strftime("%Y-%m-%d")
+        date_max = (base_date + timedelta(days=15)).strftime("%Y-%m-%d")
+    except Exception:
+        date_min = "1900-01-01"
+        date_max = "2100-01-01"
 
     # 2. Requête filtrée par montant et date
     query = db.query(EntryLine).join(JournalEntry).filter(
@@ -211,36 +220,40 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
     # 3. Calculer un score de pertinence basé sur le texte
     def calculate_score(s: EntryLine, bank_desc: str) -> float:
         score = 0.0
-        s_desc = (s.journal_entry.description or "").upper()
-        s_ref = (s.journal_entry.reference or "").upper()
-        bank_desc = bank_desc.upper()
-        
-        # Reels matches (mots clés ou numéros complexes)
-        bank_words = set(re.findall(r'\w+', bank_desc))
-        s_words = set(re.findall(r'\w+', s_desc + " " + s_ref))
-        
-        overlap = bank_words.intersection(s_words)
-        # On ignore les mots trop courts (< 3 car) sauf si c'est des chiffres
-        meaningful_overlap = [w for w in overlap if len(w) > 2 or w.isdigit()]
-        score += len(meaningful_overlap) * 10
-        
-        # Bonus si exact string match partiel
-        if s_ref and s_ref in bank_desc: score += 50
-        if s_desc and (s_desc in bank_desc or bank_desc in s_desc): score += 30
-        
+        try:
+            s_desc = (s.journal_entry.description or "").upper()
+            s_ref = (s.journal_entry.reference or "").upper()
+            safe_bank_desc = (bank_desc or "").upper()
+            
+            # Reels matches (mots clés ou numéros complexes)
+            bank_words = set(re.findall(r'\w+', safe_bank_desc))
+            s_words = set(re.findall(r'\w+', s_desc + " " + s_ref))
+            
+            overlap = bank_words.intersection(s_words)
+            # On ignore les mots trop courts (< 3 car) sauf si c'est des chiffres
+            meaningful_overlap = [w for w in overlap if len(w) > 2 or w.isdigit()]
+            score += len(meaningful_overlap) * 10
+            
+            # Bonus si exact string match partiel
+            if s_ref and s_ref in safe_bank_desc: score += 50
+            if s_desc and (s_desc in safe_bank_desc or safe_bank_desc in s_desc): score += 30
+        except Exception as e:
+            print(f"Error in calculate_score: {e}")
         return score
 
     # Transformer et trier
     results = []
     for s in suggestions:
         score = calculate_score(s, ligne.description)
+        # Ensure we always have a string date for safe sorting
+        entry_date_str = s.journal_entry.entry_date.strftime("%Y-%m-%d") if isinstance(s.journal_entry.entry_date, date) else str(s.journal_entry.entry_date or "1900-01-01")
         results.append({
             "id": s.id,
             "account_code": s.account_code,
             "account_label": s.account_label,
-            "debit": s.debit,
-            "credit": s.credit,
-            "date": s.journal_entry.entry_date,
+            "debit": float(s.debit) if s.debit else 0.0,
+            "credit": float(s.credit) if s.credit else 0.0,
+            "date": entry_date_str,
             "description": s.journal_entry.description,
             "reference": s.journal_entry.reference,
             "score": score
@@ -342,24 +355,41 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
 @router.delete("/{releve_id}")
 def delete_releve(releve_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """
-    Supprime un relevé, ses lignes (via cascade) et le fichier physique.
+    Supprime un relevé, ses lignes (via cascade), son fichier physique,
+    ainsi que TOUTES les écritures comptables (JournalEntry) générées automatiquement par ce relevé.
     """
     releve = db.query(ReleveBancaire).filter(ReleveBancaire.id == releve_id).first()
     if not releve or releve.societe_id != session.get("societe_id"):
         raise HTTPException(404, "Relevé introuvable")
 
-    # 1. Supprimer le fichier physique s'il existe
+    # 1. Trouver les écritures comptables générées spécifiquement par ce relevé 
+    # (reconnaissables car générées avec la description "Rapprochement : ...")
+    journal_entry_ids_to_delete = set()
+    for ligne in releve.lignes:
+        if ligne.is_rapproche and ligne.entry_line_id:
+            entry_line = db.query(EntryLine).filter(EntryLine.id == ligne.entry_line_id).first()
+            if entry_line and entry_line.journal_entry:
+                desc = entry_line.journal_entry.description or ""
+                if desc.startswith("Rapprochement :"):
+                    journal_entry_ids_to_delete.add(entry_line.journal_entry.id)
+
+    # 2. Supprimer le fichier physique s'il existe
     if releve.file_path and os.path.exists(releve.file_path):
         try:
             os.remove(releve.file_path)
         except Exception as e:
             print(f"Erreur lors de la suppression du fichier {releve.file_path}: {e}")
 
-    # 2. Supprimer de la base (la cascade supprimera les LigneReleve automatiquement)
+    # 3. Supprimer le relevé (la cascade supprimera les LigneReleve automatiquement)
     db.delete(releve)
+    
+    # 4. Supprimer les écritures comptables (la cascade supprimera les EntryLine)
+    if journal_entry_ids_to_delete:
+        db.query(JournalEntry).filter(JournalEntry.id.in_(journal_entry_ids_to_delete)).delete(synchronize_session=False)
+
     db.commit()
 
-    return {"status": "success", "message": "Relevé supprimé avec succès"}
+    return {"status": "success", "message": "Relevé et ses écritures supprimés avec succès"}
 
 @router.get("/suggest-account/{ligne_id}")
 def suggest_account(ligne_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
@@ -419,12 +449,32 @@ def generer_ecriture(payload: Dict[str, Any], db: Session = Depends(get_db), ses
     if not ligne:
         raise HTTPException(404, "Ligne de relevé introuvable")
 
+    # Fetch Releve metadata for description
+    releve = db.query(ReleveBancaire).filter(ReleveBancaire.id == ligne.releve_id).first()
+    periode = ""
+    if releve:
+        try:
+            if isinstance(ligne.date_operation, datetime):
+                d = ligne.date_operation
+            elif isinstance(ligne.date_operation, str):
+                d = datetime.strptime(ligne.date_operation, "%Y-%m-%d")
+            elif isinstance(ligne.date_operation, date):
+                d = ligne.date_operation
+            else:
+                d = datetime.today()
+            periode = f"{d.month:02d}/{d.year}"
+        except:
+            pass
+    
+    desc_suffix = f" - RELEVÉ N°{releve.id if releve else ''} {periode}".strip()
+    full_desc = f"Rapprochement : {ligne.description} {desc_suffix}".strip()
+
     # 1. Créer l'en-tête
     journal_entry = JournalEntry(
         journal_code='BQ',
         societe_id=societe_id,
         entry_date=ligne.date_operation,
-        description=f"Rapprochement : {ligne.description}",
+        description=full_desc,
         reference=ligne.reference,
         total_debit=ligne.debit + ligne.credit,
         total_credit=ligne.debit + ligne.credit,

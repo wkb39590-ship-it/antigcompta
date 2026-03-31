@@ -21,7 +21,8 @@ import {
     Plus,
     Trash,
     Edit,
-    X
+    X,
+    Search
 } from 'lucide-react'
 
 interface EntryLine {
@@ -93,6 +94,8 @@ export default function JournalComptable() {
     const [annee, setAnnee] = useState(new Date().getFullYear())
     const [mois, setMois] = useState(new Date().getMonth() + 1)
     const [filterMode, setFilterMode] = useState<'tout' | 'annee' | 'mois'>('tout')
+    const [search, setSearch] = useState('')
+    const [accountCode, setAccountCode] = useState('')
 
     // Modal nouveau journal
     const [showJournalModal, setShowJournalModal] = useState(false)
@@ -224,7 +227,8 @@ export default function JournalComptable() {
             params.append('date_debut', `${annee}-${mm}-01`)
             params.append('date_fin', `${annee}-${mm}-${lastDay}`)
         }
-        // filterMode === 'tout' => pas de filtre date => toutes les écritures
+        if (search) params.append('search', search)
+        if (accountCode) params.append('account_code', accountCode)
         params.append('valide_seulement', 'false')
         return params
     }
@@ -265,7 +269,7 @@ export default function JournalComptable() {
         fetchJournals()
     }, [])
 
-    useEffect(() => { load(); loadTotaux() }, [activeJournal, annee, mois, filterMode])
+    useEffect(() => { load(); loadTotaux() }, [activeJournal, annee, mois, filterMode, search, accountCode])
 
     const handleCreateJournal = async () => {
         if (!newJournal.code || !newJournal.label) return
@@ -404,6 +408,44 @@ export default function JournalComptable() {
                         )}
                     </div>
                 )}
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text3)' }} />
+                        <input 
+                            type="text" 
+                            placeholder="Tiers, réf, libellé..." 
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            style={{
+                                background: 'rgba(99,102,241,0.08)', border: '1px solid var(--border)',
+                                borderRadius: '8px', padding: '7px 12px 7px 32px', color: 'var(--text)', fontSize: '13px', width: '200px'
+                            }} 
+                        />
+                    </div>
+                    <input 
+                        type="text" 
+                        placeholder="N° Compte (ex: 3421)" 
+                        value={accountCode}
+                        onChange={e => setAccountCode(e.target.value)}
+                        style={{
+                            background: 'rgba(99,102,241,0.08)', border: '1px solid var(--border)',
+                            borderRadius: '8px', padding: '7px 12px', color: 'var(--text)', fontSize: '13px', width: '150px'
+                        }} 
+                    />
+                    {(search || accountCode) && (
+                        <button onClick={() => { setSearch(''); setAccountCode('') }} style={{
+                            background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                        }}>
+                            <X size={14} /> Effacer
+                        </button>
+                    )}
+                </div>
+                <datalist id="employees-datalist">
+                    {employees.map(emp => (
+                        <option key={emp.id} value={`${emp.nom} ${emp.prenom}`} />
+                    ))}
+                </datalist>
             </div>
 
             {/* Cartes totaux par journal */}
@@ -480,23 +522,22 @@ export default function JournalComptable() {
                 </button>
             </div>
 
-            {/* Formulaire Saisie Manuelle (Optionnel) */}
-            {activeJournal === 'PAYE' && (
-                <div style={{ marginBottom: '24px' }}>
-                    {!showManualForm ? (
-                        <button onClick={() => setShowManualForm(true)} style={{
-                            display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px',
-                            background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px',
-                            fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px var(--accent-light)'
-                        }}>
-                            <Plus size={18} /> Nouvelle Écriture de Paie
-                        </button>
-                    ) : (
+            {/* Formulaire Saisie Manuelle */}
+            <div style={{ marginBottom: '24px' }}>
+                {!showManualForm ? (
+                    <button onClick={() => setShowManualForm(true)} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px',
+                        background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px',
+                        fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px var(--accent-light)'
+                    }}>
+                        <Plus size={18} /> Nouvelle Écriture {activeJournal && `(${activeJournal})`}
+                    </button>
+                ) : (
                         <div style={{ background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: '16px', padding: '24px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                 <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <div style={{ width: '8px', height: '24px', background: 'var(--accent)', borderRadius: '4px' }}></div>
-                                    {editingId ? 'Modification de l\'écriture' : 'Saisie Nouvelle Écriture de Paie'}
+                                    {editingId ? 'Modification de l\'écriture' : `Saisie Nouvelle Écriture ${activeJournal ? `(${activeJournal})` : ''}`}
                                 </h2>
                                 <button onClick={handleCancelManual} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
                                     <X size={20} />
@@ -546,26 +587,33 @@ export default function JournalComptable() {
                                                 }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }} />
                                             </td>
                                             <td style={{ padding: '8px' }}>
-                                                <select value={line.tiers_name} onChange={e => {
-                                                    const val = e.target.value;
-                                                    if (val === 'NEW') {
-                                                        setShowQuickAdd(true)
-                                                    } else {
-                                                        const nl = [...manualLines];
-                                                        nl[idx].tiers_name = val;
-                                                        // Si c'est la première ligne, on propage aux autres
-                                                        if (idx === 0) {
-                                                            nl.forEach((l, i) => { if (i > 0) l.tiers_name = val; });
-                                                        }
-                                                        setManualLines(nl)
-                                                    }
-                                                }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}>
-                                                    <option value="">(Aucun)</option>
-                                                    {employees.map(emp => (
-                                                        <option key={emp.id} value={`${emp.nom} ${emp.prenom}`}>{emp.nom} {emp.prenom}</option>
-                                                    ))}
-                                                    <option value="NEW" style={{ color: 'var(--accent)', fontWeight: 'bold' }}>+ Nouveau Salarié...</option>
-                                                </select>
+                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                    <input 
+                                                        type="text" 
+                                                        list="employees-datalist"
+                                                        placeholder={activeJournal === 'PAYE' ? "Nom du salarié..." : "Nom du Tiers..."}
+                                                        value={line.tiers_name} 
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            const nl = [...manualLines];
+                                                            nl[idx].tiers_name = val;
+                                                            if (idx === 0 && activeJournal === 'PAYE') {
+                                                                nl.forEach((l, i) => { if (i > 0) l.tiers_name = val; });
+                                                            }
+                                                            setManualLines(nl);
+                                                        }} 
+                                                        style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} 
+                                                    />
+                                                    {activeJournal === 'PAYE' && (
+                                                        <button 
+                                                            onClick={() => setShowQuickAdd(true)}
+                                                            title="Ajouter un nouveau salarié"
+                                                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--accent)', cursor: 'pointer', display: 'flex' }}
+                                                        >
+                                                            <Plus size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td style={{ padding: '8px' }}>
                                                 <input type="number" step="0.01" value={line.debit} onChange={e => {
@@ -609,7 +657,6 @@ export default function JournalComptable() {
                         </div>
                     )}
                 </div>
-            )}
 
             {/* Modal Ajout Rapide Employé */}
             {showQuickAdd && (

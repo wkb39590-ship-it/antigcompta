@@ -188,7 +188,7 @@ export default function AvoirDetailView() {
                         cursor: 'pointer', fontSize: '15px', fontWeight: 600,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s'
                     }}>
-                        <FileText size={20} /> Voir la facture source
+                        <FileText size={20} /> Voir le document
                     </button>
                 </div>
 

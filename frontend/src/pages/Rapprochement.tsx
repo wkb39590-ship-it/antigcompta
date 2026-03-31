@@ -298,7 +298,7 @@ function RapprochementInner() {
                         </span>
                     </h1>
                     <div style={{ color: 'var(--text3)', fontSize: '13px' }}>
-                        Période du <strong style={{ color: 'var(--text)' }}>{selectedReleve.date_debut}</strong> au <strong style={{ color: 'var(--text)' }}>{selectedReleve.date_fin}</strong>
+                        RELEVÉ N°<strong style={{ color: 'var(--text)' }}>{selectedReleve.id}</strong> • Période du <strong style={{ color: 'var(--text)' }}>{selectedReleve.date_debut}</strong> au <strong style={{ color: 'var(--text)' }}>{selectedReleve.date_fin}</strong>
                     </div>
                 </div>
 
@@ -553,26 +553,70 @@ function RapprochementInner() {
                                                 : "Si vous ne voulez pas lier à la facture ci-dessus, créez une nouvelle écriture."}
                                         </p>
 
-                                        <button
-                                            className="btn btn-primary"
-                                            style={{
-                                                width: '100%',
-                                                justifyContent: 'center',
-                                                padding: '12px',
-                                                background: suggestions.length > 0 ? 'var(--bg3)' : 'var(--accent)',
-                                                color: suggestions.length > 0 ? 'var(--text2)' : '#fff',
-                                                border: 'none',
-                                                fontWeight: 600
-                                            }}
-                                            onClick={handleGenerate}
-                                            disabled={processing}
-                                        >
-                                            {processing ? (
-                                                <><div className="spinner" style={{ width: '14px', height: '14px' }} /> Analyse...</>
-                                            ) : (
-                                                <>{suggestions.length === 0 ? 'CHOISIR UNE CATÉGORIE (PCM)' : 'CRÉER UNE NOUVELLE IMPUTATION'}</>
-                                            )}
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                            <button
+                                                className="btn btn-primary"
+                                                style={{
+                                                    flex: 1,
+                                                    justifyContent: 'center',
+                                                    padding: '12px',
+                                                    background: suggestions.length > 0 ? 'var(--bg3)' : 'var(--accent)',
+                                                    color: suggestions.length > 0 ? 'var(--text2)' : '#fff',
+                                                    border: 'none',
+                                                    fontWeight: 600
+                                                }}
+                                                onClick={handleGenerate}
+                                                disabled={processing}
+                                            >
+                                                {processing ? (
+                                                    <><div className="spinner" style={{ width: '14px', height: '14px' }} /> Analyse...</>
+                                                ) : (
+                                                    <>{suggestions.length === 0 ? 'CATEGORIE MANUELLE...' : 'NOUVELLE IMPUTATION'}</>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {Number(selectedLigne.debit) > 0 && (
+                                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '12px', border: '1px dashed var(--border)', borderRadius: '6px', background: '#fff' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text3)', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+                                                    RACCOURCIS :
+                                                </div>
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        background: 'rgba(239, 68, 68, 0.05)',
+                                                        color: 'var(--error)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                    }}
+                                                    onClick={() => onAccountSelected('61470000')}
+                                                    disabled={processing}
+                                                    title="Imputer au compte 61470000"
+                                                >
+                                                    COMMISSION
+                                                </button>
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        background: 'rgba(245, 158, 11, 0.05)',
+                                                        color: '#d97706',
+                                                        border: '1px solid rgba(245, 158, 11, 0.2)',
+                                                    }}
+                                                    onClick={() => onAccountSelected('34552000')}
+                                                    disabled={processing}
+                                                    title="Imputer au compte 34552000"
+                                                >
+                                                    TVA
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* SECTION 3: RECHERCHE MANUELLE (Affiche si suggestions vides) */}

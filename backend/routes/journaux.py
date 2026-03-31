@@ -12,7 +12,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 
 from database import get_db
 from models import JournalEntry, EntryLine, Facture, Employe, Societe, JournalComptable
@@ -99,7 +99,8 @@ def _entry_to_dict(entry: JournalEntry, journals_map: dict) -> dict:
 
 def _build_query(db: Session, societe_id: int, journal_code: Optional[str],
                  date_debut: Optional[date], date_fin: Optional[date],
-                 valide_seulement: bool):
+                 valide_seulement: bool, search: Optional[str] = None,
+                 account_code: Optional[str] = None):
     """Construit la requête de récupération des écritures."""
     # On filtre par société directement sur l'écriture
     q = db.query(JournalEntry).filter(JournalEntry.societe_id == societe_id)
@@ -110,13 +111,26 @@ def _build_query(db: Session, societe_id: int, journal_code: Optional[str],
     if journal_code:
         q = q.filter(JournalEntry.journal_code == journal_code.upper())
 
-    if date_debut:
-        q = q.filter(JournalEntry.entry_date >= date_debut)
+    if search:
+        # On splitte par mots pour permettre une recherche flexible (AND sur chaque mot)
+        search_terms = [t.strip() for t in search.split() if t.strip()]
+        for term in search_terms:
+            t_filter = f"%{term}%"
+            q = q.filter(
+                or_(
+                    JournalEntry.description.ilike(t_filter),
+                    JournalEntry.reference.ilike(t_filter),
+                    JournalEntry.entry_lines.any(EntryLine.tiers_name.ilike(t_filter)),
+                    JournalEntry.entry_lines.any(EntryLine.account_label.ilike(t_filter))
+                )
+            )
 
-    if date_fin:
-        q = q.filter(JournalEntry.entry_date <= date_fin)
+    if account_code:
+        q = q.filter(
+            JournalEntry.entry_lines.any(EntryLine.account_code.startswith(account_code))
+        )
 
-    return q.order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc())
+    return q.order_by(JournalEntry.entry_date.desc(), JournalEntry.id.desc())
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -128,6 +142,8 @@ def list_journal(
     date_debut: Optional[date] = Query(None, description="Date de début (YYYY-MM-DD)"),
     date_fin: Optional[date] = Query(None, description="Date de fin (YYYY-MM-DD)"),
     valide_seulement: bool = Query(True, description="N'afficher que les écritures validées"),
+    search: Optional[str] = Query(None, description="Recherche par tiers, libellé ou réf"),
+    account_code: Optional[str] = Query(None, description="Filtrer par compte (ex: 3421)"),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -137,7 +153,7 @@ def list_journal(
     Liste les écritures du journal comptable.
     Filtrable par code journal, période, et statut de validation.
     """
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
 
     # Charger les journaux dynamiques de cette société
     journaux = db.query(JournalComptable).filter(JournalComptable.societe_id == societe_id).all()
@@ -148,7 +164,7 @@ def list_journal(
         if journal_code.upper() not in ["ACH", "VTE", "OD", "BQ", "PAYE"]:
             raise HTTPException(400, f"Code journal {journal_code} inconnu.")
 
-    q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement)
+    q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement, search, account_code)
 
     total = q.count()
     entries = q.offset((page - 1) * per_page).limit(per_page).all()
@@ -180,11 +196,13 @@ def get_totaux_par_journal(
     annee: Optional[int] = Query(None, description="Année comptable"),
     mois: Optional[int] = Query(None, ge=1, le=12, description="Mois (1-12)"),
     valide_seulement: bool = Query(True, description="Inclure uniquement les écritures validées"),
+    search: Optional[str] = Query(None),
+    account_code: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
 ):
     """Retourne les totaux débit/crédit par journal pour une période."""
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
 
     date_debut = None
     date_fin = None
@@ -202,7 +220,7 @@ def get_totaux_par_journal(
     journaux = db.query(JournalComptable).filter(JournalComptable.societe_id == societe_id).all()
 
     for jnl in journaux:
-        q = _build_query(db, societe_id, jnl.code, date_debut, date_fin, valide_seulement=valide_seulement)
+        q = _build_query(db, societe_id, jnl.code, date_debut, date_fin, valide_seulement, search=search, account_code=account_code)
         entries = q.all()
         debit = sum(float(e.total_debit or 0) for e in entries)
         credit = sum(float(e.total_credit or 0) for e in entries)
@@ -230,13 +248,15 @@ def export_journal_csv(
     date_debut: Optional[date] = Query(None),
     date_fin: Optional[date] = Query(None),
     valide_seulement: bool = Query(True),
+    search: Optional[str] = Query(None),
+    account_code: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
 ):
     """Exporte le journal comptable au format CSV."""
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
 
-    q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement=valide_seulement)
+    q = _build_query(db, societe_id, journal_code, date_debut, date_fin, valide_seulement=valide_seulement, search=search, account_code=account_code)
     entries = q.all()
 
     output = io.StringIO()
@@ -284,7 +304,7 @@ def validate_entry(
     session: dict = Depends(get_current_session),
 ):
     """Valide manuellement une écriture journalière."""
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
     entry = db.query(JournalEntry).filter(
         JournalEntry.id == entry_id,
         JournalEntry.societe_id == societe_id
@@ -316,7 +336,7 @@ def create_manual_entry(
     context: dict = Depends(get_current_session)
 ):
     """Crée une écriture journal saisie manuellement par l'agent."""
-    societe_id = context['societe_id']
+    societe_id = int(context.get("societe_id", 0))
     
     # Vérification balance
     total_debit = sum(l.debit for l in req.lines)
@@ -364,7 +384,7 @@ def delete_entry(
     session: dict = Depends(get_current_session)
 ):
     """Supprime une écriture journal (si non liée à une facture auto)."""
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
     entry = db.query(JournalEntry).filter(
         JournalEntry.id == entry_id,
         JournalEntry.societe_id == societe_id
@@ -391,7 +411,7 @@ def update_manual_entry(
     session: dict = Depends(get_current_session)
 ):
     """Met à jour une écriture journal manuelle."""
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
     entry = db.query(JournalEntry).filter(
         JournalEntry.id == entry_id,
         JournalEntry.societe_id == societe_id
@@ -453,7 +473,7 @@ def telecharger_bulletin_depuis_ecriture(
     Extrait les montants depuis les comptes PCM :
       6171 → Salaire Brut, 4441 → Net à Payer, 4443 → CNSS, 4444 → IR, 4447 → AMO
     """
-    societe_id = session.get("societe_id")
+    societe_id = int(session.get("societe_id", 0))
     entry = db.query(JournalEntry).filter(
         JournalEntry.id == entry_id,
         JournalEntry.societe_id == societe_id
