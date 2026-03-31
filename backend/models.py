@@ -712,3 +712,28 @@ class LigneReleve(Base):
     # Relations
     releve = relationship("ReleveBancaire", back_populates="lignes")
     entry_line = relationship("EntryLine")
+
+
+# ─────────────────────────────────────────────
+# DEMANDE D'ACCÈS (LEAD GEN)
+# ─────────────────────────────────────────────
+class DemandeAcces(Base):
+    """
+    Stocke les demandes d'accès envoyées par des clients potentiels 
+    depuis la page de login du portail client.
+    """
+    __tablename__ = "demandes_acces"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cabinet_id = Column(Integer, ForeignKey("cabinets.id"), nullable=True)
+    nom_complet = Column(String(255), nullable=False)
+    entreprise = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    telephone = Column(String(50), nullable=True)
+    message = Column(Text, nullable=True)
+    
+    # statut: en_attente, traitee, rejetee
+    statut = Column(String(50), default="en_attente", nullable=False)
+    
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

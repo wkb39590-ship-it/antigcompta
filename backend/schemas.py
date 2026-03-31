@@ -451,3 +451,29 @@ class AIPerformanceResponse(BaseModel):
     correction_rate: float
     history: List[AIHistoryPoint]
 
+
+# ──────────────────────────────────────────────────────────────────────────
+# DEMANDE D'ACCÈS SCHEMAS
+# ──────────────────────────────────────────────────────────────────────────
+
+class DemandeAccesCreate(BaseModel):
+    nom_complet: str
+    entreprise: str
+    email: str
+    telephone: Optional[str] = None
+    message: Optional[str] = None
+    cabinet_id: Optional[int] = None
+
+class DemandeAccesOut(BaseModel):
+    id: int
+    nom_complet: str
+    entreprise: str
+    email: str
+    telephone: Optional[str] = None
+    message: Optional[str] = None
+    statut: str
+    cabinet_id: Optional[int] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

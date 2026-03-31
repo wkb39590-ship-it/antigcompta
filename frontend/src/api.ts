@@ -478,6 +478,13 @@ export const apiService = {
 
     adminGetAIPerformance: (): Promise<AIPerformanceResponse> =>
         api.get('/admin/ai-performance').then(r => r.data),
+
+    createDemandeAcces: (data: { nom_complet: string; entreprise: string; email: string; telephone?: string; message?: string; cabinet_id?: number | null }) =>
+        api.post('/demandes-acces/', data).then(r => r.data),
+
+    listDemandesAcces: () => api.get('/demandes-acces/').then(r => r.data),
+    updateStatutDemande: (id: number, statut: string) =>
+        api.patch(`/demandes-acces/${id}/statut?statut=${statut}`).then(r => r.data),
 }
 
 export default apiService

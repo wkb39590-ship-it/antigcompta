@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 from typing import List
 
 from database import get_db
-from models import Cabinet, Agent, Societe, CompteurFacturation, agents_societes, Facture, ActionLog, UtilisateurClient, DocumentTransmis
+from models import Cabinet, Agent, Societe, CompteurFacturation, agents_societes, Facture, ActionLog, UtilisateurClient, DocumentTransmis, DemandeAcces
 from schemas import (
     CabinetCreate, CabinetUpdate, CabinetOut,
     AgentOut, AgentCreate, AgentUpdate, SocieteOut, SocieteCreateUpdate,
@@ -663,6 +663,21 @@ async def get_recent_activities(
             "title": f"Nouveau {role} **{a.username}** créé",
             "time": a.created_at or datetime.now(),
             "dot_color": "orange"
+        })
+
+    # 5. Nouvelles Demandes d'accès
+    query_demandes = db.query(DemandeAcces)
+    if not is_system_admin(agent):
+        query_demandes = query_demandes.filter(DemandeAcces.cabinet_id == agent.cabinet_id)
+    
+    recent_demandes = query_demandes.order_by(DemandeAcces.created_at.desc()).limit(5).all()
+    for d in recent_demandes:
+        activities.append({
+            "id": f"dem_{d.id}",
+            "type": "DEMANDE",
+            "title": f"Demande d'accès reçue de **{d.nom_complet}** ({d.entreprise})",
+            "time": d.created_at,
+            "dot_color": "green"
         })
 
     # Conversion des objets time en strings pour le frontend et tri

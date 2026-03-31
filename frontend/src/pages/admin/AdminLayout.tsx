@@ -10,7 +10,8 @@ import {
   History,
   User,
   LogOut,
-  Zap
+  Zap,
+  Inbox
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -40,6 +41,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
     { label: 'Liaisons', path: '/admin/associations', id: 'associations', icon: <LinkIcon size={20} />, adminOnly: true },
     { label: 'Historique', path: '/admin/history', id: 'history', icon: <History size={20} /> },
     { label: 'Performance IA', path: '/admin/ai-performance', id: 'ai-performance', icon: <Zap size={20} /> },
+    { label: 'Demandes d\'accès', path: '/admin/demandes', id: 'demandes', icon: <Inbox size={20} /> },
     { label: 'Mon Profil', path: '/admin/profile', id: 'profile', icon: <User size={20} /> },
   ].filter(item => {
     if (item.superOnly && !adminUser?.is_super_admin) return false;

@@ -55,6 +55,7 @@ import { AdminAssociations } from './pages/admin/AdminAssociations'
 import { AdminProfile } from './pages/admin/AdminProfile'
 import { AdminHistory } from './pages/admin/AdminHistory'
 import { AIPerformance } from './pages/admin/AIPerformance'
+import { AdminDemandes } from './pages/admin/AdminDemandes'
 
 // ──────────────────────────────────────────────────────────────────────────
 // COMPOSANTS DE PROTECTION (Security Guards)
@@ -375,6 +376,16 @@ export default function App() {
                     <AdminProtectedRoute>
                         <AdminLayout currentPage="ai-performance">
                             <AIPerformance />
+                        </AdminLayout>
+                    </AdminProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/demandes"
+                element={
+                    <AdminProtectedRoute>
+                        <AdminLayout currentPage="demandes">
+                            <AdminDemandes />
                         </AdminLayout>
                     </AdminProtectedRoute>
                 }

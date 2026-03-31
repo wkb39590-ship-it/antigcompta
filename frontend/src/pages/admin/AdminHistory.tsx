@@ -10,7 +10,8 @@ import {
     Clock,
     User,
     FileText,
-    AlertCircle
+    AlertCircle,
+    Zap
 } from 'lucide-react';
 
 interface AdminLog {
@@ -126,7 +127,7 @@ export const AdminHistory: React.FC = () => {
                                                     </td>
                                                     <td>
                                                         <div className="module-tag-v2">
-                                                            <FileText size={12} />
+                                                            {log.entity_type === 'DEMANDE_ACCES' ? <Zap size={12} /> : <FileText size={12} />}
                                                             {log.entity_type}
                                                         </div>
                                                     </td>

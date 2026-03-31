@@ -1,18 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react'
 import apiService, { DocumentTransmis, UtilisateurClient } from '../api'
-import { UploadCloud, CheckCircle2, Clock, AlertCircle, LogOut, Lock, User, Send, File, Trash2, Home, Activity, Building, X, FileText, History } from 'lucide-react'
+import { UploadCloud, CheckCircle2, Clock, AlertCircle, LogOut, Lock, User, Send, File, Trash2, Home, Activity, Building, X, FileText, History, AlertTriangle, ArrowRight, Phone, Mail, MapPin } from 'lucide-react'
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 export default function ClientPortal() {
     const [token, setToken] = useState<string | null>(localStorage.getItem('client_token'))
     const [societeNom, setSocieteNom] = useState<string>(localStorage.getItem('client_societe_nom') || '')
-
-    // Login state
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
-    const [loginError, setLoginError] = useState('')
     const [loading, setLoading] = useState(false)
+    const [loginError, setLoginError] = useState<string | null>(null)
+    const [showContactModal, setShowContactModal] = useState(false)
+
+    // Access Request Form State
+    const [requestForm, setRequestForm] = useState({
+        nom_complet: '',
+        entreprise: '',
+        email: '',
+        telephone: '',
+        message: ''
+    })
+    const [requestSubmitting, setRequestSubmitting] = useState(false)
+    const [requestSuccess, setRequestSuccess] = useState(false)
 
     // Portal state
     const [docs, setDocs] = useState<DocumentTransmis[]>([])
@@ -51,6 +61,28 @@ export default function ClientPortal() {
             setLoginError('Identifiants invalides ou compte inactif.')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleRequestAccess = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setRequestSubmitting(true)
+        try {
+            // Détection automatique du cabinet via l'URL (?cabinet=ID)
+            const queryParams = new URLSearchParams(window.location.search)
+            const cabinetIdParam = queryParams.get('cabinet')
+            const cabinetId = cabinetIdParam ? parseInt(cabinetIdParam) : null
+
+            await apiService.createDemandeAcces({
+                ...requestForm,
+                cabinet_id: cabinetId
+            })
+            setRequestSuccess(true)
+        } catch (err: any) {
+            console.error(err)
+            alert("Erreur lors de l'envoi de la demande.")
+        } finally {
+            setRequestSubmitting(false)
         }
     }
 
@@ -110,40 +142,362 @@ export default function ClientPortal() {
 
     if (!token) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', background: 'linear-gradient(135deg, #1e1e2e 0%, #11111b 100%)', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', padding: '40px', borderRadius: '24px', width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
-                    <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                        <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                            <Building size={32} color="white" />
+            <div style={{ minHeight: '100vh', display: 'flex', background: '#ffffff', fontFamily: "'Inter', sans-serif" }}>
+                {/* Left: Premium Sidebar Content */}
+                <div style={{ 
+                    flex: '1.2', 
+                    background: 'linear-gradient(rgba(30, 27, 75, 0.85), rgba(30, 27, 75, 0.85)), url("/src/assets/client-login-side.png")', 
+                    backgroundSize: 'cover', 
+                    backgroundPosition: 'center', 
+                    padding: '80px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'space-between',
+                    color: 'white'
+                }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '60px' }}>
+                            <div style={{ width: '48px', height: '48px', background: 'white', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4338ca' }}>
+                                <Building size={24} />
+                            </div>
+                            <span style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px' }}>Comptafacile</span>
                         </div>
-                        <h1 style={{ margin: 0, fontSize: '24px', color: 'white', fontWeight: 700 }}>Espace Entreprise</h1>
-                        <p style={{ margin: '8px 0 0', color: '#a1a1aa', fontSize: '14px' }}>Connectez-vous pour transmettre vos factures</p>
+                        
+                        <div style={{ maxWidth: '420px' }}>
+                            <h1 style={{ fontSize: '48px', fontWeight: 800, lineHeight: '1.1', marginBottom: '32px', letterSpacing: '-1.5px' }}>
+                                Simplifiez la gestion de vos factures.
+                            </h1>
+                            <p style={{ fontSize: '18px', color: 'rgba(255, 255, 255, 0.7)', lineHeight: '1.6', marginBottom: '48px' }}>
+                                Transmettez vos documents en un clic et suivez l'état de votre comptabilité en temps réel avec notre portail sécurisé.
+                            </p>
+                        </div>
                     </div>
-
-                    {loginError && <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '20px', textAlign: 'center', border: '1px solid rgba(239,68,68,0.2)' }}>{loginError}</div>}
-
-                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                            <label style={{ display: 'block', color: '#a1a1aa', fontSize: '12px', marginBottom: '6px' }}>Nom d'utilisateur</label>
-                            <div style={{ position: 'relative' }}>
-                                <User size={18} color="#a1a1aa" style={{ position: 'absolute', top: '12px', left: '14px' }} />
-                                <input value={username} onChange={e => setUsername(e.target.value)} required placeholder="Entrez votre identifiant"
-                                    style={{ width: '100%', padding: '12px 14px 12px 42px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
-                            </div>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', color: '#a1a1aa', fontSize: '12px', marginBottom: '6px' }}>Mot de passe</label>
-                            <div style={{ position: 'relative' }}>
-                                <Lock size={18} color="#a1a1aa" style={{ position: 'absolute', top: '12px', left: '14px' }} />
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
-                                    style={{ width: '100%', padding: '12px 14px 12px 42px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
-                            </div>
-                        </div>
-                        <button type="submit" disabled={loading} style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: 'white', padding: '14px', borderRadius: '12px', border: 'none', fontWeight: 600, fontSize: '15px', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center', transition: 'all 0.2s', opacity: loading ? 0.7 : 1 }}>
-                            {loading ? 'Connexion...' : <><Send size={18} /> Se Connecter</>}
-                        </button>
-                    </form>
+                    
+                    <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                        © 2026 Comptafacile — Plateforme de services comptables numériques.
+                    </div>
                 </div>
+
+                {/* Right: Login Form Column */}
+                <div style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px', background: '#ffffff' }}>
+                    <div style={{ width: '100%', maxWidth: '380px' }}>
+                        <div style={{ marginBottom: '48px' }}>
+                            <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginBottom: '12px' }}>Bienvenue</h2>
+                            <p style={{ color: '#64748b', fontSize: '15px' }}>Connectez-vous à votre espace entreprise</p>
+                        </div>
+
+                        {loginError && (
+                            <div style={{ 
+                                background: '#fef2f2', 
+                                border: '1px solid #fee2e2',
+                                color: '#b91c1c', 
+                                padding: '14px 16px', 
+                                borderRadius: '12px', 
+                                fontSize: '14px', 
+                                marginBottom: '24px', 
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                fontWeight: 500
+                            }}>
+                                <AlertTriangle size={18} />
+                                <span>{loginError}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{ color: '#334155', fontSize: '13px', fontWeight: 600, marginLeft: '4px' }}>Nom d'utilisateur</label>
+                                <div style={{ position: 'relative' }}>
+                                    <User size={18} color="#94a3b8" style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)' }} />
+                                    <input 
+                                        value={username} 
+                                        onChange={e => setUsername(e.target.value)} 
+                                        required 
+                                        placeholder="Identifiant"
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '16px 16px 16px 48px', 
+                                            background: '#f8fafc', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '14px', 
+                                            color: '#0f172a', 
+                                            outline: 'none', 
+                                            boxSizing: 'border-box',
+                                            fontSize: '15px',
+                                            transition: 'all 0.2s'
+                                        }} 
+                                        onFocus={e => { e.currentTarget.style.borderColor = '#4338ca'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(67, 56, 202, 0.1)'; }}
+                                        onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label style={{ color: '#334155', fontSize: '13px', fontWeight: 600, marginLeft: '4px' }}>Mot de passe</label>
+                                    <a href="#" style={{ fontSize: '13px', color: '#4338ca', fontWeight: 600, textDecoration: 'none' }}>Oublié ?</a>
+                                </div>
+                                <div style={{ position: 'relative' }}>
+                                    <Lock size={18} color="#94a3b8" style={{ position: 'absolute', top: '50%', left: '16px', transform: 'translateY(-50%)' }} />
+                                    <input 
+                                        type="password" 
+                                        value={password} 
+                                        onChange={e => setPassword(e.target.value)} 
+                                        required 
+                                        placeholder="••••••••"
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '16px 16px 16px 48px', 
+                                            background: '#f8fafc', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '14px', 
+                                            color: '#0f172a', 
+                                            outline: 'none', 
+                                            boxSizing: 'border-box',
+                                            fontSize: '15px',
+                                            transition: 'all 0.2s'
+                                        }} 
+                                        onFocus={e => { e.currentTarget.style.borderColor = '#4338ca'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(67, 56, 202, 0.1)'; }}
+                                        onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                type="submit" 
+                                disabled={loading} 
+                                style={{ 
+                                    background: '#4338ca', 
+                                    color: 'white', 
+                                    padding: '18px', 
+                                    borderRadius: '14px', 
+                                    border: 'none', 
+                                    fontWeight: 700, 
+                                    fontSize: '16px', 
+                                    cursor: loading ? 'not-allowed' : 'pointer', 
+                                    marginTop: '8px', 
+                                    display: 'flex', 
+                                    justifyContent: 'center', 
+                                    gap: '12px', 
+                                    alignItems: 'center', 
+                                    transition: 'all 0.3s', 
+                                    opacity: loading ? 0.7 : 1,
+                                    boxShadow: '0 4px 12px rgba(67, 56, 202, 0.25)'
+                                }}
+                                onMouseOver={e => { if(!loading) e.currentTarget.style.background = '#3730a3'; }}
+                                onMouseOut={e => { if(!loading) e.currentTarget.style.background = '#4338ca'; }}
+                            >
+                                {loading ? (
+                                    <div className="spinner-pro-v2"></div>
+                                ) : (
+                                    <>Se connecter <ArrowRight size={18} /></>
+                                )}
+                            </button>
+                        </form>
+                        
+                        <div style={{ marginTop: '60px', textAlign: 'center' }}>
+                            <p style={{ fontSize: '14px', color: '#64748b' }}>
+                                Vous n'avez pas de compte ? <br />
+                                <button 
+                                    onClick={() => setShowContactModal(true)} 
+                                    style={{ 
+                                        background: 'none', 
+                                        border: 'none', 
+                                        color: '#4338ca', 
+                                        fontWeight: 600, 
+                                        cursor: 'pointer', 
+                                        padding: 0, 
+                                        textDecoration: 'underline',
+                                        fontFamily: 'inherit'
+                                    }}
+                                >
+                                    Contactez votre cabinet comptable
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Access Request Form Modal */}
+                {showContactModal && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                        <div style={{ 
+                            background: 'white', 
+                            padding: '40px', 
+                            borderRadius: '32px', 
+                            width: '100%', 
+                            maxWidth: '500px', 
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+                            position: 'relative',
+                            animation: 'modalFadeIn 0.3s ease-out',
+                            maxHeight: '90vh',
+                            overflowY: 'auto'
+                        }}>
+                            {!requestSuccess ? (
+                                <>
+                                    <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                                        <div style={{ 
+                                            width: '56px', 
+                                            height: '56px', 
+                                            background: '#f1f5f9', 
+                                            borderRadius: '16px', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center', 
+                                            margin: '0 auto 16px',
+                                            color: '#4338ca'
+                                        }}>
+                                            <Building size={28} />
+                                        </div>
+                                        <h3 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>Demande d'accès</h3>
+                                        <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.5' }}>
+                                            Remplissez ce formulaire pour que votre cabinet comptable puisse créer votre compte.
+                                        </p>
+                                    </div>
+
+                                    <form onSubmit={handleRequestAccess} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>Nom et Prénom *</label>
+                                                <input 
+                                                    required
+                                                    type="text" 
+                                                    value={requestForm.nom_complet}
+                                                    onChange={e => setRequestForm({...requestForm, nom_complet: e.target.value})}
+                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
+                                                    placeholder="Votre nom et prénom"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>Entreprise *</label>
+                                                <input 
+                                                    required
+                                                    type="text" 
+                                                    value={requestForm.entreprise}
+                                                    onChange={e => setRequestForm({...requestForm, entreprise: e.target.value})}
+                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
+                                                    placeholder="Ma Société SARL"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>Email *</label>
+                                            <input 
+                                                required
+                                                type="email" 
+                                                value={requestForm.email}
+                                                onChange={e => setRequestForm({...requestForm, email: e.target.value})}
+                                                style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
+                                                placeholder="votre-email@entreprise.ma"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>Téléphone</label>
+                                            <input 
+                                                type="tel" 
+                                                value={requestForm.telephone}
+                                                onChange={e => setRequestForm({...requestForm, telephone: e.target.value})}
+                                                style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
+                                                placeholder="+212 6XX XX XX XX"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }}>Message (Optionnel)</label>
+                                            <textarea 
+                                                rows={2}
+                                                value={requestForm.message}
+                                                onChange={e => setRequestForm({...requestForm, message: e.target.value})}
+                                                style={{ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', resize: 'none' }}
+                                                placeholder="Informations complémentaires..."
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowContactModal(false)}
+                                                style={{ flex: 1, padding: '14px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+                                            >
+                                                Annuler
+                                            </button>
+                                            <button 
+                                                type="submit"
+                                                disabled={requestSubmitting}
+                                                style={{ 
+                                                    flex: 2, 
+                                                    padding: '14px', 
+                                                    borderRadius: '12px', 
+                                                    background: '#4338ca', 
+                                                    color: 'white', 
+                                                    border: 'none', 
+                                                    fontWeight: 700, 
+                                                    cursor: requestSubmitting ? 'not-allowed' : 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px'
+                                                }}
+                                            >
+                                                {requestSubmitting ? <div className="spinner-pro-v2" style={{ width: '16px', height: '16px' }}></div> : 'Envoyer la demande'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                                    <div style={{ 
+                                        width: '72px', 
+                                        height: '72px', 
+                                        background: '#dcfce7', 
+                                        borderRadius: '50%', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        margin: '0 auto 24px',
+                                        color: '#16a34a'
+                                    }}>
+                                        <CheckCircle2 size={40} />
+                                    </div>
+                                    <h3 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px 0' }}>Demande envoyée !</h3>
+                                    <p style={{ color: '#64748b', fontSize: '16px', lineHeight: '1.6', marginBottom: '32px' }}>
+                                        Votre demande a été transmise avec succès. Notre équipe reviendra vers vous très prochainement par email.
+                                    </p>
+                                    <button 
+                                        onClick={() => {
+                                            setShowContactModal(false)
+                                            setRequestSuccess(false)
+                                            setRequestForm({ nom_complet: '', entreprise: '', email: '', telephone: '', message: '' })
+                                        }}
+                                        style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#0f172a', color: 'white', border: 'none', fontWeight: 700, fontSize: '16px', cursor: 'pointer' }}
+                                    >
+                                        Fermer
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                <style>{`
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                    @keyframes modalFadeIn { 
+                        from { opacity: 0; transform: translateY(20px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    .spinner-pro-v2 {
+                        width: 20px;
+                        height: 20px;
+                        border: 2px solid rgba(255,255,255,0.3);
+                        border-top-color: white;
+                        border-radius: 50%;
+                        animation: spin 0.8s linear infinite;
+                    }
+                    @media (max-width: 1000px) {
+                        div[style*="flex: 1.2"] { display: none !important; }
+                    }
+                `}</style>
             </div>
         )
     }

@@ -323,6 +323,7 @@ export const AdminDashboard: React.FC = () => {
         .marker-dot.blue { background: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
         .marker-dot.purple { background: #a855f7; box-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
         .marker-dot.orange { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+        .marker-dot.green { background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
         .marker-line { width: 2px; flex: 1; background: #f1f5f9; margin-top: 5px; }
         .timeline-item:last-child .marker-line { display: none; }
 
