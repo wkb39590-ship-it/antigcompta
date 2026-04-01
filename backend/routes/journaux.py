@@ -393,8 +393,8 @@ def delete_entry(
     if not entry:
         raise HTTPException(404, "Écriture introuvable")
 
-    if entry.facture_id:
-        raise HTTPException(400, "Impossible de supprimer une écriture liée à une facture (générée automatiquement).")
+    if entry.facture_id and entry.is_validated:
+        raise HTTPException(400, "Impossible de supprimer une écriture validée liée à une facture. Veuillez passer par l'annulation de la facture.")
 
     # Supprimer les lignes d'abord (cascade normalement gérée par le modèle, mais faisons-le explicitement ou flash)
     db.query(EntryLine).filter(EntryLine.ecriture_journal_id == entry_id).delete()

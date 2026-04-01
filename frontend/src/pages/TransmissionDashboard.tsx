@@ -74,6 +74,7 @@ export default function TransmissionDashboard() {
 
     return (
         <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
                 <div>
                     <h1 style={{ margin: 0, fontSize: '28px', color: 'var(--text)', fontWeight: 800, letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>

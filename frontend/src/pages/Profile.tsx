@@ -126,42 +126,42 @@ export default function Profile() {
     return (
         <div className="profile-container container-pro animate-in fade-in duration-500 pb-20">
             {/* Header Profil Premium */}
-            <div className="glass-card profile-hero" style={{
+            <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '32px',
                 padding: '40px',
                 borderRadius: '24px',
                 marginBottom: '32px',
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))',
-                backdropFilter: 'blur(10px)',
+                background: 'white',
                 border: '1px solid var(--border)',
-                boxShadow: 'var(--shadow-lg)'
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
             }}>
-                <div className="avatar-large" style={{
-                    width: '120px',
-                    height: '120px',
-                    borderRadius: '30px',
-                    background: 'linear-gradient(45deg, var(--accent), var(--accent2))',
+                <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: 'var(--accent)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '48px',
-                    fontWeight: '900',
+                    fontSize: '24px',
+                    fontWeight: '700',
                     color: 'white',
-                    boxShadow: '0 0 30px rgba(59, 130, 246, 0.3)'
+                    letterSpacing: '1px',
+                    boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)'
                 }}>
                     {initials}
                 </div>
                 <div>
-                    <h1 style={{ fontSize: '32px', marginBottom: '8px', fontWeight: '800', color: 'white' }}>
+                    <h1 style={{ fontSize: '32px', marginBottom: '8px', fontWeight: '800', color: 'var(--text)' }}>
                         {profile.prenom} {profile.nom}
                     </h1>
-                    <p style={{ color: 'var(--text2)', fontSize: '16px', marginBottom: '16px', fontWeight: '500' }}>
+                    <p style={{ color: 'var(--text2)', fontSize: '15px', marginBottom: '16px', fontWeight: '500' }}>
                         @{profile.username} • <span style={{ color: profile.is_admin ? 'var(--warning)' : 'var(--accent)' }}>{profile.is_admin ? 'Super Administrateur' : 'Agent Comptable'}</span>
                     </p>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <span className="badge" style={{ padding: '6px 16px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent)', fontWeight: '700', fontSize: '11px', letterSpacing: '0.05em' }}>
+                        <span style={{ padding: '6px 16px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent)', fontWeight: '700', fontSize: '11px', letterSpacing: '0.05em' }}>
                             {stats?.cabinet_nom || 'SANS CABINET'}
                         </span>
                     </div>
@@ -173,7 +173,7 @@ export default function Profile() {
                 <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
                     <div style={{ marginBottom: '16px' }}><FileText size={32} color="var(--accent)" /></div>
                     <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats?.total_factures_validees || 0}</div>
-                    <div className="stat-label">Pièces Comptables Validées</div>
+                    <div className="stat-label">Factures Validées</div>
                 </div>
 
                 <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
@@ -275,19 +275,19 @@ export default function Profile() {
                 ) : (
                     <div className="space-y-6">
                         <div style={{ display: 'grid', gap: '24px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                                 <span className="form-label" style={{ margin: 0 }}>Nom complet</span>
-                                <span style={{ fontWeight: '700', color: 'white' }}>{profile.prenom} {profile.nom}</span>
+                                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{profile.prenom} {profile.nom}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                                 <span className="form-label" style={{ margin: 0 }}>Identifiant</span>
                                 <span style={{ fontWeight: '700', color: 'var(--text2)' }}>@{profile.username}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                                 <span className="form-label" style={{ margin: 0 }}>Email</span>
-                                <span style={{ fontWeight: '700', color: 'white' }}>{profile.email}</span>
+                                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{profile.email}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
                                 <span className="form-label" style={{ margin: 0 }}>Date d'ancrage</span>
                                 <span style={{ fontWeight: '700', color: 'var(--text3)' }}>{new Date(profile.created_at).toLocaleDateString()}</span>
                             </div>
@@ -307,21 +307,7 @@ export default function Profile() {
                 )}
             </div>
 
-            <style>{`
-                .profile-hero {
-                    animation: float-profile 6s ease-in-out infinite;
-                }
-                .avatar-large {
-                    transition: transform 0.3s ease;
-                }
-                .avatar-large:hover {
-                    transform: scale(1.05) rotate(5deg);
-                }
-                @keyframes float-profile {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-10px); }
-                }
-            `}</style>
+
         </div>
     )
 }

@@ -255,7 +255,6 @@ async def get_agent_stats(
     """Calcule les statistiques pour l'agent courant"""
     # Nombre de factures validées par cet agent
     total_validees = db.query(Facture).filter(Facture.validated_by == agent.username).count()
-    
     # Nombre de sociétés associées à cet agent
     total_societes = len(agent.societes)
     

@@ -482,6 +482,12 @@ export const apiService = {
     createDemandeAcces: (data: { nom_complet: string; entreprise: string; email: string; telephone?: string; message?: string; cabinet_id?: number | null }) =>
         api.post('/demandes-acces/', data).then(r => r.data),
 
+    clientGetProfile: () => api.get('/client/me').then(r => r.data),
+    clientUpdateProfile: (data: { nom?: string; prenom?: string; email?: string }) =>
+        api.put('/client/me', data).then(r => r.data),
+    clientChangePassword: (data: { old_password: string; new_password: string }) =>
+        api.post('/client/me/password', data).then(r => r.data),
+
     listDemandesAcces: () => api.get('/demandes-acces/').then(r => r.data),
     updateStatutDemande: (id: number, statut: string) =>
         api.patch(`/demandes-acces/${id}/statut?statut=${statut}`).then(r => r.data),
