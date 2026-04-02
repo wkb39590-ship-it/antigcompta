@@ -79,6 +79,11 @@ def update_statut_demande(
         raise HTTPException(status_code=404, detail="Demande non trouvée")
         
     # Sécurité : vérifier que l'admin a le droit de modifier cette demande
+    # Le Super Admin ne peut pas modifier les demandes liées à un cabinet (rôle restreint au Cabinet Admin)
+    # Il ne peut gérer que les demandes sans cabinet (prospects pour la plateforme)
+    if current_agent.is_super_admin and demande.cabinet_id is not None:
+         raise HTTPException(status_code=403, detail="Le Super Admin ne peut pas gérer les demandes destinées aux cabinets. Seul l'admin du cabinet peut le faire.")
+
     if not current_agent.is_super_admin and demande.cabinet_id != current_agent.cabinet_id:
         raise HTTPException(status_code=403, detail="Vous n'avez pas accès à cette demande")
         

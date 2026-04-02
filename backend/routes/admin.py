@@ -196,7 +196,10 @@ async def create_agent_global(
     db: Session = Depends(get_db)
 ):
     """Crée un agent (Super-Admin peut tout, Admin restreint à son cabinet)"""
-    if not is_system_admin(admin_agent) and (not admin_agent.is_admin or admin_agent.cabinet_id != cabinet_id):
+    if is_system_admin(admin_agent):
+        if not payload.is_admin:
+            raise HTTPException(status_code=403, detail="Le Super Admin ne peut créer que des administrateurs de cabinet")
+    elif not admin_agent.is_admin or admin_agent.cabinet_id != cabinet_id:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer d'agent pour ce cabinet")
     
     # Vérifier doublon
@@ -290,8 +293,11 @@ async def create_societe_global(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db)
 ):
-    """Crée une société (Super-Admin peut tout, Admin restreint à son cabinet)"""
-    if not is_system_admin(agent) and (not agent.is_admin or agent.cabinet_id != cabinet_id):
+    """Crée une société (Interdit au Super Admin)"""
+    if is_system_admin(agent):
+        raise HTTPException(status_code=403, detail="Le Super Admin ne peut pas créer de sociétés. C'est le rôle de l'admin du cabinet.")
+    
+    if not agent.is_admin or agent.cabinet_id != cabinet_id:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de société pour ce cabinet")
     
     societe = Societe(
@@ -642,7 +648,7 @@ async def get_recent_activities(
             "id": f"soc_{s.id}",
             "type": "SOCIETE",
             "title": f"Nouvelle société **{s.raison_sociale}** ajoutée",
-            "time": datetime.now(), # Idéalement s.created_at si existait
+            "time": s.created_at or datetime.now(),
             "dot_color": "blue"
         })
 
@@ -693,7 +699,13 @@ async def get_recent_activities(
             now = datetime.now()
             diff = now - t
             if diff.days == 0:
-                time_str = "Aujourd'hui"
+                seconds = diff.total_seconds()
+                if seconds < 60:
+                    time_str = "À l'instant"
+                elif seconds < 3600:
+                    time_str = f"Il y a {int(seconds // 60)} min"
+                else:
+                    time_str = f"Il y a {int(seconds // 3600)} h"
             elif diff.days == 1:
                 time_str = "Hier"
             else:

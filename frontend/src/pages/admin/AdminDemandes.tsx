@@ -82,12 +82,14 @@ export const AdminDemandes: React.FC = () => {
     }
   };
 
+  const isSuper = localStorage.getItem('is_super_admin') === 'true';
+
   return (
     <div className="admin-demandes-view">
       <div className="view-header">
         <div className="header-info">
           <h1 className="glass-text">Demandes d'accès</h1>
-          <p>Gérez les prospects et les futures ouvertures de comptes clients.</p>
+          <p>{isSuper ? "Vision d'ensemble de tous les prospects sur la plateforme." : "Gérez les prospects et les futures ouvertures de comptes clients."}</p>
         </div>
         <button className="aurora-btn-primary" onClick={loadDemandes}>
           <RefreshCw size={18} className={loading ? 'spin' : ''} />
@@ -116,7 +118,7 @@ export const AdminDemandes: React.FC = () => {
         </div>
       </div>
 
-      <div className="demandes-grid">
+      <div className="demandes-content">
         {loading ? (
           <div className="loading-state">Chargement des demandes...</div>
         ) : filteredDemandes.length === 0 ? (
@@ -124,64 +126,107 @@ export const AdminDemandes: React.FC = () => {
             <Inbox size={48} />
             <p>Aucune demande d'accès trouvée.</p>
           </div>
+        ) : isSuper ? (
+          /* TABLE VIEW FOR SUPER ADMIN */
+          <div className="aurora-card table-card animate-fadeIn">
+            <div className="table-responsive">
+              <table className="aurora-table-v2">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Prospect</th>
+                    <th>Entreprise</th>
+                    <th>Contact</th>
+                    <th style={{ textAlign: 'center' }}>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDemandes.map(d => (
+                    <tr key={d.id}>
+                      <td className="date-cell">{new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
+                      <td>
+                        <div className="user-info-td">
+                          <div className="mini-avatar"><User size={14} /></div>
+                          <span className="name">{d.nom_complet}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="cabinet-tag-v2"><Building size={12} /> {d.entreprise}</div>
+                      </td>
+                      <td>
+                        <div className="contact-td">
+                          <div className="item"><Mail size={12} /> {d.email}</div>
+                          {d.telephone && <div className="item"><Phone size={12} /> {d.telephone}</div>}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>{getStatusBadge(d.statut)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
-          filteredDemandes.map(demande => (
-            <div key={demande.id} className="demande-card aurora-card">
-              <div className="card-header">
-                {getStatusBadge(demande.statut)}
-                <span className="date-text">{new Date(demande.created_at).toLocaleDateString('fr-FR')}</span>
-              </div>
-              
-              <div className="card-body">
-                <div className="main-info">
-                  <div className="avatar-placeholder">
-                    <User size={24} />
-                  </div>
-                  <div>
-                    <h3>{demande.nom_complet}</h3>
-                    <p className="company-text"><Building size={14} /> {demande.entreprise}</p>
-                  </div>
+          /* GRID VIEW FOR CABINET ADMIN */
+          <div className="demandes-grid">
+            {filteredDemandes.map(demande => (
+              <div key={demande.id} className="demande-card aurora-card">
+                <div className="card-header">
+                  {getStatusBadge(demande.statut)}
+                  <span className="date-text">{new Date(demande.created_at).toLocaleDateString('fr-FR')}</span>
                 </div>
-
-                <div className="contact-details">
-                  <div className="detail-item">
-                    <Mail size={14} />
-                    <span>{demande.email}</span>
+                
+                <div className="card-body">
+                  <div className="main-info">
+                    <div className="avatar-placeholder">
+                      <User size={24} />
+                    </div>
+                    <div>
+                      <h3>{demande.nom_complet}</h3>
+                      <p className="company-text"><Building size={14} /> {demande.entreprise}</p>
+                    </div>
                   </div>
-                  {demande.telephone && (
+
+                  <div className="contact-details">
                     <div className="detail-item">
-                      <Phone size={14} />
-                      <span>{demande.telephone}</span>
+                      <Mail size={14} />
+                      <span>{demande.email}</span>
+                    </div>
+                    {demande.telephone && (
+                      <div className="detail-item">
+                        <Phone size={14} />
+                        <span>{demande.telephone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {demande.message && (
+                    <div className="message-box">
+                      <MessageSquare size={14} />
+                      <p>{demande.message}</p>
                     </div>
                   )}
                 </div>
 
-                {demande.message && (
-                  <div className="message-box">
-                    <MessageSquare size={14} />
-                    <p>{demande.message}</p>
+                {demande.statut === 'en_attente' && (
+                  <div className="card-actions">
+                    <button 
+                      className="action-btn btn-success"
+                      onClick={() => handleUpdateStatus(demande.id, 'traitee')}
+                    >
+                      <CheckCircle size={16} /> Accepter / Créer
+                    </button>
+                    <button 
+                      className="action-btn btn-danger"
+                      onClick={() => handleUpdateStatus(demande.id, 'rejetee')}
+                    >
+                      <XCircle size={16} /> Rejeter
+                    </button>
                   </div>
                 )}
               </div>
-
-              {demande.statut === 'en_attente' && (
-                <div className="card-actions">
-                  <button 
-                    className="action-btn btn-success"
-                    onClick={() => handleUpdateStatus(demande.id, 'traitee')}
-                  >
-                    <CheckCircle size={16} /> Accepter / Créer
-                  </button>
-                  <button 
-                    className="action-btn btn-danger"
-                    onClick={() => handleUpdateStatus(demande.id, 'rejetee')}
-                  >
-                    <XCircle size={16} /> Rejeter
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
@@ -402,18 +447,100 @@ export const AdminDemandes: React.FC = () => {
           color: white;
         }
 
-        .spin {
-          animation: spin 1s linear infinite;
+        .demandes-content {
+          animation: fadeIn 0.4s ease-out;
         }
 
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        .table-card {
+          padding: 24px;
+          overflow: hidden;
         }
 
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
+        .table-responsive {
+          overflow-x: auto;
+        }
+
+        .aurora-table-v2 {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .aurora-table-v2 th {
+          text-align: left;
+          padding: 16px 20px;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--text3);
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .aurora-table-v2 td {
+          padding: 16px 20px;
+          border-bottom: 1px solid #f1f5f9;
+          vertical-align: middle;
+        }
+
+        .date-cell {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text3);
+        }
+
+        .user-info-td {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .mini-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background: var(--aurora-gradient);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+
+        .user-info-td .name {
+          font-weight: 700;
+          font-size: 14px;
+          color: var(--text);
+        }
+
+        .cabinet-tag-v2 {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          background: rgba(99, 102, 241, 0.05);
+          border: 1px solid rgba(99, 102, 241, 0.1);
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--accent);
+        }
+
+        .contact-td {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .contact-td .item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text2);
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out forwards;
         }
       `}</style>
     </div>
