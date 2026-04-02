@@ -1,6 +1,6 @@
 /**
  * Token decoder utility for session_token
- * Backend uses simple base64 encoding (not JWT 3-part format)
+ * Supports both standard JWT (3-part) and legacy simple base64 tokens
  */
 
 export interface SessionPayload {
@@ -24,9 +24,23 @@ export function decodeSessionToken(token: string | null): SessionPayload | null 
     }
 
     try {
-        // Add proper padding to base64
-        let base64 = token
-        base64 = base64 + '=='.substring(0, (4 - base64.length % 4) % 4)
+        // Standard JWT is header.payload.signature
+        const parts = token.split('.')
+        let encodedPayload = ''
+        
+        if (parts.length === 3) {
+            // It's a real JWT
+            encodedPayload = parts[1]
+        } else {
+            // Fallback for legacy simple base64 tokens
+            encodedPayload = token
+        }
+
+        // Add proper padding to base64 (Handle URL-safe base64)
+        let base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/')
+        while (base64.length % 4) {
+            base64 += '='
+        }
 
         // Decode from base64
         const payload = JSON.parse(atob(base64)) as SessionPayload

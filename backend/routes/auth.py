@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 from typing import Optional
 import secrets
 import hashlib
+import json
+import base64
+import hmac
 
 from database import get_db
 from models import Cabinet, Agent, Societe, Facture, agents_societes
@@ -41,34 +44,73 @@ def verify_password(password: str, pwd_hash: str) -> bool:
         return False
 
 
+SECRET_KEY = "pfe_metafy_secret_key_change_in_production"
+ALGORITHM = "HS256"
+
 def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Crée un JWT token simple (à remplacer par PyJWT en production)"""
-    import json
-    import base64
+    """
+    Crée un jeton au format JWT (3 parties) sans bibliothèque externe (PyJWT).
+    Format: base64(header).base64(payload).base64(signature)
+    """
+    header = {"alg": ALGORITHM, "typ": "JWT"}
     
+    to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(hours=8)
-    
-    data.update({"exp": expire.isoformat()})
-    token = base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
-    return token
+    to_encode.update({"exp": int(expire.timestamp())})
+
+    # 1. Encode Header & Payload
+    def base64_url_encode(d: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(d).encode()).decode().replace('=', '')
+
+    header_b64 = base64_url_encode(header)
+    payload_b64 = base64_url_encode(to_encode)
+
+    # 2. Signature (HMAC-SHA256)
+    signature = hmac.new(
+        SECRET_KEY.encode(),
+        f"{header_b64}.{payload_b64}".encode(),
+        hashlib.sha256
+    ).digest()
+    signature_b64 = base64.urlsafe_b64encode(signature).decode().replace('=', '')
+
+    return f"{header_b64}.{payload_b64}.{signature_b64}"
 
 
 def decode_jwt_token(token: str) -> dict:
-    """Décode un JWT token simple"""
-    import json
-    import base64
-    
+    """Décode et vérifie un jeton au format JWT manuel"""
     try:
-        data = json.loads(base64.urlsafe_b64decode(token).decode())
-        exp = datetime.fromisoformat(data.get("exp", ""))
-        if exp < datetime.utcnow():
+        parts = token.split('.')
+        if len(parts) != 3:
+            raise Exception("Format invalide")
+        
+        header_b64, payload_b64, signature_b64 = parts
+        
+        # Vérification de la signature
+        expected_sig = hmac.new(
+            SECRET_KEY.encode(),
+            f"{header_b64}.{payload_b64}".encode(),
+            hashlib.sha256
+        ).digest()
+        expected_sig_b64 = base64.urlsafe_b64encode(expected_sig).decode().replace('=', '')
+        
+        if not hmac.compare_digest(signature_b64, expected_sig_b64):
+            raise Exception("Signature invalide")
+
+        # Décodage payload
+        padding = '=' * (4 - len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64 + padding).decode())
+        
+        # Vérification expiration
+        if "exp" in payload and datetime.utcnow().timestamp() > payload["exp"]:
             raise HTTPException(status_code=401, detail="Token expiré")
-        return data
-    except:
-        raise HTTPException(status_code=401, detail="Token invalide")
+            
+        return payload
+    except Exception as e:
+        print(f"[AUTH ERROR] {str(e)}")
+        raise HTTPException(status_code=401, detail="Token invalide ou corrompu")
 
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
