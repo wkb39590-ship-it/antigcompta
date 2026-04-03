@@ -14,6 +14,9 @@ const SupplierDirectory: React.FC = () => {
     const [mappings, setMappings] = useState<Mapping[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newMapping, setNewMapping] = useState({ supplier_ice: '', pcm_account_code: '' });
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         fetchMappings();
@@ -47,18 +50,37 @@ const SupplierDirectory: React.FC = () => {
         (m.pcm_account_label && m.pcm_account_label.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    const handleCreateMapping = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMapping.supplier_ice || !newMapping.pcm_account_code) {
+            alert('Veuillez remplir tous les champs');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await apiService.createMapping(newMapping);
+            await fetchMappings();
+            setIsModalOpen(false);
+            setNewMapping({ supplier_ice: '', pcm_account_code: '' });
+        } catch (err) {
+            alert('Erreur lors de la création de la règle. Vérifiez les informations.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return (
         <div className="sd-page">
             <header className="sd-header">
                 <div className="sd-title-area">
                     <h1 className="sd-title">Référentiel Fournisseurs</h1>
-                    <p className="sd-subtitle text-zinc-400">Automatisation des affectations comptables.</p>
+                    <p className="sd-subtitle">Automatisation des affectations comptables.</p>
                 </div>
                 <div className="sd-actions">
                     <button onClick={fetchMappings} className="sd-btn-icon" title="Synchroniser">
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
-                    <button className="sd-btn-primary">
+                     <button onClick={() => setIsModalOpen(true)} className="sd-btn-primary">
                         <Plus size={18} />
                         <span>Ajouter Règle</span>
                     </button>
@@ -66,7 +88,7 @@ const SupplierDirectory: React.FC = () => {
             </header>
 
             <div className="sd-search-container">
-                <Search size={18} className="text-zinc-500" />
+                <Search size={18} className="sd-search-icon" />
                 <input
                     type="text"
                     placeholder="Rechercher par ICE ou compte (ex: 6111)..."
@@ -102,15 +124,15 @@ const SupplierDirectory: React.FC = () => {
                             {filteredMappings.map((m) => (
                                 <tr key={m.id} className="sd-tr">
                                     <td>
-                                        <div className="font-mono text-white tracking-widest bg-white/5 py-1 px-3 rounded-md inline-block border border-white/5">{m.supplier_ice}</div>
+                                        <div className="sd-ice-badge">{m.supplier_ice}</div>
                                     </td>
                                     <td>
                                         <div className="flex items-center gap-3">
                                             <span className="sd-badge font-mono">{m.pcm_account_code}</span>
-                                            <span className="text-sm text-zinc-300">{m.pcm_account_label || 'Compte Fournisseur'}</span>
+                                            <span className="text-sm text-slate-600">{m.pcm_account_label || 'Compte Fournisseur'}</span>
                                         </div>
                                     </td>
-                                    <td className="text-sm text-zinc-500">
+                                    <td className="text-sm text-slate-400">
                                         {m.updated_at ? new Date(m.updated_at).toLocaleDateString('fr-FR') : 'Récent'}
                                     </td>
                                     <td className="text-right">
@@ -129,6 +151,46 @@ const SupplierDirectory: React.FC = () => {
                 )}
             </div>
 
+            {/* MODAL AJOUT REGLE */}
+            {isModalOpen && (
+                <div className="sd-modal-overlay">
+                    <div className="sd-modal-content">
+                        <div className="sd-modal-header">
+                            <h2 className="sd-modal-title">Nouvelle Règle Fournisseur</h2>
+                            <button onClick={() => setIsModalOpen(false)} className="sd-modal-close">&times;</button>
+                        </div>
+                        <form onSubmit={handleCreateMapping} className="sd-modal-form">
+                            <div className="sd-form-group">
+                                <label>Identifiant (ICE) du Fournisseur</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Ex: 000086358..." 
+                                    value={newMapping.supplier_ice}
+                                    onChange={e => setNewMapping({...newMapping, supplier_ice: e.target.value})}
+                                    required
+                                />
+                            </div>
+                            <div className="sd-form-group">
+                                <label>Compte PCM (6111, 2355...)</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Ex: 6111" 
+                                    value={newMapping.pcm_account_code}
+                                    onChange={e => setNewMapping({...newMapping, pcm_account_code: e.target.value})}
+                                    required
+                                />
+                            </div>
+                            <div className="sd-modal-actions">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="sd-btn-secondary">Annuler</button>
+                                <button type="submit" disabled={submitting} className="sd-btn-primary">
+                                    {submitting ? 'Enregistrement...' : 'Enregistrer la Règle'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* SYNC DISCRETE */}
             <div className="mt-8 flex justify-center">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
@@ -141,8 +203,9 @@ const SupplierDirectory: React.FC = () => {
                 .sd-page {
                     max-width: 1000px;
                     margin: 0 auto;
-                    padding: 2rem 0;
+                    padding: 2.5rem 1rem;
                     animation: fadeUp 0.6s ease-out;
+                    background: transparent;
                 }
                 
                 @keyframes fadeUp {
@@ -158,87 +221,105 @@ const SupplierDirectory: React.FC = () => {
                 }
 
                 .sd-title {
-                    font-size: 2rem;
+                    font-size: 2.25rem;
                     font-weight: 800;
-                    color: white;
-                    letter-spacing: -0.5px;
-                    margin: 0 0 0.4rem 0;
+                    color: #1e293b;
+                    letter-spacing: -0.025em;
+                    margin: 0 0 0.5rem 0;
+                }
+
+                .sd-subtitle {
+                    color: #64748b;
+                    font-size: 0.95rem;
                 }
                 
                 .sd-actions {
                     display: flex;
-                    gap: 1rem;
+                    gap: 0.75rem;
                 }
 
                 .sd-btn-icon {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    width: 42px;
-                    height: 42px;
+                    width: 44px;
+                    height: 44px;
                     border-radius: 12px;
-                    background: rgba(255, 255, 255, 0.03);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: white;
+                    background: #fff;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
                     cursor: pointer;
                     transition: all 0.2s;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
                 }
                 .sd-btn-icon:hover {
-                    background: rgba(255, 255, 255, 0.08);
+                    background: #f8fafc;
+                    border-color: #cbd5e1;
+                    color: #1e293b;
                 }
 
                 .sd-btn-primary {
                     display: flex;
                     align-items: center;
-                    gap: 0.5rem;
+                    gap: 0.6rem;
                     padding: 0 1.5rem;
-                    height: 42px;
+                    height: 44px;
                     border-radius: 12px;
-                    background: linear-gradient(135deg, #3b82f6, #6366f1);
+                    background: #2563eb;
                     border: none;
                     color: white;
                     font-weight: 600;
-                    font-size: 0.875rem;
+                    font-size: 0.9rem;
                     cursor: pointer;
-                    transition: all 0.3s;
-                    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+                    transition: all 0.2s;
+                    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
                 }
                 .sd-btn-primary:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+                    background: #1d4ed8;
+                    transform: translateY(-1px);
+                    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
                 }
 
                 .sd-search-container {
                     display: flex;
                     align-items: center;
                     gap: 0.75rem;
-                    background: rgba(0, 0, 0, 0.3);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    background: #fff;
+                    border: 1px solid #e2e8f0;
                     padding: 0 1.25rem;
-                    border-radius: 16px;
-                    margin-bottom: 1.5rem;
-                    backdrop-filter: blur(10px);
+                    border-radius: 14px;
+                    margin-bottom: 2rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                    transition: all 0.2s;
+                }
+                .sd-search-container:focus-within {
+                    border-color: #3b82f6;
+                    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+                }
+
+                .sd-search-icon {
+                    color: #94a3b8;
                 }
 
                 .sd-search-input {
                     flex: 1;
                     background: transparent;
                     border: none;
-                    color: white;
-                    height: 54px;
+                    color: #1e293b;
+                    height: 52px;
                     font-size: 0.95rem;
                     outline: none;
                 }
                 .sd-search-input::placeholder {
-                    color: rgba(255, 255, 255, 0.3);
+                    color: #94a3b8;
                 }
 
                 .sd-glass-card {
-                    background: rgba(15, 15, 20, 0.6);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    border-radius: 20px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 16px;
                     overflow: hidden;
-                    backdrop-filter: blur(12px);
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                 }
 
                 .sd-table {
@@ -246,50 +327,71 @@ const SupplierDirectory: React.FC = () => {
                     border-collapse: collapse;
                 }
 
+                .sd-table thead {
+                    background: #f8fafc;
+                }
+
                 .sd-table th {
                     text-align: left;
-                    padding: 1.25rem 1.5rem;
-                    font-size: 0.65rem;
-                    font-weight: 700;
+                    padding: 1rem 1.5rem;
+                    font-size: 0.75rem;
+                    font-weight: 600;
                     text-transform: uppercase;
-                    letter-spacing: 1.5px;
-                    color: rgba(255, 255, 255, 0.4);
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                    letter-spacing: 0.05em;
+                    color: #64748b;
+                    border-bottom: 1px solid #e2e8f0;
                 }
 
                 .sd-tr {
                     transition: all 0.2s;
                 }
                 .sd-tr:hover {
-                    background: rgba(255, 255, 255, 0.02);
+                    background: #f1f5f9;
                 }
                 
                 .sd-tr td {
                     padding: 1.25rem 1.5rem;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+                    border-bottom: 1px solid #f1f5f9;
+                    color: #334155;
+                }
+
+                .sd-ice-badge {
+                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                    color: #475569;
+                    letter-spacing: 0.02em;
+                    background: #f1f5f9;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 6px;
+                    display: inline-block;
+                    border: 1px solid #e2e8f0;
+                    font-size: 0.85rem;
+                    font-weight: 500;
                 }
 
                 .sd-badge {
-                    background: rgba(59, 130, 246, 0.15);
-                    color: #60a5fa;
-                    border: 1px solid rgba(59, 130, 246, 0.3);
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 8px;
-                    font-size: 0.85rem;
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border: 1px solid #dbeafe;
+                    padding: 0.25rem 0.6rem;
+                    border-radius: 6px;
+                    font-size: 0.8rem;
+                    font-weight: 600;
                 }
 
                 .sd-btn-delete {
                     background: transparent;
                     border: none;
-                    color: rgba(244, 63, 94, 0.5);
+                    color: #ef4444;
                     padding: 0.5rem;
                     border-radius: 8px;
                     cursor: pointer;
                     transition: all 0.2s;
+                    opacity: 0.6;
                 }
                 .sd-btn-delete:hover {
-                    background: rgba(244, 63, 94, 0.1);
-                    color: #f43f5e;
+                    background: #fef2f2;
+                    opacity: 1;
+                    transform: scale(1.1);
                 }
 
                 .sd-empty {
@@ -297,8 +399,118 @@ const SupplierDirectory: React.FC = () => {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    padding: 4rem 2rem;
+                    padding: 5rem 2rem;
                     text-align: center;
+                    color: #94a3b8;
+                }
+
+                /* MODAL STYLES */
+                .sd-modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.4);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    animation: fadeIn 0.2s ease-out;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+
+                .sd-modal-content {
+                    background: #fff;
+                    width: 100%;
+                    max-width: 450px;
+                    border-radius: 20px;
+                    padding: 2rem;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+                @keyframes scaleIn {
+                    from { transform: scale(0.9); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+
+                .sd-modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 2rem;
+                }
+                .sd-modal-title {
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    color: #1e293b;
+                }
+                .sd-modal-close {
+                    background: none;
+                    border: none;
+                    font-size: 1.5rem;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    transition: color 0.2s;
+                }
+                .sd-modal-close:hover { color: #1e293b; }
+
+                .sd-modal-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.5rem;
+                }
+                .sd-form-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                .sd-form-group label {
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    color: #64748b;
+                }
+                .sd-form-group input {
+                    height: 48px;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    padding: 0 1rem;
+                    font-size: 0.95rem;
+                    color: #1e293b;
+                    outline: none;
+                    transition: all 0.2s;
+                }
+                .sd-form-group input:focus {
+                    border-color: #3b82f6;
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                }
+
+                .sd-modal-actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 1rem;
+                    margin-top: 1rem;
+                }
+
+                .sd-btn-secondary {
+                    padding: 0 1.5rem;
+                    height: 44px;
+                    border-radius: 12px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    font-weight: 600;
+                    font-size: 0.9rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .sd-btn-secondary:hover {
+                    background: #f1f5f9;
+                    color: #1e293b;
                 }
 
                 @media (max-width: 768px) {

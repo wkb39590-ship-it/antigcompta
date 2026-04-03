@@ -335,6 +335,8 @@ export const apiService = {
     getFileBlob: (id: number) => api.get(`/factures/${id}/file`, { responseType: 'blob' }).then(r => r.data),
 
     listMappings: () => api.get('/mappings/').then(r => r.data),
+    createMapping: (data: { supplier_ice: string; pcm_account_code: string }) =>
+        api.post('/mappings/', data).then(r => r.data),
     deleteMapping: (id: number) => api.delete(`/mappings/${id}`).then(r => r.data),
 
     deleteFacture: (id: number) => api.delete(`/factures/${id}`).then(r => r.data),

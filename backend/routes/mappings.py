@@ -4,6 +4,7 @@ from database import get_db
 from models import SupplierMapping, PcmAccount
 from routes.deps import get_current_session
 from typing import List
+from schemas import SupplierMappingCreate
 
 router = APIRouter(prefix="/mappings", tags=["mappings"])
 
@@ -28,6 +29,41 @@ def list_mappings(db: Session = Depends(get_db), session: dict = Depends(get_cur
             "updated_at": m.updated_at
         })
     return result
+
+@router.post("/", response_model=dict)
+def create_mapping(
+    data: SupplierMappingCreate, 
+    db: Session = Depends(get_db), 
+    session: dict = Depends(get_current_session)
+):
+    """Crée ou met à jour un mapping fournisseur."""
+    cabinet_id = session.get("cabinet_id")
+    if not cabinet_id:
+        raise HTTPException(400, "Cabinet ID manquant dans la session")
+        
+    # Vérifier si le compte PCM existe
+    account = db.query(PcmAccount).filter(PcmAccount.code == data.pcm_account_code).first()
+    if not account:
+        raise HTTPException(400, f"Compte PCM {data.pcm_account_code} introuvable")
+
+    # Chercher si un mapping existe déjà pour ce cabinet et cet ICE
+    mapping = db.query(SupplierMapping).filter(
+        SupplierMapping.cabinet_id == cabinet_id,
+        SupplierMapping.supplier_ice == data.supplier_ice
+    ).first()
+    
+    if mapping:
+        mapping.pcm_account_code = data.pcm_account_code
+    else:
+        mapping = SupplierMapping(
+            cabinet_id=cabinet_id,
+            supplier_ice=data.supplier_ice,
+            pcm_account_code=data.pcm_account_code
+        )
+        db.add(mapping)
+    
+    db.commit()
+    return {"message": "Mapping enregistré", "id": mapping.id}
 
 @router.delete("/{mapping_id}")
 def delete_mapping(mapping_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
