@@ -35,13 +35,11 @@ def _guess_mime(path: str) -> str:
 
 def _get_image_data(file_path: str):
     ext = Path(file_path).suffix.lower()
-    if ext == ".pdf":
-        images = pdf_to_png_images_bytes(file_path, dpi=300, max_pages=10)
-        if not images:
-            raise HTTPException(500, "Impossible de convertir le PDF en images")
-        return images, "image/png"
     with open(file_path, "rb") as f:
-        return f.read(), _guess_mime(file_path)
+        data = f.read()
+    if ext == ".pdf":
+        return data, "application/pdf"
+    return data, _guess_mime(file_path)
 
 @router.post("/upload")
 def upload_releve(
@@ -96,6 +94,8 @@ def upload_releve(
             image_data, mime_type = _get_image_data(str(dest))
             extracted_data = extract_bank_statement(image_data, mime_type=mime_type)
             print(f"DEBUG: Data extraite: {extracted_data}")
+            if not extracted_data or "lignes" not in extracted_data or not extracted_data["lignes"]:
+                print(f"⚠️ Alerte: Extraction vide pour le relevé {releve.id} ({releve.file_name})")
             
             # Update releve header
             from utils.parsers import parse_date_fr
@@ -108,6 +108,7 @@ def upload_releve(
 
             # Create lines
             lignes_data = extracted_data.get("lignes", [])
+            print(f"DEBUG: Insertion de {len(lignes_data)} lignes pour le relevé {releve.id}")
             for row in lignes_data:
                 ligne = LigneReleve(
                     releve_id=releve.id,
@@ -121,7 +122,9 @@ def upload_releve(
                 db.add(ligne)
             db.commit()
         except Exception as e:
-            print(f"Erreur extraction relevé: {e}")
+            import traceback
+            print(f"❌ Erreur critique extraction relevé {releve.id}: {e}")
+            traceback.print_exc()
             pass # We still keep the releve object
 
     return {"message": "Relevé importé", "id": releve.id, "file_name": releve.file_name}

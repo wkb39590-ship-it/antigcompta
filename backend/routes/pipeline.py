@@ -35,12 +35,13 @@ from services.gemini_service import (
     extract_invoice_header,
     extract_invoice_lines,
     extract_invoice_fields_from_image_bytes,
+    extract_invoice_full,
 )
 from services.pdf_utils import pdf_to_png_images_bytes
 from services.classification_service import classify_all_lines
 from services.entry_generator import generate_journal_entries, check_balance
 from services.dgi_validator import validate_dgi
-from services.validators import validate_or_fix, merge_fields
+from services.extract_fields import parse_facture_text
 
 from utils.parsers import parse_date_fr
 from schemas import FactureOut, FactureUpdate
@@ -102,6 +103,114 @@ def _get_facture_or_404(facture_id: int, db: Session) -> Facture:
     if not f:
         raise HTTPException(404, "Facture introuvable")
     return f
+
+
+def _is_blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _to_float_or_none(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_ice(value: Any) -> Optional[str]:
+    if _is_blank(value):
+        return None
+    digits = "".join(ch for ch in str(value) if ch.isdigit())
+    return digits if len(digits) == 15 else None
+
+
+def _normalize_header(header: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    normalized = dict(header or {})
+
+    if _is_blank(normalized.get("supplier_name")) and not _is_blank(normalized.get("fournisseur")):
+        normalized["supplier_name"] = normalized.get("fournisseur")
+    if _is_blank(normalized.get("fournisseur")) and not _is_blank(normalized.get("supplier_name")):
+        normalized["fournisseur"] = normalized.get("supplier_name")
+
+    if _is_blank(normalized.get("supplier_ice")) and not _is_blank(normalized.get("ice_frs")):
+        normalized["supplier_ice"] = normalized.get("ice_frs")
+    if _is_blank(normalized.get("ice_frs")) and not _is_blank(normalized.get("supplier_ice")):
+        normalized["ice_frs"] = normalized.get("supplier_ice")
+
+    if _is_blank(normalized.get("supplier_if")) and not _is_blank(normalized.get("if_frs")):
+        normalized["supplier_if"] = normalized.get("if_frs")
+    if _is_blank(normalized.get("if_frs")) and not _is_blank(normalized.get("supplier_if")):
+        normalized["if_frs"] = normalized.get("supplier_if")
+
+    normalized["supplier_ice"] = _normalize_ice(normalized.get("supplier_ice"))
+    normalized["ice_frs"] = normalized["supplier_ice"]
+    normalized["client_ice"] = _normalize_ice(normalized.get("client_ice"))
+
+    for key in ("numero_facture", "supplier_name", "fournisseur", "supplier_if", "if_frs", "client_name", "payment_mode", "devise"):
+        if key in normalized and isinstance(normalized[key], str):
+            normalized[key] = normalized[key].strip() or None
+
+    for key in ("montant_ht", "montant_tva", "montant_ttc", "taux_tva"):
+        normalized[key] = _to_float_or_none(normalized.get(key))
+
+    ht = normalized.get("montant_ht")
+    tva = normalized.get("montant_tva")
+    ttc = normalized.get("montant_ttc")
+    taux = normalized.get("taux_tva")
+
+    if taux is not None and (taux < 0 or taux > 30):
+        normalized["taux_tva"] = None
+        taux = None
+
+    if ht is not None and ttc is not None and (tva is None or tva < 0 or tva > ttc):
+        diff = round(ttc - ht, 2)
+        if diff >= 0:
+            normalized["montant_tva"] = diff
+            tva = diff
+
+    if ht is not None and tva is not None and ttc is None:
+        normalized["montant_ttc"] = round(ht + tva, 2)
+        ttc = normalized["montant_ttc"]
+
+    if ht not in (None, 0) and tva is not None and normalized.get("taux_tva") is None:
+        normalized["taux_tva"] = round((tva / ht) * 100, 2)
+
+    return normalized
+
+
+def _amounts_consistent(header: Dict[str, Any]) -> bool:
+    ht = _to_float_or_none(header.get("montant_ht"))
+    tva = _to_float_or_none(header.get("montant_tva"))
+    ttc = _to_float_or_none(header.get("montant_ttc"))
+    if ht is None or tva is None or ttc is None:
+        return True
+    return abs((ht + tva) - ttc) <= 0.05
+
+
+def _header_needs_enrichment(header: Dict[str, Any]) -> bool:
+    critical_fields = ("numero_facture", "date_facture", "supplier_name", "supplier_if")
+    if any(_is_blank(header.get(field)) for field in critical_fields):
+        return True
+    if not _amounts_consistent(header):
+        return True
+    taux = _to_float_or_none(header.get("taux_tva"))
+    return taux is not None and taux > 30
+
+
+def _merge_header(primary: Dict[str, Any], fallback: Dict[str, Any]) -> Dict[str, Any]:
+    merged = dict(fallback)
+    merged.update({key: value for key, value in primary.items() if not _is_blank(value)})
+
+    primary_has_good_amounts = _amounts_consistent(primary)
+    fallback_has_good_amounts = _amounts_consistent(fallback)
+
+    if not primary_has_good_amounts and fallback_has_good_amounts:
+        for key in ("montant_ht", "montant_tva", "montant_ttc", "taux_tva"):
+            if not _is_blank(fallback.get(key)):
+                merged[key] = fallback.get(key)
+
+    return _normalize_header(merged)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -187,61 +296,78 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
         raise HTTPException(400, "Fichier source introuvable")
 
     image_data, mime_type = _get_image_data(facture.file_path)
+    ocr_result = None
 
-    # ── Extraction en-tête via Gemini ──────────────────────────
+    # ── Extraction unifiée via Gemini (Header + Lines) ────────
     try:
-        header = extract_invoice_header(image_data, mime_type=mime_type)
-        print("✅ Extraction Gemini (header) réussie")
-    except Exception as e:
-        print(f"❌ Erreur extraction Gemini header: {str(e)[:200]}")
-        # Fallback vers l'extraction legacy Gemini
-        try:
-            header = extract_invoice_fields_from_image_bytes(image_data, mime_type=mime_type)
-            print("✅ Extraction Gemini legacy réussie")
-        except Exception as e2:
-            print(f"❌ Erreur extraction Gemini legacy: {str(e2)[:200]}")
-            # Fallback vers Tesseract OCR local
+        print(f"--- [Pipeline] Extraction unifiée pour Facture {facture_id} ---")
+        extraction_data = extract_invoice_full(image_data, mime_type=mime_type)
+        header = _normalize_header(extraction_data.get("header", {}))
+        raw_lines = extraction_data.get("lines", [])
+        
+        if not header.get("supplier_name") and not header.get("montant_ttc"):
+            # Si vide, on tente les fallbacks individuels
+            print("⚠️ Extraction unifiée vide. Tentative de fallbacks individuels...")
             try:
-                ocr_text = ocr_service.extract(facture.file_path)
-                print(f"✅ Extraction Tesseract OCR réussie: {ocr_text.chars} caractères")
-                # Parser le texte OCR pour extraire les champs
-                from services.extract_fields import parse_facture_text
-                header = parse_facture_text(ocr_text.text)
-                print(f"✅ Parsing OCR réussi: {list(header.keys())}")
-            except Exception as e3:
-                print(f"❌ Erreur extraction Tesseract: {str(e3)[:200]}")
+                header_data = extract_invoice_header(image_data, mime_type=mime_type)
+                header = _normalize_header(header_data)
+                print("✅ Fallback Header Gemini réussi")
+            except Exception:
                 header = {}
+            
+            try:
+                raw_lines = extract_invoice_lines(image_data, mime_type=mime_type)
+                print(f"✅ Fallback Lines Gemini réussi: {len(raw_lines)} lignes")
+            except Exception:
+                raw_lines = []
 
-    # ── Extraction lignes produits via Gemini ──────────────────
-    try:
-        raw_lines = extract_invoice_lines(image_data, mime_type=mime_type)
-        print(f"✅ Extraction Gemini (lignes) réussie: {len(raw_lines)} lignes")
+        # Si toujours pas de header, fallback OCR local
+        if not header.get("supplier_name") and not header.get("montant_ttc"):
+            print("⚠️ Gemini a échoué. Passage au Fallback OCR Tesseract...")
+            ocr_result = ocr_service.extract(facture.file_path)
+            header = _normalize_header(parse_facture_text(ocr_result.text))
+            print(f"✅ Fallback OCR réussi: {header.get('supplier_name')}")
+
     except Exception as e:
-        print(f"❌ Erreur extraction Gemini lignes: {str(e)[:200]}")
-        # Fallback: créer une ligne par défaut avec le montant total
-        # L'utilisateur pourra la corriger manuellement
-        ht_total = header.get("montant_ht") or 0
-        tva_total = header.get("montant_tva") or 0
-        ttc_total = header.get("montant_ttc") or 0
-        
-        # Calculer le taux TVA
-        tva_rate = None
-        if ht_total and tva_total:
-            tva_rate = round((tva_total / ht_total) * 100, 2) if ht_total > 0 else None
-        
-        raw_lines = [{
-            "line_number": 1,
-            "description": f"Achat global / Vente globale (à corriger manuellement)",
-            "quantity": 1,
-            "unit": "lot",
-            "unit_price_ht": ht_total,
-            "line_amount_ht": ht_total,
-            "tva_rate": tva_rate,
-            "tva_amount": tva_total,
-            "line_amount_ttc": ttc_total,
-        }]
-        print(f"⚠️ Fallback: création ligne par défaut (Gemini non disponible)")
-        print(f"   Utilisateur doit corriger manuellement les lignes")
+        print(f"❌ Erreur critique dans le pipeline d'extraction: {str(e)}")
+        header = {}
+        raw_lines = []
+
+    # ── Enrichissement & Nettoyage ──────────────────────────────
+    try:
+        if _header_needs_enrichment(header):
+            if ocr_result is None:
+                ocr_result = ocr_service.extract(facture.file_path)
+            ocr_header = _normalize_header(parse_facture_text(ocr_result.text))
+            header = _merge_header(header, ocr_header)
+
+        if not raw_lines:
+            # Fallback lignes par défaut
+            # L'utilisateur pourra la corriger manuellement
+            ht_total = _to_float_or_none(header.get("montant_ht")) or 0
+            tva_total = _to_float_or_none(header.get("montant_tva")) or 0
+            ttc_total = _to_float_or_none(header.get("montant_ttc")) or 0
+            
+            # Calculer le taux TVA
+            tva_rate = None
+            if ht_total and tva_total:
+                tva_rate = round((tva_total / ht_total) * 100, 2) if ht_total > 0 else None
+            
+            raw_lines = [{
+                "line_number": 1,
+                "description": f"Achat global / Vente globale (à corriger manuellement)",
+                "quantity": 1,
+                "unit": "lot",
+                "unit_price_ht": ht_total,
+                "line_amount_ht": ht_total,
+                "tva_rate": tva_rate,
+                "tva_amount": tva_total,
+                "line_amount_ttc": ttc_total,
+            }]
+            print(f"⚠️ Fallback: création ligne par défaut (Gemini non disponible)")
+            print(f"   Utilisateur doit corriger manuellement les lignes")
+    except Exception as e:
+        print(f"❌ Erreur lors du nettoyage final des lignes: {str(e)}")
 
     # ── Remplir Tableau 1 (Facture) ────────────────────────────
     facture.numero_facture = header.get("numero_facture")

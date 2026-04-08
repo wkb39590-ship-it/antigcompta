@@ -301,7 +301,7 @@ export const apiService = {
         form.append('file', file)
         return api.post(`/factures/upload`, form, {
             headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 120000
+            timeout: 300000
         }).then(r => r.data)
     },
 
@@ -427,7 +427,7 @@ export const apiService = {
         form.append('file', file)
         return api.post(`/releves/upload`, form, {
             headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 120000
+            timeout: 300000
         }).then(r => r.data)
     },
 

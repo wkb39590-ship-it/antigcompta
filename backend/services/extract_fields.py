@@ -1,571 +1,187 @@
-
-
-
-
-# import re
-# from typing import Optional, Dict, Any, Tuple
-
-# # IMPORTANT: accepte OCRResult ou str
-# def extract_fields_from_ocr(ocr) -> Dict[str, Any]:
-#     """
-#     ocr peut être:
-#       - OCRResult (avec .text)
-#       - ou un string
-#     """
-#     if hasattr(ocr, "text"):
-#         text = ocr.text
-#     else:
-#         text = str(ocr)
-
-#     return parse_facture_text(text)
-
-
-# # -------------------------
-# # Normalisation
-# # -------------------------
-# def _normalize_text(text: str) -> str:
-#     if not text:
-#         return ""
-#     t = text.replace("\r", "\n")
-#     t = t.replace(",", ".")
-#     t = re.sub(r"[ \t]+", " ", t)
-#     t = re.sub(r"\bFactur[eé]\b", "FACTURE", t, flags=re.IGNORECASE)
-#     t = re.sub(r"\bTotat\b", "Total", t, flags=re.IGNORECASE)
-#     t = re.sub(r"T\.?\s*T\.?\s*C\.?", "TTC", t, flags=re.IGNORECASE)
-#     t = re.sub(r"H\.?\s*T\.?", "HT", t, flags=re.IGNORECASE)
-#     t = re.sub(r"(?<=\d)\s+(?=\d)", "", t)
-#     return t
-
-
-# def _to_float(s: Optional[str]) -> Optional[float]:
-#     if not s:
-#         return None
-#     s = str(s).strip()
-#     if not s:
-#         return None
-
-#     s = re.sub(r"(?<=\d)[oO](?=\d)", "0", s)
-#     s = re.sub(r"[^0-9.]", "", s)
-
-#     if s.count(".") > 1:
-#         parts = re.split(r"\.+", s)
-#         s = "".join(parts[:-1]) + "." + parts[-1]
-
-#     try:
-#         return float(s)
-#     except Exception:
-#         return None
-
-
-# def _find_date_ddmmyyyy(text: str) -> Optional[str]:
-#     # priorité: injection DATE_FACTURE: xx/xx/xxxx
-#     m = re.search(r"DATE_FACTURE:\s*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})", text, flags=re.IGNORECASE)
-#     if m:
-#         return m.group(1).replace("-", "/").replace(".", "/")
-
-#     m = re.search(r"(\d{2})\s*[/\-\.]\s*(\d{2})\s*[/\-\.]\s*(\d{4})", text)
-#     if m:
-#         return f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
-#     return None
-
-
-# def _find_num_facture(text: str) -> Optional[str]:
-#     m = re.search(
-#         r"(FACTURE\s*(?:N|N°|NO|NUM|Nº)|REF(?:ERENCE)?|N°)\s*[:\-]?\s*([A-Z0-9/\-]{3,30})",
-#         text,
-#         flags=re.IGNORECASE,
-#     )
-#     if m:
-#         val = m.group(2).strip()
-#         # anti faux-positif simple
-#         if val.upper() in ["CLIENT", "CLT"]:
-#             return None
-#         return val
-#     return None
-
-
-# def _find_totals(text: str) -> Tuple[Optional[float], Optional[float], Optional[float]]:
-#     ht = tva = ttc = None
-#     AMOUNT = r"([0-9][0-9\.\s]{0,20})"
-
-#     m = re.search(r"(?:MONTANT\s*)?HT\s*[:\-]?\s*" + AMOUNT, text, flags=re.IGNORECASE)
-#     if m:
-#         ht = _to_float(m.group(1))
-
-#     m = re.search(r"(?:MONTANT\s*)?TVA\s*[:\-]?\s*" + AMOUNT, text, flags=re.IGNORECASE)
-#     if m:
-#         tva = _to_float(m.group(1))
-
-#     m = re.search(
-#         r"(TOTAL\s*A\s*PAYER\s*\(?\s*TTC\s*\)?|TOTAL\s*TTC|NET\s*A\s*PAYER|A\s*PAYER)\s*[:\-]?\s*"
-#         + AMOUNT,
-#         text,
-#         flags=re.IGNORECASE,
-#     )
-#     if m:
-#         ttc = _to_float(m.group(2))
-
-#     if ttc is None and ht is not None and tva is not None:
-#         ttc = round(ht + tva, 2)
-
-#     return ht, tva, ttc
-
-
-# def _find_supplier_footer_line(text: str) -> Optional[str]:
-#     lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-#     for ln in reversed(lines):
-#         up = ln.upper()
-#         if ("IF" in up) and ("ICE" in up):
-#             return ln
-#     return None
-
-
-# def _extract_if_ice_from_footer(footer_line: str) -> Tuple[Optional[str], Optional[str]]:
-#     if_val = None
-#     ice_val = None
-
-#     m = re.search(r"\bIF\s*[:\-]?\s*([0-9]{6,12})\b", footer_line, flags=re.IGNORECASE)
-#     if m:
-#         if_val = m.group(1)
-
-#     m = re.search(r"\bICE\s*[:\-]?\s*([0-9]{15})\b", footer_line, flags=re.IGNORECASE)
-#     if m:
-#         ice_val = m.group(1)
-
-#     return if_val, ice_val
-
-
-# def _find_supplier_name(text: str) -> Optional[str]:
-#     lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-#     for ln in lines[:20]:
-#         if re.search(r"\b(STE|STÉ|Sté)\b", ln, flags=re.IGNORECASE) and re.search(r"\b(SARL|SA)\b", ln, flags=re.IGNORECASE):
-#             return re.sub(r"\s+", " ", ln).strip()
-#     return None
-
-
-# def _designation_fallback(fournisseur: Optional[str]) -> str:
-#     return f"Achat fournisseur - {fournisseur}" if fournisseur else "Achat fournisseur"
-
-
-# def parse_facture_text(text: str) -> Dict[str, Any]:
-#     t = _normalize_text(text)
-
-#     fournisseur = _find_supplier_name(t)
-#     date_facture = _find_date_ddmmyyyy(t)
-#     numero_facture = _find_num_facture(t)
-
-#     ht, tva, ttc = _find_totals(t)
-
-#     footer = _find_supplier_footer_line(t)
-#     if_frs = ice_frs = None
-#     if footer:
-#         if_frs, ice_frs = _extract_if_ice_from_footer(footer)
-
-#     taux_tva = None
-#     if ht is not None and tva is not None and ht != 0:
-#         taux_tva = round((float(tva) / float(ht)) * 100, 2)
-
-#     designation = _designation_fallback(fournisseur)
-
-#     return {
-#         "fournisseur": fournisseur,
-#         "date_facture": date_facture,
-#         "numero_facture": numero_facture,
-#         "designation": designation,
-#         "montant_ht": ht,
-#         "montant_tva": tva,
-#         "montant_ttc": ttc,
-#         "if_frs": if_frs,
-#         "ice_frs": ice_frs,
-#         "taux_tva": taux_tva,
-#     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # services/extract_fields.py
-# import re
-# from dataclasses import dataclass
-# from typing import Any, Dict, Optional, Tuple
-
-# from services.ocr_service import OCRResult
-
-# AMOUNT_RE = re.compile(r"(?<!\d)(\d{1,3}(?:[ .]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})|\d+)(?!\d)")
-
-# def _norm(text: str) -> str:
-#     t = (text or "").replace("\r", "\n")
-#     # uniformiser
-#     t = t.replace("€", " ").replace("\t", " ")
-#     # normaliser espaces
-#     t = re.sub(r"[ \t]+", " ", t)
-#     # enlever espaces entre chiffres (4 976,00 -> 4976,00)
-#     t = re.sub(r"(?<=\d)\s+(?=\d)", "", t)
-#     return t
-
-# def _to_float(s: str) -> Optional[float]:
-#     if not s:
-#         return None
-#     s = s.strip()
-#     s = s.replace(" ", "")
-#     s = s.replace(",", ".")
-#     # garder digits + dot
-#     s = re.sub(r"[^0-9.]", "", s)
-#     if not s:
-#         return None
-#     # si trop de points
-#     if s.count(".") > 1:
-#         parts = re.split(r"\.+", s)
-#         s = "".join(parts[:-1]) + "." + parts[-1]
-#     try:
-#         return float(s)
-#     except Exception:
-#         return None
-
-# def _find_date(text: str) -> Optional[str]:
-#     m = re.search(r"\b(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})\b", text)
-#     if m:
-#         return f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
-#     return None
-
-# def _find_supplier(text: str) -> Optional[str]:
-#     # prend un nom “haut” en majuscules raisonnable
-#     lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-#     for ln in lines[:20]:
-#         if len(ln) < 4 or len(ln) > 60:
-#             continue
-#         # évite lignes “FACTURE”, “DATE”, etc.
-#         if re.search(r"\b(FACTURE|DATE|CLIENT|TOTAL|TVA|TTC|HT)\b", ln, re.IGNORECASE):
-#             continue
-#         # heuristique: beaucoup de lettres
-#         if sum(c.isalpha() for c in ln) >= 6:
-#             return ln
-#     return None
-
-# def _find_if_ice(text: str) -> Tuple[Optional[str], Optional[str]]:
-#     if_val = None
-#     ice_val = None
-#     # IF 6-12 chiffres
-#     m = re.search(r"\bI\.?\s*F\b\s*[:\-]?\s*([0-9]{6,12})\b", text, re.IGNORECASE)
-#     if m:
-#         if_val = m.group(1)
-#     # ICE 15 chiffres
-#     m = re.search(r"\bICE\b\s*[:\-]?\s*([0-9]{15})\b", text, re.IGNORECASE)
-#     if m:
-#         ice_val = m.group(1)
-#     return if_val, ice_val
-
-# def _find_invoice_number(text: str) -> Optional[str]:
-#     """
-#     FIX: Priorise FACTURE N°.
-#     Exclut Patente/RC/CNSS/ICE/IF/etc.
-#     """
-#     # 1) priorité FACTURE N°
-#     m = re.search(
-#         r"\bFACTURE\s*(?:N|N°|NO|Nº|NUM(?:ERO)?)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-]{2,40})\b",
-#         text,
-#         flags=re.IGNORECASE,
-#     )
-#     if m:
-#         cand = m.group(1).strip()
-#         if cand.upper() not in {"CLIENT", "FACTURE"}:
-#             return cand
-
-#     # 2) fallback “N° ...” mais pas dans contexte légal
-#     bad_ctx = re.compile(r"\b(PATENTE|RC|R\.C|CNSS|ICE|IF|I\.F|TVA|CLIENT)\b", re.IGNORECASE)
-#     best = None
-#     best_score = -1
-#     for ln in text.splitlines():
-#         if "N" not in ln.upper():
-#             continue
-#         if bad_ctx.search(ln):
-#             continue
-#         m2 = re.search(r"\b(?:N°|NO|Nº)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-]{2,40})\b", ln, re.IGNORECASE)
-#         if not m2:
-#             continue
-#         cand = m2.group(1).strip()
-#         score = 0
-#         if "/" in cand: score += 3
-#         if 5 <= len(cand) <= 20: score += 2
-#         if re.search(r"\d", cand): score += 1
-#         if score > best_score:
-#             best_score, best = score, cand
-#     return best
-
-# def _extract_amount_near_label(text: str, label_regex: str) -> Optional[float]:
-#     # cherche label ... montant (sur 0-80 chars)
-#     m = re.search(label_regex + r".{0,80}" + r"(" + AMOUNT_RE.pattern + r")", text, re.IGNORECASE | re.DOTALL)
-#     if not m:
-#         return None
-#     return _to_float(m.group(1))
-
-# def _extract_tva_rate(text: str) -> Optional[float]:
-#     # “TVA 20%” “TVA : 20 %” etc.
-#     m = re.search(r"\bTVA\b.{0,20}?(\d{1,2})\s*%", text, re.IGNORECASE)
-#     if m:
-#         try:
-#             v = float(m.group(1))
-#             if 0 < v <= 30:
-#                 return v
-#         except Exception:
-#             return None
-#     return None
-
-# def _extract_totals(text: str) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
-#     """
-#     FIX: ne pas confondre taux TVA (20%) et montant TVA.
-#     Retour: ht, montant_tva, ttc, taux_tva
-#     """
-#     taux = _extract_tva_rate(text)
-
-#     # HT
-#     ht = _extract_amount_near_label(text, r"\b(TOTAL\s*HT|MONTANT\s*HT|HT)\b")
-
-#     # TTC
-#     ttc = _extract_amount_near_label(text, r"\b(TOTAL\s*TTC|NET\s*A\s*PAYER|TOTAL\s*A\s*PAYER|A\s*PAYER)\b")
-
-#     # Montant TVA (pas le taux)
-#     # On cherche un montant “monétaire” proche de “TVA” MAIS on évite le pattern “TVA 20%”
-#     montant_tva = None
-#     # on balaie lignes
-#     for ln in text.splitlines():
-#         if not re.search(r"\bTVA\b", ln, re.IGNORECASE):
-#             continue
-#         # skip si c’est juste le taux
-#         if re.search(r"\bTVA\b.{0,10}\d{1,2}\s*%", ln, re.IGNORECASE):
-#             # peut contenir aussi un montant plus loin -> on continue quand même
-#             pass
-#         # prendre le plus grand montant sur la ligne (souvent le montant TVA)
-#         nums = [ _to_float(x) for x in AMOUNT_RE.findall(ln) ]
-#         nums = [n for n in nums if n is not None]
-#         if nums:
-#             cand = max(nums)
-#             # un montant TVA réaliste n’est pas 20 quand HT est 7916.67
-#             if cand is not None and cand > 50:
-#                 montant_tva = cand
-#                 break
-
-#     # cohérence: si tva manque mais ht+ttc présents, calcule tva = ttc-ht (si plausible)
-#     if montant_tva is None and ht is not None and ttc is not None:
-#         diff = round(ttc - ht, 2)
-#         if diff >= 0:
-#             montant_tva = diff
-
-#     # cohérence: si on a extrait “20” (taux) par erreur
-#     if montant_tva is not None and ht is not None and ttc is not None:
-#         # si montant_tva est petit (<= 30) mais ht/ttc grands => probablement taux
-#         if montant_tva <= 30 and ttc > 200 and ht > 200:
-#             diff = round(ttc - ht, 2)
-#             if diff > 30:
-#                 montant_tva = diff
-
-#     # si taux absent, on peut le calculer
-#     if taux is None and ht not in (None, 0) and montant_tva is not None:
-#         taux = round((montant_tva / ht) * 100, 2)
-
-#     return ht, montant_tva, ttc, taux
-
-# def extract_fields_from_ocr(ocr: OCRResult) -> Dict[str, Any]:
-#     t = _norm(ocr.text)
-
-#     fournisseur = _find_supplier(t)
-#     date_facture = _find_date(t)
-#     numero_facture = _find_invoice_number(t)
-#     if_frs, ice_frs = _find_if_ice(t)
-
-#     ht, tva, ttc, taux = _extract_totals(t)
-
-#     # dernière validation “TTC ≈ HT + TVA”
-#     if ht is not None and tva is not None and ttc is not None:
-#         if abs((ht + tva) - ttc) > max(2.0, 0.02 * ttc):
-#             # si incohérent, on préfère recalculer TVA depuis HT/TTC
-#             diff = round(ttc - ht, 2)
-#             if diff >= 0:
-#                 tva = diff
-
-#     designation = f"Achat fournisseur - {fournisseur}" if fournisseur else "Achat fournisseur"
-
-#     return {
-#         "fournisseur": fournisseur,
-#         "date_facture": date_facture,
-#         "numero_facture": numero_facture,
-#         "designation": designation,
-#         "montant_ht": ht,
-#         "montant_tva": tva,
-#         "montant_ttc": ttc,
-#         "if_frs": if_frs,
-#         "ice_frs": ice_frs,
-#         "taux_tva": taux,
-#     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import re
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-# IMPORTANT: accepte OCRResult ou str
-def extract_fields_from_ocr(ocr) -> Dict[str, Any]:
-    """
-    ocr peut être:
-      - OCRResult (avec .text)
-      - ou un string
-    """
-    if hasattr(ocr, "text"):
-        text = ocr.text
-    else:
-        text = str(ocr)
+AMOUNT_RE = re.compile(r"(?<!\d)(\d{1,3}(?:[ .]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})|\d+)(?!\d)")
 
+
+def extract_fields_from_ocr(ocr: Any) -> Dict[str, Any]:
+    """Accept an OCRResult or raw OCR text."""
+    text = ocr.text if hasattr(ocr, "text") else str(ocr)
     return parse_facture_text(text)
 
 
-# -------------------------
-# Normalisation
-# -------------------------
 def _normalize_text(text: str) -> str:
     if not text:
         return ""
-    t = text.replace("\r", "\n")
-    t = t.replace(",", ".")
-    t = re.sub(r"[ \t]+", " ", t)
-    t = re.sub(r"\bFactur[eé]\b", "FACTURE", t, flags=re.IGNORECASE)
-    t = re.sub(r"\bTotat\b", "Total", t, flags=re.IGNORECASE)
-    t = re.sub(r"T\.?\s*T\.?\s*C\.?", "TTC", t, flags=re.IGNORECASE)
-    t = re.sub(r"H\.?\s*T\.?", "HT", t, flags=re.IGNORECASE)
-    t = re.sub(r"(?<=\d)\s+(?=\d)", "", t)
-    return t
+
+    normalized = text.replace("\r", "\n")
+    normalized = re.sub(r"[ \t]+", " ", normalized)
+    normalized = re.sub(r"\bFactur[eé]\b", "FACTURE", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bTotat\b", "Total", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"T\.?\s*T\.?\s*C\.?", "TTC", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"H\.?\s*T\.?", "HT", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"(?<=\d)\s+(?=\d)", "", normalized)
+    return normalized
 
 
-def _to_float(s: Optional[str]) -> Optional[float]:
-    if not s:
-        return None
-    s = str(s).strip()
-    if not s:
+def _to_float(value: Optional[str]) -> Optional[float]:
+    if not value:
         return None
 
-    s = re.sub(r"(?<=\d)[oO](?=\d)", "0", s)
-    s = re.sub(r"[^0-9.]", "", s)
+    cleaned = str(value).strip()
+    if not cleaned:
+        return None
 
-    if s.count(".") > 1:
-        parts = re.split(r"\.+", s)
-        s = "".join(parts[:-1]) + "." + parts[-1]
+    cleaned = re.sub(r"(?<=\d)[oO](?=\d)", "0", cleaned)
+    # Gérer les formats 4.300,00 ou 4 300,00
+    cleaned = cleaned.replace(" ", "")
+    # Si on a un point de milliers ET une virgule de décimales (ex: 4.300,00)
+    if "." in cleaned and "," in cleaned:
+        cleaned = cleaned.replace(".", "")
+    cleaned = cleaned.replace(",", ".")
+    cleaned = re.sub(r"[^0-9.]", "", cleaned)
+
+    if cleaned.count(".") > 1:
+        last_dot = cleaned.rfind(".")
+        cleaned = cleaned[:last_dot].replace(".", "") + cleaned[last_dot:]
 
     try:
-        return float(s)
+        return float(cleaned)
     except Exception:
         return None
 
 
 def _find_date_ddmmyyyy(text: str) -> Optional[str]:
-    # priorité: injection DATE_FACTURE: xx/xx/xxxx
-    m = re.search(r"DATE_FACTURE:\s*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})", text, flags=re.IGNORECASE)
-    if m:
-        return m.group(1).replace("-", "/").replace(".", "/")
+    injected = re.search(r"DATE_FACTURE:\s*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})", text, flags=re.IGNORECASE)
+    if injected:
+        return injected.group(1).replace("-", "/").replace(".", "/")
 
-    m = re.search(r"(\d{2})\s*[/\-\.]\s*(\d{2})\s*[/\-\.]\s*(\d{4})", text)
-    if m:
-        return f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
-    return None
+    match = re.search(r"\b(\d{1,2})\s*[/\-\.]\s*(\d{1,2})\s*[/\-\.]\s*(\d{2,4})\b", text)
+    if not match:
+        return None
+
+    day, month, year = match.groups()
+    if len(year) == 2:
+        year = f"20{year}"
+    return f"{day.zfill(2)}/{month.zfill(2)}/{year}"
 
 
 def _find_num_facture(text: str) -> Optional[str]:
-    m = re.search(
-        r"(FACTURE\s*(?:N|N°|NO|NUM|Nº)|REF(?:ERENCE)?|N°)\s*[:\-]?\s*([A-Z0-9/\-]{3,30})",
-        text,
-        flags=re.IGNORECASE,
-    )
-    if m:
-        val = m.group(2).strip()
-        # anti faux-positif simple
-        if val.upper() in ["CLIENT", "CLT"]:
-            return None
-        return val
+    patterns = [
+        r"\bFACTURE\s*(?:N|N°|NO|NUM(?:ERO)?|Nº)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-\.]{2,40})\b",
+        r"\b(?:REF|REFERENCE|R[ÉE]F[ÉE]RENCE)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-\.]{2,40})\b",
+        r"\b(?:N°|NO|Nº)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-\.]{2,40})\b",
+    ]
+    bad_values = {"CLIENT", "CLT", "ICE", "IF", "RC", "PATENTE", "TOTAL", "TTC", "HT"}
+    bad_context = re.compile(r"\b(PATENTE|RC|R\.C|CNSS|ICE|IF|I\.F|TVA|CLIENT)\b", re.IGNORECASE)
+
+    for line in text.splitlines():
+        if bad_context.search(line):
+            continue
+        for pattern in patterns:
+            match = re.search(pattern, line, flags=re.IGNORECASE)
+            if not match:
+                continue
+            value = match.group(1).strip(" -:./")
+            if len(value) >= 3 and value.upper() not in bad_values:
+                return value
+    return None
+
+
+def _extract_amount_near_label(text: str, label_regex: str) -> Optional[float]:
+    match = re.search(label_regex + r".{0,80}?(" + AMOUNT_RE.pattern + r")", text, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    return _to_float(match.group(1))
+
+
+def _extract_tva_rate(text: str) -> Optional[float]:
+    for line in text.splitlines():
+        if not re.search(r"\bTVA\b", line, re.IGNORECASE):
+            continue
+        match = re.search(r"(\d{1,2}(?:[.,]\d{1,2})?)\s*%", line)
+        if not match:
+            continue
+        rate = _to_float(match.group(1))
+        if rate is not None and 0 <= rate <= 30:
+            return rate
     return None
 
 
 def _find_totals(text: str) -> Tuple[Optional[float], Optional[float], Optional[float]]:
-    ht = tva = ttc = None
-    AMOUNT = r"([0-9][0-9\.\s]{0,20})"
-
-    m = re.search(r"(?:MONTANT\s*)?HT\s*[:\-]?\s*" + AMOUNT, text, flags=re.IGNORECASE)
-    if m:
-        ht = _to_float(m.group(1))
-
-    m = re.search(r"(?:MONTANT\s*)?TVA\s*[:\-]?\s*" + AMOUNT, text, flags=re.IGNORECASE)
-    if m:
-        tva = _to_float(m.group(1))
-
-    m = re.search(
-        r"(TOTAL\s*A\s*PAYER\s*\(?\s*TTC\s*\)?|TOTAL\s*TTC|NET\s*A\s*PAYER|A\s*PAYER)\s*[:\-]?\s*"
-        + AMOUNT,
+    montant_ht = _extract_amount_near_label(text, r"\b(TOTAL\s*HT|MONTANT\s*HT|HT)\b")
+    montant_ttc = _extract_amount_near_label(
         text,
-        flags=re.IGNORECASE,
+        r"\b(TOTAL\s*TTC|NET\s*A\s*PAYER|TOTAL\s*A\s*PAYER|MONTANT\s*TTC|A\s*PAYER)\b",
     )
-    if m:
-        ttc = _to_float(m.group(2))
+    montant_tva = None
 
-    if ttc is None and ht is not None and tva is not None:
-        ttc = round(ht + tva, 2)
+    for line in text.splitlines():
+        if not re.search(r"\bTVA\b", line, re.IGNORECASE):
+            continue
+        values = [_to_float(raw) for raw in AMOUNT_RE.findall(line)]
+        values = [value for value in values if value is not None]
+        if not values:
+            continue
+        rate = _extract_tva_rate(line)
+        monetary_values = [value for value in values if rate is None or abs(value - rate) > 0.01]
+        if monetary_values:
+            montant_tva = max(monetary_values)
+            break
 
-    return ht, tva, ttc
+    if montant_tva is None and montant_ht is not None and montant_ttc is not None and montant_ttc >= montant_ht:
+        montant_tva = round(montant_ttc - montant_ht, 2)
+    if montant_ttc is None and montant_ht is not None and montant_tva is not None:
+        montant_ttc = round(montant_ht + montant_tva, 2)
+
+    return montant_ht, montant_tva, montant_ttc
 
 
 def _find_supplier_footer_line(text: str) -> Optional[str]:
-    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-    for ln in reversed(lines):
-        up = ln.upper()
-        if ("IF" in up) and ("ICE" in up):
-            return ln
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    candidates = []
+
+    for idx, line in enumerate(lines):
+        upper = line.upper()
+        if "ICE" in upper or re.search(r"\bI\.?\s*F\b", upper):
+            candidates.append(" ".join(lines[idx:min(idx + 3, len(lines))]))
+
+    for candidate in reversed(candidates):
+        if "ICE" in candidate.upper() or re.search(r"\bI\.?\s*F\b", candidate, re.IGNORECASE):
+            return candidate
+
     return None
 
 
-def _extract_if_ice_from_footer(footer_line: str) -> Tuple[Optional[str], Optional[str]]:
-    if_val = None
-    ice_val = None
+def _find_ice_if(text: str) -> Tuple[Optional[str], Optional[str]]:
+    search_space = _find_supplier_footer_line(text) or text
 
-    m = re.search(r"\bIF\s*[:\-]?\s*([0-9]{6,12})\b", footer_line, flags=re.IGNORECASE)
-    if m:
-        if_val = m.group(1)
+    supplier_if_match = re.search(r"\bI\.?\s*F\b\s*[:\-]?\s*([0-9]{4,12})\b", search_space, flags=re.IGNORECASE)
+    supplier_ice_match = re.search(r"\bICE\b\s*[:\-]?\s*([0-9]{15})\b", search_space, flags=re.IGNORECASE)
 
-    m = re.search(r"\bICE\s*[:\-]?\s*([0-9]{15})\b", footer_line, flags=re.IGNORECASE)
-    if m:
-        ice_val = m.group(1)
+    supplier_if = supplier_if_match.group(1) if supplier_if_match else None
+    supplier_ice = supplier_ice_match.group(1) if supplier_ice_match else None
 
-    return if_val, ice_val
+    if supplier_ice is None:
+        all_ice = re.findall(r"\b(\d{15})\b", text)
+        if all_ice:
+            supplier_ice = all_ice[0]
+ 
+    return supplier_if, supplier_ice
 
 
 def _find_supplier_name(text: str) -> Optional[str]:
-    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-    for ln in lines[:20]:
-        if re.search(r"\b(STE|STÉ|Sté)\b", ln, flags=re.IGNORECASE) and re.search(r"\b(SARL|SA)\b", ln, flags=re.IGNORECASE):
-            return re.sub(r"\s+", " ", ln).strip()
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    for line in lines[:20]:
+        upper = line.upper()
+        if len(line) < 4 or len(line) > 80:
+            continue
+        if re.search(r"\b(FACTURE|DATE|CLIENT|DESTINATAIRE|TOTAL|TVA|TTC|HT|ICE|IF|RC)\b", upper):
+            continue
+        if re.search(r"\b(STE|STE\.|STÉ|ETS|ETS\.|SARL|SARLAU|SA|SAS|EURL|SNC)\b", upper):
+            return re.sub(r"\s+", " ", line).strip()
+        if sum(char.isalpha() for char in line) >= 8 and line == line.upper():
+            return re.sub(r"\s+", " ", line).strip()
     return None
 
 
@@ -574,33 +190,26 @@ def _designation_fallback(fournisseur: Optional[str]) -> str:
 
 
 def parse_facture_text(text: str) -> Dict[str, Any]:
-    t = _normalize_text(text)
+    normalized = _normalize_text(text)
 
-    fournisseur = _find_supplier_name(t)
-    date_facture = _find_date_ddmmyyyy(t)
-    numero_facture = _find_num_facture(t)
+    fournisseur = _find_supplier_name(normalized)
+    date_facture = _find_date_ddmmyyyy(normalized)
+    numero_facture = _find_num_facture(normalized)
+    montant_ht, montant_tva, montant_ttc = _find_totals(normalized)
+    if_frs, ice_frs = _find_ice_if(normalized)
 
-    ht, tva, ttc = _find_totals(t)
-
-    footer = _find_supplier_footer_line(t)
-    if_frs = ice_frs = None
-    if footer:
-        if_frs, ice_frs = _extract_if_ice_from_footer(footer)
-
-    taux_tva = None
-    if ht is not None and tva is not None and ht != 0:
-        taux_tva = round((float(tva) / float(ht)) * 100, 2)
-
-    designation = _designation_fallback(fournisseur)
+    taux_tva = _extract_tva_rate(normalized)
+    if taux_tva is None and montant_ht is not None and montant_tva is not None and montant_ht != 0:
+        taux_tva = round((float(montant_tva) / float(montant_ht)) * 100, 2)
 
     return {
         "fournisseur": fournisseur,
         "date_facture": date_facture,
         "numero_facture": numero_facture,
-        "designation": designation,
-        "montant_ht": ht,
-        "montant_tva": tva,
-        "montant_ttc": ttc,
+        "designation": _designation_fallback(fournisseur),
+        "montant_ht": montant_ht,
+        "montant_tva": montant_tva,
+        "montant_ttc": montant_ttc,
         "if_frs": if_frs,
         "ice_frs": ice_frs,
         "taux_tva": taux_tva,

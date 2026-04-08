@@ -203,13 +203,26 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                        tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
         db.add(el); entry_lines.append(el); total_debit += ttc_total; line_order += 1
 
+        sum_lines_ht = sum([_d(ln.line_amount_ht) for ln in facture.lines])
+        ttc_global = _d(facture.montant_ttc)
+
         for line in facture.lines:
             account_code = line.corrected_account_code or line.pcm_account_code or "6111"
             account_label = line.pcm_account_label or "Achats (Avoir)"
-            ht = _d(line.line_amount_ht)
+            
+            extracted_ht = _d(line.line_amount_ht)
+            force_recalc_tva = False
+            if abs(sum_lines_ht - ttc_global) < Decimal("0.05") and ttc_global > _d(facture.montant_ht):
+                rate = _d(line.tva_rate or facture.taux_tva or 20)
+                ht = (extracted_ht / (Decimal("1") + (rate / Decimal("100")))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                force_recalc_tva = True
+            else:
+                ht = extracted_ht
+
             tva = _d(line.tva_amount)
-            if tva == Decimal("0") and line.tva_rate:
+            if (tva == Decimal("0") or force_recalc_tva) and line.tva_rate:
                 tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            
             tva_account = _get_tva_account(line.pcm_class, invoice_type)
 
             el_ht = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code=account_code,
@@ -226,6 +239,10 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     else:
         # ── ACHAT (charge ou immobilisation) ─────────────────────
         # Débit 6xxx ou 2xxx + Débit TVA par ligne
+        # Calculer la somme des HT extraits pour détecter une éventuelle confusion HT/TTC
+        sum_lines_ht = sum([_d(ln.line_amount_ht) for ln in facture.lines])
+        ttc_global = _d(facture.montant_ttc)
+
         for line in facture.lines:
             # Sécurité: Ne pas utiliser de compte de classe 7 (Produits) pour un achat
             # sauf si l'utilisateur l'a explicitement corrigé (corrected_account_code)
@@ -237,12 +254,21 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 account_code = line.corrected_account_code or raw_account
                 account_label = line.pcm_account_label or "Achats"
 
-            ht = _d(line.line_amount_ht)
+            extracted_ht = _d(line.line_amount_ht)
             
-            # Priorité absolue au montant TVA extrait
+            # Si on a redressé le HT, on doit aussi forcer le recalcul de la TVA
+            # car la TVA extraite est probablement basée sur le HT erroné.
+            force_recalc_tva = False
+            if abs(sum_lines_ht - ttc_global) < Decimal("0.05") and ttc_global > _d(facture.montant_ht):
+                rate = _d(line.tva_rate or facture.taux_tva or 20)
+                ht = (extracted_ht / (Decimal("1") + (rate / Decimal("100")))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                force_recalc_tva = True
+            else:
+                ht = extracted_ht
+            
+            # Priorité absolue au montant TVA extrait (sauf si on a redressé le HT)
             tva = _d(line.tva_amount)
-            # On ne recalcule que si tva_amount est strictement nul ET qu'un taux est présent
-            if tva == Decimal("0") and line.tva_rate and _d(line.tva_rate) > 0:
+            if (tva == Decimal("0") or force_recalc_tva) and line.tva_rate and _d(line.tva_rate) > 0:
                 tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             
             tva_account = _get_tva_account(line.pcm_class, invoice_type)
@@ -295,10 +321,53 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         total_credit += ttc_total
         line_order += 1
 
-    # Mise à jour des totaux
+    # ── Équilibrage et Alignement Parfait (Alignment with Invoice TTC) ─────────────────
+    # On veut que Total Débit == Total Crédit == facture.montant_ttc
+    target_ttc = _d(facture.montant_ttc)
+    
+    # 1. Identifier la ligne HT la plus importante pour l'ajustement
+    # C'est généralement une ligne de classe 6 (achat) ou 7 (vente) ou 2 (immo)
+    ht_lines = [l for l in entry_lines if not l.account_code.startswith("3455") and not l.account_code.startswith("4455") and not _is_tiers_account(l.account_code)]
+    
+    if ht_lines and target_ttc > 0:
+        # Trouver la ligne avec le plus grand montant (débit ou crédit)
+        largest_line = max(ht_lines, key=lambda l: max(l.debit, l.credit))
+        
+        if is_vente or is_avoir_achat:
+            # Pour une vente ou un avoir achat, le total attendu est au DÉBIT (3421 ou 4411)
+            # Et les lignes HT sont au CRÉDIT.
+            diff = target_ttc - total_credit
+            if abs(diff) <= Decimal("0.10"):
+                if largest_line.credit > 0:
+                    largest_line.credit += diff
+                    total_credit += diff
+        else:
+            # Pour un achat ou un avoir vente, le total attendu est au CRÉDIT (4411 ou 3421)
+            # Et les lignes HT sont au DÉBIT.
+            diff = target_ttc - total_debit
+            if abs(diff) <= Decimal("0.10"):
+                if largest_line.debit > 0:
+                    largest_line.debit += diff
+                    total_debit += diff
+
+    # 2. Sécurité finale : équilibrage strict Debit/Credit
+    final_diff = total_debit - total_credit
+    if abs(final_diff) > 0 and abs(final_diff) <= Decimal("0.05"):
+        # Ajustement de secours sur le tiers si nécessaire (très rare après l'étape 1)
+        tiers_line = next((l for l in entry_lines if _is_tiers_account(l.account_code)), None)
+        if tiers_line:
+            if final_diff > 0: # Trop de débit
+                if tiers_line.credit > 0:
+                    tiers_line.credit += final_diff
+                    total_credit += final_diff
+            else: # Trop de crédit
+                if tiers_line.debit > 0:
+                    tiers_line.debit += abs(final_diff)
+                    total_debit += abs(final_diff)
+
+    # Mise à jour des totaux définitifs
     entry.total_debit = total_debit
     entry.total_credit = total_credit
-
 
     db.commit()
     db.refresh(entry)
@@ -311,7 +380,8 @@ def check_balance(entry: JournalEntry) -> Dict[str, Any]:
     debit = _d(entry.total_debit)
     credit = _d(entry.total_credit)
     diff = abs(debit - credit)
-    is_balanced = diff <= Decimal("0.01")
+    # Après l'ajustement automatique, on doit être à 0.00
+    is_balanced = diff == Decimal("0.00")
 
     return {
         "is_balanced": is_balanced,

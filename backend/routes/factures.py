@@ -626,15 +626,12 @@ def should_use_gemini(ocr: Any, fields: Dict[str, Any]) -> bool:
 def extract_with_gemini(file_path: str) -> Dict[str, Any]:
     ext = Path(file_path).suffix.lower()
 
+    with open(file_path, "rb") as f:
+        image_bytes = f.read()
+
     if ext == ".pdf":
-        images = pdf_to_png_images_bytes(file_path, dpi=300, max_pages=1)
-        if not images:
-            raise HTTPException(status_code=500, detail="Impossible de convertir le PDF en image")
-        image_bytes = images[0]
-        mime_type = "image/png"
+        mime_type = "application/pdf"
     else:
-        with open(file_path, "rb") as f:
-            image_bytes = f.read()
         mime_type = guess_mime_type(file_path)
 
     gemini_raw = extract_invoice_fields_from_image_bytes(image_bytes, mime_type=mime_type)

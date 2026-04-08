@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from models import InvoiceLine, Facture, SupplierMapping, PcmAccount
-from services.gemini_service import classify_invoice_line
+from services.gemini_service import classify_product_pcm
 
 
 def classify_all_lines(facture: Facture, db: Session) -> List[dict]:
@@ -48,9 +48,9 @@ def classify_all_lines(facture: Facture, db: Session) -> List[dict]:
 
             # 3. Sinon, on appelle l'IA (Gemini)
             if not mapping:
-                classification = classify_invoice_line(
+                classification = classify_product_pcm(
                     description=line.description,
-                    amount_ht=float(line.line_amount_ht) if line.line_amount_ht else None,
+                    amount=float(line.line_amount_ht) if line.line_amount_ht else 0.0,
                     invoice_type=facture.invoice_type,
                 )
 

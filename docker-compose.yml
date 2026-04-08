@@ -1,3 +1,67 @@
+# services:
+#   db:
+#     image: postgres:15
+#     container_name: pfe_postgres_v2
+#     restart: always
+#     environment:
+#       POSTGRES_USER: admin
+#       POSTGRES_PASSWORD: admin123
+#       POSTGRES_DB: compta_db
+#     ports:
+#       - "5454:5432"
+#     volumes:
+#       - postgres_data_v2:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U admin -d compta_db"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 20
+
+#   backend:
+#     build:
+#       context: ./backend
+#     container_name: pfe_backend_v2
+#     restart: always
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     env_file:
+#       - .env
+#     environment:
+#       DATABASE_URL: postgresql+psycopg://admin:admin123@db:5432/compta_db
+#       PYTHONUNBUFFERED: "1"
+#       UPLOAD_DIR: /app/uploads
+#     ports:
+#       - "8888:8000"
+#     volumes:
+#       - ./backend:/app
+#       - ./backend/uploads:/app/uploads
+#     command: >
+#       sh -c "python seed_pcm.py && python seed_multi_cabinet.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+
+#   frontend:
+#     build:
+#       context: ./frontend
+#     container_name: pfe_frontend_v2
+#     restart: always
+#     depends_on:
+#       - backend
+#     ports:
+#       - "3333:3333"
+#     volumes:
+#       - ./frontend:/app
+#       - /app/node_modules
+
+# volumes:
+#   postgres_data_v2:
+
+
+
+
+
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -30,8 +94,6 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://admin:admin123@db:5432/compta_db
       PYTHONUNBUFFERED: "1"
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       UPLOAD_DIR: /app/uploads
     ports:
       - "8888:8000"
@@ -40,7 +102,6 @@ services:
       - ./backend/uploads:/app/uploads
     command: >
       sh -c "python seed_pcm.py && python seed_multi_cabinet.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
-
 
   frontend:
     build:
@@ -57,4 +118,3 @@ services:
 
 volumes:
   postgres_data_v2:
-
