@@ -1,0 +1,12 @@
+[
+  {
+    "id": 382,
+    "debit": 0,
+    "credit": 5600.0,
+    "account": "4411",
+    "societe_id": 7,
+    "date": "2026-02-12",
+    "facture_id": 30,
+    "numero": "FA2026/00893"
+  }
+]

@@ -230,9 +230,9 @@ def _call_gemini(parts: list, schema: dict, model: str = None) -> Optional[dict]
                 err_str = str(e)
                 print(f"[Gemini SDK] ⚠️ Erreur clé #{key_index} (Essai {attempt+1}/3): {err_str}")
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "503" in err_str or "unavailable" in err_str.lower():
-                    time.sleep(15)
+                    time.sleep(0.5)
                 else:
-                    time.sleep(2)
+                    time.sleep(0.1)
                 continue
 
     return None
@@ -383,9 +383,9 @@ Type facture: {invoice_type}"""
                 err_str = str(e)
                 print(f"[Gemini PCM] ⚠️ Erreur clé #{key_index} (Essai {attempt+1}/3): {err_str}")
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "503" in err_str or "unavailable" in err_str.lower():
-                    time.sleep(15)
+                    time.sleep(0.5)
                 else:
-                    time.sleep(2)
+                    time.sleep(0.1)
                 continue
 
     return {}
@@ -487,9 +487,9 @@ def classify_bank_transaction(description: str, debit: float = 0.0, credit: floa
                 err_str = str(e)
                 print(f"[Gemini Bank] ⚠️ Erreur clé #{key_index} (Essai {attempt+1}/3): {err_str}")
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "503" in err_str or "unavailable" in err_str.lower():
-                    time.sleep(15)
+                    time.sleep(0.5)
                 else:
-                    time.sleep(2)
+                    time.sleep(0.1)
                 continue
     
     return {"pcm_account_code": "47110000", "pcm_account_label": "Compte d'attente", "confidence": 0}

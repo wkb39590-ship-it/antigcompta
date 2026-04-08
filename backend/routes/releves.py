@@ -11,6 +11,7 @@ import re
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from database import get_db
 from models import ReleveBancaire, LigneReleve, JournalEntry, EntryLine
@@ -202,23 +203,28 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
         base_date = datetime.now().date()
     
     try:
-        date_min = (base_date - timedelta(days=15)).strftime("%Y-%m-%d")
-        date_max = (base_date + timedelta(days=15)).strftime("%Y-%m-%d")
+        date_min = (base_date - timedelta(days=45)) # Objet date
+        date_max = (base_date + timedelta(days=45)) # Objet date
     except Exception:
-        date_min = "1900-01-01"
-        date_max = "2100-01-01"
+        date_min = date(1900, 1, 1)
+        date_max = date(2100, 1, 1)
 
-    # 2. Requête filtrée par montant et date
-    query = db.query(EntryLine).join(JournalEntry).filter(
-        JournalEntry.societe_id == societe_id,
-        JournalEntry.journal_code == 'BQ',
-        EntryLine.debit == ligne.debit,
-        EntryLine.credit == ligne.credit,
-        JournalEntry.entry_date >= date_min,
-        JournalEntry.entry_date <= date_max
-    )
-    
-    suggestions = query.all()
+    amount_val = float(ligne.debit or 0.0) + float(ligne.credit or 0.0)
+
+    # 2. Requête filtrée par montant et date (sur tous les journaux)
+    try:
+        query = db.query(EntryLine).join(JournalEntry).filter(
+            or_(JournalEntry.societe_id == societe_id, JournalEntry.societe_id == None),
+            JournalEntry.entry_date >= date_min,
+            JournalEntry.entry_date <= date_max,
+            or_(EntryLine.debit == amount_val, EntryLine.credit == amount_val),
+            or_(EntryLine.account_code.startswith('3'), EntryLine.account_code.startswith('4'), EntryLine.account_code.startswith('5'))
+        )
+        
+        suggestions = query.all()
+    except Exception as e:
+        print(f"Erreur DB Suggestions: {e}")
+        suggestions = []
 
     # 3. Calculer un score de pertinence basé sur le texte
     def calculate_score(s: EntryLine, bank_desc: str) -> float:
@@ -228,18 +234,21 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
             s_ref = (s.journal_entry.reference or "").upper()
             safe_bank_desc = (bank_desc or "").upper()
             
-            # Reels matches (mots clés ou numéros complexes)
+            # Match direct de mots (ex: SEMACDO)
             bank_words = set(re.findall(r'\w+', safe_bank_desc))
             s_words = set(re.findall(r'\w+', s_desc + " " + s_ref))
             
             overlap = bank_words.intersection(s_words)
-            # On ignore les mots trop courts (< 3 car) sauf si c'est des chiffres
             meaningful_overlap = [w for w in overlap if len(w) > 2 or w.isdigit()]
-            score += len(meaningful_overlap) * 10
+            score += len(meaningful_overlap) * 25 # Augmenté de 10 à 25
             
+            # Bonus si le nom dans l'écriture (fournisseur) est dans la banque
+            if s_desc and any(word in safe_bank_desc for word in s_words if len(word) > 3):
+                score += 40
+
             # Bonus si exact string match partiel
-            if s_ref and s_ref in safe_bank_desc: score += 50
-            if s_desc and (s_desc in safe_bank_desc or safe_bank_desc in s_desc): score += 30
+            if s_ref and s_ref in safe_bank_desc: score += 100
+            if s_desc and (s_desc in safe_bank_desc or safe_bank_desc in s_desc): score += 50
         except Exception as e:
             print(f"Error in calculate_score: {e}")
         return score
@@ -248,6 +257,7 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
     results = []
     for s in suggestions:
         score = calculate_score(s, ligne.description)
+        
         # Ensure we always have a string date for safe sorting
         entry_date_str = s.journal_entry.entry_date.strftime("%Y-%m-%d") if isinstance(s.journal_entry.entry_date, date) else str(s.journal_entry.entry_date or "1900-01-01")
         results.append({
@@ -262,9 +272,8 @@ def get_suggestions(ligne_id: int, db: Session = Depends(get_db), session: dict 
             "score": score
         })
     
-    # Trier par score décroissant, puis par date
-    results.sort(key=lambda x: (x["score"], x["date"]), reverse=True)
-    
+    # Trier par score décroissant et renvoyer
+    results.sort(key=lambda x: x["score"], reverse=True)
     return results
 
 @router.get("/suggestions-all/{releve_id}")
@@ -283,19 +292,24 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
         if ligne.is_rapproche:
             continue
             
-        # 1. Recherche exacte par montant + date + texte (Journal BQ)
+        # 1. Recherche exacte par montant + date + texte (Tous journaux)
         try:
-            base_date = datetime.strptime(ligne.date_operation, "%Y-%m-%d")
-            date_min = (base_date - timedelta(days=20)).strftime("%Y-%m-%d")
-            date_max = (base_date + timedelta(days=20)).strftime("%Y-%m-%d")
+            if isinstance(ligne.date_operation, date):
+                base_date = ligne.date_operation
+            else:
+                base_date = datetime.strptime(ligne.date_operation, "%Y-%m-%d").date()
+            
+            date_min = (base_date - timedelta(days=45))
+            date_max = (base_date + timedelta(days=45))
         except:
             date_min, date_max = None, None
 
+        amount_val = float(ligne.debit or 0.0) + float(ligne.credit or 0.0)
+
         q = db.query(EntryLine).join(JournalEntry).filter(
-            JournalEntry.journal_code == 'BQ',
-            JournalEntry.societe_id == releve.societe_id,
-            EntryLine.debit == ligne.debit,
-            EntryLine.credit == ligne.credit
+            or_(JournalEntry.societe_id == releve.societe_id, JournalEntry.societe_id == None),
+            or_(EntryLine.debit == amount_val, EntryLine.credit == amount_val),
+            or_(EntryLine.account_code.startswith('3'), EntryLine.account_code.startswith('4'), EntryLine.account_code.startswith('5'))
         )
         if date_min:
             q = q.filter(JournalEntry.entry_date >= date_min, JournalEntry.entry_date <= date_max)
@@ -340,7 +354,7 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
                 "score": max_score
             }
         else:
-            # 2. IA Suggestion pour création d'écriture
+            # 2. IA Suggestion
             try:
                 ai_suggest = classify_bank_transaction(ligne.description, float(ligne.debit), float(ligne.credit))
                 results[ligne.id] = {
@@ -349,9 +363,14 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
                     "account_label": ai_suggest.get("pcm_account_label"),
                     "confidence": ai_suggest.get("confidence")
                 }
-            except Exception as e:
-                print(f"Erreur IA Bulk: {e}")
-                pass
+            except Exception:
+                # Fallback neutre si l'IA échoue (quota etc)
+                results[ligne.id] = {
+                    "type": "ai",
+                    "account_code": "47110000",
+                    "account_label": "Compte d'attente (Indisponibilité IA)",
+                    "confidence": 0
+                }
             
     return results
 
@@ -423,7 +442,8 @@ def suggest_account(ligne_id: int, db: Session = Depends(get_db), session: dict 
 @router.post("/rapprocher")
 def rapprocher_ligne(payload: Dict[str, int], db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
     """
-    Lie manuellement une ligne de relevé à une ligne d'écriture existante.
+    Lie manuellement une ligne de relevé à une ligne d'écriture existante,
+    ou génère le paiement manquant si on lie directement à une facture.
     """
     ligne_id = payload.get("ligne_releve_id")
     entry_line_id = payload.get("entry_line_id")
@@ -433,6 +453,14 @@ def rapprocher_ligne(payload: Dict[str, int], db: Session = Depends(get_db), ses
     
     if not ligne or not entry:
         raise HTTPException(404, "Données introuvables")
+        
+    if entry.journal_entry.journal_code != 'BQ':
+        # On tente de lier un paiement bancaire directement à une ligne de facture (ex: compte 4411).
+        # Il faut générer l'écriture bancaire !
+        return generer_ecriture({
+            "ligne_releve_id": ligne.id,
+            "compte_contrepartie": entry.account_code
+        }, db=db, session=session)
     
     ligne.is_rapproche = True
     ligne.entry_line_id = entry_line_id

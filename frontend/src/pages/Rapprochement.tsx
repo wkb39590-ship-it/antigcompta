@@ -63,7 +63,7 @@ function AccountSelector({ isOpen, onClose, onSelect, suggestion }: AccountSelec
             background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 1000, padding: '20px'
         }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
                     <div style={{ fontWeight: 'bold' }}>Sélectionner un compte (PCM)</div>
                     <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
@@ -361,7 +361,7 @@ function RapprochementInner() {
                                                 cursor: 'pointer',
                                                 borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent'
                                             }}
-                                            onClick={() => setSelectedLigne(ligne)}
+                                            onClick={() => { setSelectedLigne(ligne); loadSuggestions(ligne.id); }}
                                         >
                                             <td style={{ color: 'var(--text3)', width: '90px' }}>{ligne.date_operation}</td>
                                             <td style={{ fontWeight: 500, color: 'var(--text)' }}>

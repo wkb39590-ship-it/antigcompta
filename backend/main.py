@@ -80,6 +80,26 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
+@app.get("/testdb")
+def testdb():
+    from database import SessionLocal
+    from models import EntryLine, JournalEntry, Facture
+    db = SessionLocal()
+    try:
+        results = db.query(EntryLine).join(JournalEntry).filter((EntryLine.debit == 5600) | (EntryLine.credit == 5600)).all()
+        out = []
+        for r in results:
+            j = r.journal_entry
+            row = {'id': r.id, 'debit': r.debit, 'credit': r.credit, 'account': r.account_code, 'societe_id': j.societe_id, 'date': str(j.entry_date)}
+            if j.facture_id:
+                f = db.query(Facture).get(j.facture_id)
+                row['facture'] = f.numero_facture
+            out.append(row)
+        return out
+    finally:
+        db.close()
+
+
 @app.get("/")
 def home():
     return {
