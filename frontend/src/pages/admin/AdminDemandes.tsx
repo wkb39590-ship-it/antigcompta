@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Search,
   Filter,
-  RefreshCw,
   Inbox
 } from 'lucide-react';
 
@@ -91,10 +90,6 @@ export const AdminDemandes: React.FC = () => {
           <h1 className="glass-text">Demandes d'accès</h1>
           <p>{isSuper ? "Vision d'ensemble de tous les prospects sur la plateforme." : "Gérez les prospects et les futures ouvertures de comptes clients."}</p>
         </div>
-        <button className="aurora-btn-primary" onClick={loadDemandes}>
-          <RefreshCw size={18} className={loading ? 'spin' : ''} />
-          Actualiser
-        </button>
       </div>
 
       <div className="view-controls aurora-card">
@@ -251,6 +246,16 @@ export const AdminDemandes: React.FC = () => {
           letter-spacing: -1px;
         }
 
+        .aurora-btn-primary { 
+          background: #4f46e5 !important; 
+          color: white !important; 
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+          display: flex; align-items: center; gap: 8px; padding: 12px 24px;
+          border-radius: 14px; border: none; font-weight: 700; cursor: pointer;
+          transition: all 0.3s;
+        }
+        .aurora-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5); }
+        
         .header-info p {
           margin: 8px 0 0 0;
           color: var(--text3);
@@ -261,6 +266,8 @@ export const AdminDemandes: React.FC = () => {
           display: flex;
           gap: 20px;
           padding: 16px 24px;
+          background: rgba(255, 255, 255, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.6);
         }
 
         .search-box {
@@ -301,7 +308,7 @@ export const AdminDemandes: React.FC = () => {
           border: none;
           outline: none;
           font-size: 14px;
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text);
           cursor: pointer;
         }
@@ -498,11 +505,13 @@ export const AdminDemandes: React.FC = () => {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          background: var(--aurora-gradient);
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
+          box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+          border: 1px solid white;
         }
 
         .user-info-td .name {

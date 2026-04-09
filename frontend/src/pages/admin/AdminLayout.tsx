@@ -176,28 +176,30 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
         }
 
         .admin-mini-profile {
-          background: rgba(255, 255, 255, 0.4);
+          background: rgba(255, 255, 255, 0.7);
           padding: 16px;
           border-radius: 20px;
           display: flex;
           align-items: center;
           gap: 12px;
           margin-bottom: 30px;
-          border: 1px solid rgba(255, 255, 255, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
         }
 
         .mini-avatar {
           width: 42px;
           height: 42px;
           border-radius: 12px;
-          background: var(--aurora-gradient);
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
           color: white;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 800;
           font-size: 18px;
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+          border: 2px solid white;
         }
 
         .mini-name {
@@ -271,7 +273,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage 
           align-items: center;
           justify-content: center;
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.5);
+          background: rgba(15, 23, 42, 0.05);
+          color: #475569;
           transition: all 0.3s;
         }
 

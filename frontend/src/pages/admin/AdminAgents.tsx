@@ -199,33 +199,35 @@ export const AdminAgents: React.FC = () => {
               : 'Gérez l\'équipe opérationnelle et les habilitations de traitement.'}
           </p>
         </div>
-        <button
-          className={`aurora-btn-primary ${showForm ? 'active-form' : ''}`}
-          onClick={() => {
-            if (showForm) {
-              setShowForm(false);
-              setEditingAgent(null);
-              setFormData({
-                username: '',
-                email: '',
-                password: '',
-                nom: '',
-                prenom: '',
-                is_admin: false,
-                cabinet_id: isSuper ? '' : String(adminUser?.cabinet_id || ''),
-                societe_id: '',
-              });
-            } else {
-              setShowForm(true);
-              if (!isSuper && adminUser?.cabinet_id) {
-                setFormData(prev => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
+        <div className="header-actions-group">
+          <button
+            className={`aurora-btn-primary ${showForm ? 'active-form' : ''}`}
+            onClick={() => {
+              if (showForm) {
+                setShowForm(false);
+                setEditingAgent(null);
+                setFormData({
+                  username: '',
+                  email: '',
+                  password: '',
+                  nom: '',
+                  prenom: '',
+                  is_admin: false,
+                  cabinet_id: isSuper ? '' : String(adminUser?.cabinet_id || ''),
+                  societe_id: '',
+                });
+              } else {
+                setShowForm(true);
+                if (!isSuper && adminUser?.cabinet_id) {
+                  setFormData(prev => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
+                }
               }
-            }
-            setError('');
-          }}
-        >
-          {showForm ? <X size={20} /> : <><UserPlus size={18} /> <span>{isSuper ? 'Ajouter Admin' : 'Nouvel Agent'}</span></>}
-        </button>
+              setError('');
+            }}
+          >
+            {showForm ? <X size={20} /> : <><UserPlus size={18} /> <span>{isSuper ? 'Ajouter Admin' : 'Nouvel Agent'}</span></>}
+          </button>
+        </div>
       </div>
 
       {error && <div className="aurora-error-toast">{error}</div>}
@@ -440,7 +442,16 @@ export const AdminAgents: React.FC = () => {
         .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
         .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
 
-        .aurora-btn-primary.active-form { background: #334155; box-shadow: none; }
+        .aurora-btn-primary { 
+          background: #4f46e5 !important; 
+          color: white !important; 
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+          display: flex; align-items: center; gap: 8px; padding: 12px 24px;
+          border-radius: 14px; border: none; font-weight: 700; cursor: pointer;
+          transition: all 0.3s;
+        }
+        .aurora-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5); }
+        .aurora-btn-primary.active-form { background: #334155 !important; box-shadow: none; }
         .full-width { width: 100%; margin-top: 20px; }
 
         .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }
@@ -531,12 +542,15 @@ export const AdminAgents: React.FC = () => {
 
         .action-buttons { display: flex; gap: 8px; justify-content: flex-end; }
         .icon-btn {
-          width: 36px; height: 36px; border-radius: 10px; border: 1px solid #e2e8f0;
-          background: white; color: var(--text3); cursor: pointer; transition: all 0.3s;
+          width: 36px; height: 36px; border-radius: 10px; border: 1px solid #cbd5e1;
+          background: white; color: #64748b; cursor: pointer; transition: all 0.3s;
           display: flex; align-items: center; justify-content: center;
         }
         .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.05); transform: translateY(-2px); }
         .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); }
+        
+        .header-actions-group { display: flex; gap: 12px; align-items: center; }
+        .spin { animation: spin 1s linear infinite; }
 
         .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); }
         .empty-icon-box { margin-bottom: 20px; opacity: 0.2; }

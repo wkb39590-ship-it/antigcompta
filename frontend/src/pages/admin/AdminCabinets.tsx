@@ -254,7 +254,16 @@ export const AdminCabinets: React.FC = () => {
         .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
         .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
 
-        .aurora-btn-primary.active-form { background: #334155; box-shadow: none; }
+        .aurora-btn-primary { 
+          background: #4f46e5 !important; 
+          color: white !important; 
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+          display: flex; align-items: center; gap: 8px; padding: 12px 24px;
+          border-radius: 14px; border: none; font-weight: 700; cursor: pointer;
+          transition: all 0.3s;
+        }
+        .aurora-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5); }
+        .aurora-btn-primary.active-form { background: #334155 !important; box-shadow: none; }
         .full-width { width: 100%; margin-top: 20px; }
 
         .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }

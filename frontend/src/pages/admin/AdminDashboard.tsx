@@ -52,22 +52,23 @@ export const AdminDashboard: React.FC = () => {
     return err.message || 'Une erreur est survenue';
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsData, activitiesData] = await Promise.all([
-          apiService.adminGetGlobalStats(),
-          apiService.adminGetActivities()
-        ]);
-        setStats(statsData);
-        setActivities(activitiesData.activities);
-      } catch (err: any) {
-        setError(getErrorMessage(err));
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [statsData, activitiesData] = await Promise.all([
+        apiService.adminGetGlobalStats(),
+        apiService.adminGetActivities()
+      ]);
+      setStats(statsData);
+      setActivities(activitiesData.activities);
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
