@@ -485,3 +485,31 @@ class DemandeAccesOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+# ──────────────────────────────────────────────────────────────────────────
+# SCHÉMAS BILAN ET RÉPORTING
+# ──────────────────────────────────────────────────────────────────────────
+
+class BalanceLine(BaseModel):
+    account_code: str
+    account_label: Optional[str] = None
+    brut: Decimal
+    amortissement: Decimal
+    net: Decimal
+    type: str  # DEBIT ou CREDIT
+
+class BilanSection(BaseModel):
+    libelle: str
+    lignes: List[BalanceLine]
+    total_brut: Optional[Decimal] = None
+    total_amortissement: Optional[Decimal] = None
+    total: Decimal
+
+class BilanOut(BaseModel):
+    societe_id: int
+    annee: int
+    actif: List[BilanSection]
+    passif: List[BilanSection]
+    total_actif: Decimal
+    total_passif: Decimal
+    resultat: Decimal
+    is_balanced: bool

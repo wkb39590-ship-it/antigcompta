@@ -138,6 +138,24 @@ def get_current_agent(
     return agent
 
 
+def get_session_context(
+    token: Optional[str] = Query(None),
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> dict:
+    """Extraie le contexte de session (societe_id, etc.) du token JWT sans valider en DB"""
+    actual_token = token
+    if auth:
+        actual_token = auth.credentials
+        
+    if not actual_token:
+        return {}
+        
+    try:
+        return decode_jwt_token(actual_token)
+    except:
+        return {}
+
+
 # ─────────────────────────────────────────────
 # Routes d'authentification
 # ─────────────────────────────────────────────

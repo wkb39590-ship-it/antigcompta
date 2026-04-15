@@ -21,6 +21,7 @@ import BulletinCreate from './pages/BulletinCreate'
 import EmployeCreate from './pages/EmployeCreate'
 import Releves from './pages/Releves'
 import Rapprochement from './pages/Rapprochement'
+import BilanComptable from './pages/BilanComptable'
 import {
     LayoutDashboard,
     Upload as UploadIcon,
@@ -36,7 +37,8 @@ import {
     ChevronUp,
     ChevronDown,
     Zap,
-    Inbox
+    Inbox,
+    FileBarChart
 } from 'lucide-react'
 
 import CabinetSelector from './pages/CabinetSelector'
@@ -98,6 +100,7 @@ function Sidebar() {
         { to: '/immobilisations', label: 'Immobilisations', icon: <Building2 size={18} /> },
         { to: '/releves', label: 'Relevés Bancaires', icon: <BookOpen size={18} /> },
         { to: '/journal', label: 'Journal Comptable', icon: <BookOpen size={18} /> },
+        { to: '/bilan', label: 'Bilan Comptable', icon: <FileBarChart size={18} /> },
         { to: '/paie', label: 'Paie & Salaires', icon: <CreditCard size={18} /> },
         { to: '/history', label: 'Historique', icon: <HistoryIcon size={18} /> },
         { to: '/pcm', label: 'Plan Comptable', icon: <Book size={18} /> },
@@ -427,6 +430,7 @@ export default function App() {
                 <Route path="immobilisations" element={<ProtectedRoute><Immobilisations /></ProtectedRoute>} />
                 <Route path="immobilisations/:id" element={<ProtectedRoute><ImmoDetail /></ProtectedRoute>} />
                 <Route path="journal" element={<ProtectedRoute><JournalComptable /></ProtectedRoute>} />
+                <Route path="bilan" element={<ProtectedRoute><BilanComptable /></ProtectedRoute>} />
                 <Route path="paie" element={<ProtectedRoute><Paie /></ProtectedRoute>} />
                 <Route path="paie/nouveau" element={<ProtectedRoute><BulletinCreate /></ProtectedRoute>} />
                 <Route path="paie/:id" element={<ProtectedRoute><BulletinPaieDetail /></ProtectedRoute>} />

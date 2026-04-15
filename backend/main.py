@@ -24,6 +24,7 @@ from routes.releves import router as releves_router
 from routes.client import router as client_router
 from routes.transmission import router as transmission_router
 from routes.demande_acces import router as demande_acces_router
+from routes.bilan import router as bilan_router
 
 # Legacy routers (conservés pour compatibilité)
 try:
@@ -68,6 +69,7 @@ app.include_router(releves_router)          # /releves/*
 app.include_router(client_router)           # /client/*
 app.include_router(transmission_router)     # /transmission/*
 app.include_router(demande_acces_router)    # /demandes-acces/*
+app.include_router(bilan_router)            # /bilan/*
 
 
 # ── Routers legacy ──────────────────────────────────────────

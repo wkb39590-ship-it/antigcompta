@@ -196,7 +196,7 @@ def generer_ecriture_dotation(immo: Immobilisation, annee: int, db: Session) -> 
         dotation = _d(ligne.dotation_annuelle)
 
     compte_dotation = immo.compte_dotation_pcm or "6193"
-    compte_amort = immo.compte_amort_pcm or "2835"
+    compte_amort = immo.compte_amort_pcm or "28355"  # 28355 = Amort. matériel info (miroir 2355)
 
     from datetime import date
     entry = JournalEntry(

@@ -285,6 +285,32 @@ export interface DocumentTransmis {
     client?: UtilisateurClient
 }
 
+export interface BalanceLine {
+    account_code: string
+    account_label: string | null
+    total_debit: number
+    total_credit: number
+    balance: number
+    type: 'DEBIT' | 'CREDIT'
+}
+
+export interface BilanSection {
+    libelle: string
+    lignes: BalanceLine[]
+    total: number
+}
+
+export interface BilanOut {
+    societe_id: number
+    annee: number
+    actif: BilanSection[]
+    passif: BilanSection[]
+    total_actif: number
+    total_passif: number
+    resultat: number
+    is_balanced: boolean
+}
+
 // ── API calls ──────────────────────────────────────────────
 
 /**
@@ -292,6 +318,9 @@ export interface DocumentTransmis {
  * Chaque méthode correspond à un endpoint FastAPI.
  */
 export const apiService = {
+    getBilan: (annee: number, mois?: number, validatedOnly: boolean = true) =>
+        api.get('/bilan/comptable', { params: { annee, mois, validated_only: validatedOnly } }).then(r => r.data),
+
     // ... existants
     listFactures: (status?: string) =>
         api.get('/factures/', { params: { status } }).then(r => r.data),

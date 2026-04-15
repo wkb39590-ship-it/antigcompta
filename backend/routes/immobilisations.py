@@ -22,13 +22,62 @@ from services.immobilisation_service import (
 
 router = APIRouter(prefix="/immobilisations", tags=["immobilisations"])
 
+@router.get("/fix-amortissement")
+def fix_database_locks(db: Session = Depends(get_db)):
+    try:
+        # Reset all lines that claim to be generated for 2024 and 2025
+        lignes = db.query(LigneAmortissement).filter(LigneAmortissement.annee.in_([2024, 2025])).all()
+        count = 0
+        for ligne in lignes:
+            ligne.ecriture_generee = False
+            count += 1
+        db.commit()
+        return {"status": "success", "message": f"{count} lignes d'amortissement (2024, 2025) ont ete renitialisees avec succes ! Vous pouvez maintenant rafraichir le plan d'amortissement et voir les boutons."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.get("/fix-2355")
+def fix_2355_ghost(db: Session = Depends(get_db)):
+    from models import EntryLine, JournalEntry
+    try:
+        # Les IDs suspects identifiés qui forment le total de 716.67 MAD
+        suspect_ids = [498, 500, 502, 504]
+        
+        lines_to_delete = db.query(EntryLine).filter(EntryLine.id.in_(suspect_ids)).all()
+        
+        je_ids_to_clean = set()
+        for l in lines_to_delete:
+            if l.ecriture_journal_id:
+                je_ids_to_clean.add(l.ecriture_journal_id)
+        
+        count = 0
+        for je_id in je_ids_to_clean:
+            # Supprimer toutes les lignes du journal (TVA + Contrepartie Fournisseur/Banque)
+            all_l = db.query(EntryLine).filter(EntryLine.ecriture_journal_id == je_id).all()
+            for i in all_l:
+                db.delete(i)
+                count += 1
+            # Supprimer le journal lui-même
+            je = db.query(JournalEntry).filter(JournalEntry.id == je_id).first()
+            if je:
+                db.delete(je)
+        
+        db.commit()
+        if count > 0:
+            return {"status": "success", "message": f"{count} lignes parasites (TVA + Contreparties) ont été supprimées. Votre TVA récupérable va maintenant tomber à 4500 MAD (le montant réel)."}
+        else:
+            return {"status": "success", "message": "Aucune ligne parasite trouvée avec ces IDs. Le nettoyage est peut-être déjà fait."}
+            
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 
 # ── Comptes PCM par défaut selon catégorie ──────────────────────────────
 COMPTES_PCM_DEFAUT = {
     "CORPORELLE": {
-        "compte_actif_pcm":   "2355",  # Matériel informatique
-        "compte_amort_pcm":   "2835",
-        "compte_dotation_pcm": "6193",
+        "compte_actif_pcm":    "2355",   # Matériel informatique (groupe 235)
+        "compte_amort_pcm":    "28355",  # Amortissements matériel informatique (miroir 2355)
+        "compte_dotation_pcm": "6193",   # Dotations aux amortissements corporels
     },
     "INCORPORELLE": {
         "compte_actif_pcm":   "2220",  # Brevets, marques, logiciels
