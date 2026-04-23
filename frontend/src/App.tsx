@@ -174,7 +174,7 @@ function Sidebar() {
                     </NavLink>
                 ))}
             </nav>
-            <div className="sidebar-footer" style={{ padding: '20px', borderTop: '1px solid var(--border)', marginTop: 'auto', position: 'relative' }}>
+            <div className="sidebar-footer" style={{ padding: '16px', borderTop: '1px solid var(--border)', marginTop: 'auto', position: 'relative' }}>
 
                 {showSocMenu && (
                     <div className="soc-switcher-menu" style={{

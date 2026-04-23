@@ -8,7 +8,8 @@ import {
   Trash2,
   Mail,
   MapPin,
-  Phone
+  Phone,
+  Fingerprint
 } from 'lucide-react';
 
 interface Cabinet {
@@ -59,8 +60,6 @@ export const AdminCabinets: React.FC = () => {
     try {
       setError('');
       if (editingCabinet) {
-        // Note: adminUpdateCabinet not yet in apiService, let's add it if needed or use a generic put
-        // For now I only added adminListAgents/Cabinets. Let's add the rest to api.ts properly.
         await apiService.adminUpdateCabinet(editingCabinet.id, formData);
       } else {
         await apiService.adminCreateCabinet(formData);
@@ -86,7 +85,7 @@ export const AdminCabinets: React.FC = () => {
   };
 
   const handleDeleteCabinet = async (id: number) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce cabinet ?')) return;
+    if (!window.confirm('Supprimer ce cabinet partenaire ?')) return;
     try {
       await apiService.adminDeleteCabinet(id);
       fetchCabinets();
@@ -96,14 +95,14 @@ export const AdminCabinets: React.FC = () => {
   };
 
   return (
-    <div className="aurora-page-v2">
-      <div className="aurora-page-header">
+    <div className="cabinets-page">
+      <div className="page-header">
         <div className="header-info">
-          <h1 className="hero-title heading-font">Gestion des Cabinets</h1>
-          <p className="aurora-subtitle">Administration des partenaires comptables et structures rattachées.</p>
+          <h1 className="page-title">Gestion des Cabinets</h1>
+          <p className="page-subtitle">Administration des partenaires comptables et structures rattachées.</p>
         </div>
         <button
-          className={`aurora-btn-primary ${showForm ? 'active-form' : ''}`}
+          className={`btn-primary ${showForm ? 'form-active' : ''}`}
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -114,238 +113,178 @@ export const AdminCabinets: React.FC = () => {
             }
           }}
         >
-          {showForm ? <X size={20} /> : <><Plus size={18} /> <span>Nouveau Cabinet</span></>}
+          {showForm ? <X size={18} /> : <><Plus size={16} /> <span>Nouveau Cabinet</span></>}
         </button>
       </div>
 
-      {error && <div className="aurora-error-toast">{error}</div>}
+      {error && <div className="error-banner">{error}</div>}
 
-      <div className="aurora-content-grid">
+      <div className="content-layout">
         {showForm && (
-          <form className="aurora-card premium-form" onSubmit={handleCreateCabinet}>
+          <form className="pro-card side-form" onSubmit={handleCreateCabinet}>
             <div className="form-header">
-              <h2 className="heading-font">{editingCabinet ? 'Édition Partenaire' : 'Nouveau Partenaire'}</h2>
-              <p>Configurez les informations structurelles du cabinet</p>
+              <h3>{editingCabinet ? 'Éditer le partenaire' : 'Nouveau Partenaire'}</h3>
+              <p>Informations structurelles du cabinet</p>
             </div>
 
-            <div className="aurora-form-grid">
-              <div className="aurora-input-group">
+            <div className="form-grid">
+              <div className="field-group span2">
                 <label>Dénomination Sociale</label>
-                <input
-                  type="text"
-                  placeholder="Ex: ExpertCompta Solutions"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  required
-                />
+                <input className="pro-input" placeholder="Ex: ExpertCompta Solutions" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} required/>
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group">
                 <label>Email de Contact</label>
-                <input
-                  type="email"
-                  placeholder="direction@cabinet.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                />
+                <input className="pro-input" type="email" placeholder="contact@cabinet.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required/>
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group">
                 <label>Téléphone</label>
-                <input
-                  type="text"
-                  placeholder="+33..."
-                  value={formData.telephone}
-                  onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
-                />
+                <input className="pro-input" placeholder="+212..." value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})}/>
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group span2">
                 <label>Adresse Siège</label>
-                <input
-                  type="text"
-                  placeholder="Rue, Ville, CP"
-                  value={formData.adresse}
-                  onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
-                />
+                <input className="pro-input" placeholder="Rue, Ville, CP" value={formData.adresse} onChange={e => setFormData({...formData, adresse: e.target.value})}/>
               </div>
             </div>
 
-            <button type="submit" className="aurora-btn-primary full-width">
-              {editingCabinet ? 'Mettre à jour le partenaire' : 'Enregistrer le nouveau cabinet'}
+            <button type="submit" className="btn-primary full-w">
+              {editingCabinet ? 'Enregistrer les modifications' : 'Créer le cabinet'}
             </button>
           </form>
         )}
 
-        <div className="aurora-card table-card">
-          <div className="card-header-flex">
-            <h2 className="heading-font">Répertoire des Cabinets</h2>
-            <div className="glass-pill">{cabinets.length} Partenaires</div>
+        <div className="pro-card table-section">
+          <div className="section-header">
+            <div className="header-label">
+              <Building2 size={16} className="muted-icon" />
+              <span>Répertoire des partenaires</span>
+            </div>
+            <div className="entity-count">{cabinets.length} Cabinets</div>
           </div>
 
           {loading ? (
-            <div className="aurora-loader-inline">
-              <div className="spinner-aurora"></div>
+            <div className="placeholder-state">
+              <div className="dot-spinner"></div>
               <span>Synchronisation du réseau...</span>
             </div>
+          ) : cabinets.length === 0 ? (
+            <div className="placeholder-state empty">
+              <Building2 size={48} className="muted-icon" />
+              <p>Aucun cabinet répertorié.</p>
+            </div>
           ) : (
-            <div className="table-responsive">
-              {cabinets.length === 0 ? (
-                <div className="aurora-empty-v2">
-                  <div className="empty-icon-box"><Building2 size={40} /></div>
-                  <p>Aucun cabinet partenaire n'est configuré.</p>
-                </div>
-              ) : (
-                <table className="aurora-table-v2">
-                  <thead>
-                    <tr>
-                      <th>Entité Cabinet</th>
-                      <th>Coordonnées Directes</th>
-                      <th>Localisation</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
+            <div className="table-wrapper">
+              <table className="pro-table">
+                <thead>
+                  <tr>
+                    <th>Entité Cabinet</th>
+                    <th>Coordonnées</th>
+                    <th>Localisation</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cabinets.map((cabinet) => (
+                    <tr key={cabinet.id}>
+                      <td>
+                        <div className="cabinet-cell">
+                          <div className="cabinet-icon">{cabinet.nom[0]}</div>
+                          <div className="cabinet-info">
+                            <span className="cabinet-name">{cabinet.nom}</span>
+                            <span className="cabinet-id">REF: CAB-{cabinet.id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="contact-labels">
+                          <span className="email-line"><Mail size={10} /> {cabinet.email}</span>
+                          <span className="phone-line"><Phone size={10} /> {cabinet.telephone || '-'}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="location-label">
+                          <MapPin size={12} className="muted-icon" />
+                          <span>{cabinet.adresse || 'Siège non localisé'}</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="btn-group">
+                          <button className="btn-icon" title="Éditer" onClick={() => handleEditClick(cabinet)}>
+                            <Pencil size={14} />
+                          </button>
+                          <button className="btn-icon btn-danger" title="Supprimer" onClick={() => handleDeleteCabinet(cabinet.id)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {cabinets.map((cabinet) => (
-                      <tr key={cabinet.id}>
-                        <td>
-                          <div className="cabinet-profile-td">
-                            <div className="cabinet-avatar-v2">{cabinet.nom[0]}</div>
-                            <div className="cabinet-name-box">
-                              <span className="name">{cabinet.nom}</span>
-                              <span className="id-tag">REF: CAB-{cabinet.id}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="contact-td">
-                            <div className="email-line"><Mail size={12} /> {cabinet.email}</div>
-                            <div className="phone-line"><Phone size={12} /> {cabinet.telephone || 'Non renseigné'}</div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="location-td">
-                            <MapPin size={14} />
-                            <span>{cabinet.adresse || 'Siège non défini'}</span>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div className="action-buttons">
-                            <button className="icon-btn edit" title="Modifier" onClick={() => handleEditClick(cabinet)}>
-                              <Pencil size={16} />
-                            </button>
-                            <button className="icon-btn del" title="Supprimer" onClick={() => handleDeleteCabinet(cabinet.id)}>
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       </div>
 
       <style>{`
-        .aurora-page-v2 { animation: fadeIn 0.8s ease-out; padding-bottom: 80px; }
-        
-        .aurora-page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; }
-        .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
-        .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
+        .cabinets-page { padding: 24px; background: #fafafa; min-height: 100vh; font-family: 'Inter', sans-serif; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
+        .page-subtitle { color: #64748b; font-size: 14px; margin-top: 4px; }
 
-        .aurora-btn-primary { 
-          background: #4f46e5 !important; 
-          color: white !important; 
-          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-          display: flex; align-items: center; gap: 8px; padding: 12px 24px;
-          border-radius: 14px; border: none; font-weight: 700; cursor: pointer;
-          transition: all 0.3s;
-        }
-        .aurora-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5); }
-        .aurora-btn-primary.active-form { background: #334155 !important; box-shadow: none; }
-        .full-width { width: 100%; margin-top: 20px; }
+        .btn-primary { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.2s; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-primary.form-active { background: #475569; }
+        .full-w { width: 100%; margin-top: 15px; }
 
-        .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }
+        .content-layout { display: flex; flex-direction: column; gap: 24px; }
+        .pro-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-        .premium-form { padding: 35px; animation: slideDown 0.4s ease-out; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .side-form { padding: 24px; border-left: 4px solid #3b82f6; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .form-header { margin-bottom: 30px; }
-        .form-header h2 { font-size: 20px; font-weight: 800; margin: 0; }
-        .form-header p { font-size: 13px; color: var(--text3); margin-top: 4px; }
+        .form-header { margin-bottom: 20px; }
+        .form-header h3 { font-size: 16px; font-weight: 700; margin: 0; }
+        .form-header p { font-size: 12px; color: #64748b; margin-top: 2px; }
 
-        .aurora-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .span2 { grid-column: span 2; }
 
-        .aurora-input-group label {
-          display: block; font-size: 11px; font-weight: 800; color: var(--text3);
-          text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
-        }
+        .field-group label { display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px; }
+        .pro-input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; background: #fff; outline: none; }
+        .pro-input:focus { border-color: #3b82f6; }
 
-        .aurora-input-group input {
-          width: 100%; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border);
-          background: rgba(255, 255, 255, 0.5); color: var(--text); outline: none; transition: all 0.3s;
-          font-family: 'Inter', sans-serif; font-size: 14px;
-        }
-        .aurora-input-group input:focus {
-          border-color: var(--accent); background: white; box-shadow: 0 0 10px rgba(99, 102, 241, 0.1);
-        }
+        .section-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+        .header-label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: #334155; }
+        .entity-count { font-size: 11px; font-weight: 700; color: #3b82f6; background: #eff6ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #dbeafe; }
 
-        .table-card { padding: 30px; }
-        .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .card-header-flex h2 { font-size: 20px; font-weight: 800; margin: 0; }
+        .table-wrapper { overflow-x: auto; }
+        .pro-table { width: 100%; border-collapse: collapse; }
+        .pro-table th { text-align: left; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
+        .pro-table td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .pro-table tr:hover { background: #fafafa; }
 
-        .table-responsive { overflow-x: auto; }
-        .aurora-table-v2 { width: 100%; border-collapse: collapse; }
-        .aurora-table-v2 th {
-          text-align: left; padding: 15px 20px; font-size: 11px; font-weight: 800;
-          color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px;
-          border-bottom: 1px solid var(--border);
-        }
-        
-        .aurora-table-v2 tr { transition: background 0.3s; }
-        .aurora-table-v2 tr:hover { background: rgba(99, 102, 241, 0.02); }
-        .aurora-table-v2 td { padding: 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .cabinet-cell { display: flex; align-items: center; gap: 12px; }
+        .cabinet-icon { width: 32px; height: 32px; background: #4f46e5; color: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+        .cabinet-name { display: block; font-weight: 600; color: #1e293b; font-size: 14px; }
+        .cabinet-id { display: block; font-size: 11px; color: #94a3b8; font-family: monospace; }
 
-        .cabinet-profile-td { display: flex; align-items: center; gap: 15px; }
-        .cabinet-avatar-v2 {
-          width: 44px; height: 44px; border-radius: 12px; 
-          background: linear-gradient(145deg, #3b82f6, #1d4ed8);
-          color: white; display: flex; align-items: center; justify-content: center;
-          font-weight: 800; font-size: 18px; 
-          box-shadow: 0 8px 15px -3px rgba(59, 130, 246, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .cabinet-name-box { display: flex; flex-direction: column; }
-        .cabinet-name-box .name { font-weight: 700; color: var(--text); font-size: 15px; }
-        .cabinet-name-box .id-tag { font-size: 10px; color: var(--text3); font-weight: 800; margin-top: 2px; }
+        .contact-labels { display: flex; flex-direction: column; gap: 2px; }
+        .email-line { font-size: 12px; font-weight: 500; color: #3b82f6; display: flex; align-items: center; gap: 4px; }
+        .phone-line { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 4px; }
 
-        .contact-td { display: flex; flex-direction: column; gap: 4px; }
-        .email-line, .phone-line { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text2); }
-        .email-line svg, .phone-line svg { color: var(--text3); }
+        .location-label { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; font-weight: 600; color: #475569; }
 
-        .location-td { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text3); max-width: 250px; }
-        .location-td svg { color: var(--accent); flex-shrink: 0; }
+        .btn-group { display: flex; gap: 6px; justify-content: flex-end; }
+        .btn-icon { width: 30px; height: 30px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-icon:hover { color: #3b82f6; border-color: #3b82f6; }
+        .btn-icon.btn-danger:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }
 
-        .action-buttons { display: flex; gap: 8px; justify-content: flex-end; }
-        .icon-btn {
-          width: 36px; height: 36px; border-radius: 10px; border: 1px solid #e2e8f0;
-          background: white; color: var(--text3); cursor: pointer; transition: all 0.3s;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.05); transform: translateY(-2px); }
-        .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); }
-
-        .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); }
-        .empty-icon-box { margin-bottom: 20px; opacity: 0.2; }
-
-        .aurora-loader-inline { padding: 60px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; color: var(--text3); }
-        .spinner-aurora { width: 32px; height: 32px; border: 3px solid #f1f5f9; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        @media (max-width: 900px) {
-          .aurora-form-grid { grid-template-columns: 1fr; }
-        }
+        .muted-icon { color: #94a3b8; }
+        .placeholder-state { padding: 48px; text-align: center; color: #64748b; }
+        .dot-spinner { width: 24px; height: 24px; border: 3px solid #f1f5f9; border-top-color: #3b82f6; border-radius: 50%; animation: rot 0.8s linear infinite; margin: 0 auto 12px; }
+        @keyframes rot { to { transform: rotate(360deg); } }
+        .error-banner { padding: 12px; background: #fef2f2; color: #dc2626; font-size: 13px; border-radius: 4px; margin-bottom: 24px; border: 1px solid #fee2e2; font-weight: 600; }
+        @media (max-width: 800px) { .form-grid { grid-template-columns: 1fr; } .span2 { grid-column: span 1; } }
       `}</style>
     </div>
   );

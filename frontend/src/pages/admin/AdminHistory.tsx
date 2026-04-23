@@ -70,41 +70,47 @@ export const AdminHistory: React.FC = () => {
     };
 
     return (
-        <div className="aurora-page-v2">
-            <div className="aurora-page-header">
-                <div className="header-info">
-                    <h1 className="hero-title heading-font">Historique Système</h1>
-                    <p className="aurora-subtitle">Audit trail complet des flux et opérations transverses.</p>
+        <div className="history-page">
+            <div className="page-header">
+                <div>
+                    <h1 className="page-title">Historique Système</h1>
+                    <p className="page-subtitle">Rapport d'audit complet des flux et opérations transverses.</p>
                 </div>
             </div>
 
-            <div className="aurora-content-grid">
-                <div className="aurora-card table-card history-container">
-                    <div className="card-header-flex">
-                        <h2 className="heading-font">Flux d'activités récentes</h2>
-                        <div className="glass-pill">Audit Trail Actif</div>
+            <div className="page-content">
+                <div className="data-card">
+                    <div className="card-header">
+                        <div className="header-title-box">
+                            <History size={16} className="icon-subtle" />
+                            <span>Journal d'audit</span>
+                        </div>
+                        <div className="system-indicator">
+                            <span className="live-dot"></span>
+                            Surveillance active
+                        </div>
                     </div>
 
                     {loading ? (
-                        <div className="aurora-loader-inline">
-                            <div className="spinner-aurora"></div>
-                            <span>Récupération des logs sécurisés...</span>
+                        <div className="busy-overlay">
+                            <div className="standard-loader"></div>
+                            <span>Chargement de la base d'audit...</span>
                         </div>
                     ) : error ? (
-                        <div className="aurora-error-v2">
-                            <AlertCircle size={40} />
+                        <div className="busy-overlay text-error">
+                            <AlertCircle size={32} />
                             <p>{error}</p>
                         </div>
                     ) : (
-                        <div className="table-responsive">
-                            <table className="aurora-table-v2">
+                        <div className="grid-container">
+                            <table className="pro-table">
                                 <thead>
                                     <tr>
                                         <th>Horodatage</th>
                                         <th>Événement</th>
-                                        <th>Module</th>
-                                        <th>Responsable</th>
-                                        <th>Description</th>
+                                        <th>Entité</th>
+                                        <th>Opérateur</th>
+                                        <th>Observations</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -113,33 +119,33 @@ export const AdminHistory: React.FC = () => {
                                             const action = getActionContent(log.action_type);
                                             return (
                                                 <tr key={log.id}>
-                                                    <td>
-                                                        <div className="time-td-v2">
-                                                            <Clock size={12} />
+                                                    <td className="w-time">
+                                                        <div className="inline-flex-center">
+                                                            <Clock size={12} className="icon-muted" />
                                                             <span>{formatDate(log.created_at)}</span>
                                                         </div>
                                                     </td>
-                                                    <td>
-                                                        <span className={`status-pill ${action.className}`}>
+                                                    <td className="w-event">
+                                                        <span className={`static-tag ${action.className}`}>
                                                             {action.icon}
                                                             {action.label}
                                                         </span>
                                                     </td>
-                                                    <td>
-                                                        <div className="module-tag-v2">
-                                                            {log.entity_type === 'DEMANDE_ACCES' ? <Zap size={12} /> : <FileText size={12} />}
+                                                    <td className="w-module">
+                                                        <div className="module-item">
+                                                            {log.entity_type === 'DEMANDE_ACCES' ? <Zap size={10} /> : <FileText size={10} />}
                                                             {log.entity_type}
                                                         </div>
                                                     </td>
-                                                    <td>
-                                                        <div className="agent-box-v2">
-                                                            <div className="agent-avatar-mini">{log.agent_username?.[0]?.toUpperCase() || 'S'}</div>
-                                                            <span className="agent-un">@{log.agent_username || 'système'}</span>
+                                                    <td className="w-responsible">
+                                                        <div className="agent-profile">
+                                                            <div className="avatar-square">{log.agent_username?.[0]?.toUpperCase() || 'S'}</div>
+                                                            <span className="username-link">@{log.agent_username || 'système'}</span>
                                                         </div>
                                                     </td>
-                                                    <td>
-                                                        <div className="details-col-v2" title={log.details || ''}>
-                                                            {log.details || <span className="no-details">Aucun détail additionnel</span>}
+                                                    <td className="w-details">
+                                                        <div className="line-clamp" title={log.details || ''}>
+                                                            {log.details || <span className="muted-italic">Détail non spécifié</span>}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -147,10 +153,10 @@ export const AdminHistory: React.FC = () => {
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan={5}>
-                                                <div className="aurora-empty-v2">
-                                                    <History size={40} />
-                                                    <p>Historique vierge.</p>
+                                            <td colSpan={5} className="empty-row">
+                                                <div className="empty-hint">
+                                                    <History size={48} className="icon-muted" />
+                                                    <p>Aucun enregistrement d'audit trouvé.</p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -163,70 +169,52 @@ export const AdminHistory: React.FC = () => {
             </div>
 
             <style>{`
-        .aurora-page-v2 { animation: fadeIn 0.8s ease-out; padding-bottom: 80px; }
-        
-        .aurora-page-header { margin-bottom: 35px; }
-        .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
-        .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
+                .history-page { padding: 30px; background: #fafafa; min-height: 100vh; font-family: 'Inter', sans-serif; }
+                .page-header { margin-bottom: 25px; }
+                .page-title { font-size: 26px; font-weight: 700; color: #111827; margin: 0; letter-spacing: -0.5px; }
+                .page-subtitle { color: #6b7280; font-size: 14px; margin-top: 4px; }
 
-        .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }
+                .data-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+                .card-header { padding: 12px 20px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; display: flex; justify-content: space-between; align-items: center; }
+                .header-title-box { display: flex; align-items: center; gap: 10px; font-weight: 600; color: #374151; font-size: 14px; }
 
-        .table-card { padding: 30px; }
-        .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .card-header-flex h2 { font-size: 20px; font-weight: 800; margin: 0; }
+                .system-indicator { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: #10b981; background: #f0fdf4; padding: 4px 10px; border-radius: 3px; border: 1px solid #dcfce7; }
+                .live-dot { width: 6px; height: 6px; background: #10b981; border-radius: 50%; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
 
-        .table-responsive { overflow-x: auto; }
-        .aurora-table-v2 { width: 100%; border-collapse: collapse; }
-        .aurora-table-v2 th {
-          text-align: left; padding: 15px 20px; font-size: 11px; font-weight: 800;
-          color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px;
-          border-bottom: 1px solid var(--border);
-        }
-        
-        .aurora-table-v2 td { padding: 18px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-        .aurora-table-v2 tr:hover { background: rgba(99, 102, 241, 0.02); }
+                .pro-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                .pro-table th { padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #e5e7eb; background: #fff; }
+                .pro-table td { padding: 10px 20px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+                .pro-table tr:hover { background: #fcfcfc; }
 
-        .time-td-v2 { display: flex; align-items: center; gap: 8px; color: var(--text3); font-size: 13px; font-weight: 500; }
-        
-        .status-pill { 
-          display: inline-flex; align-items: center; gap: 6px; 
-          padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 800;
-          text-transform: uppercase;
-        }
-        .badge-create { background: rgba(16, 185, 129, 0.08); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.15); }
-        .badge-update { background: rgba(59, 130, 246, 0.08); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.15); }
-        .badge-delete { background: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); }
-        .badge-validate { background: rgba(168, 85, 247, 0.08); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.15); }
-        .badge-default { background: #f1f5f9; color: var(--text3); border: 1px solid #e2e8f0; }
+                .inline-flex-center { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #4b5563; }
+                .icon-muted { color: #9ca3af; }
+                .icon-subtle { color: #6b7280; }
 
-        .module-tag-v2 { 
-          display: inline-flex; align-items: center; gap: 6px; 
-          padding: 5px 10px; background: #f8fafc; border: 1px solid #e2e8f0;
-          border-radius: 8px; color: var(--text2); font-size: 12px; font-weight: 700;
-        }
+                .static-tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+                .badge-create { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+                .badge-update { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
+                .badge-delete { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+                .badge-validate { background: #f5f3ff; color: #5b21b6; border: 1px solid #ede9fe; }
+                .badge-default { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
 
-        .agent-box-v2 { display: flex; align-items: center; gap: 10px; }
-        .agent-avatar-mini { 
-          width: 28px; height: 28px; border-radius: 8px; background: #f1f5f9;
-          display: flex; align-items: center; justify-content: center;
-          font-weight: 800; font-size: 11px; color: var(--text2); border: 1px solid #e2e8f0;
-          box-shadow: inset 0 2px 4px rgba(255,255,255,0.8);
-        }
-        .agent-un { font-size: 13px; font-weight: 700; color: var(--accent); }
+                .module-item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 3px; color: #374151; font-size: 10px; font-weight: 700; }
 
-        .details-col-v2 { 
-          max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-          font-size: 13px; color: var(--text3); font-weight: 500;
-        }
-        .no-details { font-style: italic; opacity: 0.5; }
+                .agent-profile { display: flex; align-items: center; gap: 8px; }
+                .avatar-square { width: 22px; height: 22px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; color: #4b5563; }
+                .username-link { font-size: 13px; font-weight: 600; color: #4f46e5; }
 
-        .aurora-loader-inline { padding: 60px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; color: var(--text3); }
-        .spinner-aurora { width: 32px; height: 32px; border: 3px solid #f1f5f9; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+                .line-clamp { margin: 0; font-size: 13px; color: #4b5563; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+                .muted-italic { color: #9ca3af; font-style: italic; font-size: 12px; }
 
-        .aurora-error-v2 { padding: 60px 0; text-align: center; color: #ef4444; display: flex; flex-direction: column; align-items: center; gap: 15px; }
-        .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); opacity: 0.3; }
-      `}</style>
+                .busy-overlay { padding: 60px 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; color: #6b7280; font-size: 14px; }
+                .standard-loader { width: 20px; height: 20px; border: 2px solid #e5e7eb; border-top-color: #4f46e5; border-radius: 50%; animation: rot 0.8s linear infinite; }
+                @keyframes rot { to { transform: rotate(360deg); } }
+                .text-error { color: #dc2626; }
+
+                .empty-hint { padding: 60px 0; text-align: center; color: #9ca3af; }
+                .empty-hint p { margin-top: 10px; font-size: 14px; }
+            `}</style>
         </div>
     );
+
 };

@@ -94,7 +94,7 @@ export default function Dashboard() {
                         <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.validated}</div>
                         <CheckCircle2 size={24} color="var(--success)" opacity={0.5} />
                     </div>
-                    <div className="stat-label">Dossiers validés</div>
+                    <div className="stat-label">Documents validés</div>
                 </div>
                 <div className="stat-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

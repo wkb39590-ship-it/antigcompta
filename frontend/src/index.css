@@ -30,6 +30,8 @@
   --text2: #64748b;
   --text3: #94a3b8;
   --border: #e2e8f0;
+  --bg2: #f8fafc;
+  --bg3: #f1f5f9;
 }
 
 body {
@@ -93,6 +95,8 @@ h3,
 .sidebar-nav {
   padding: 16px 12px;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-item {
@@ -127,6 +131,12 @@ h3,
   font-size: 18px;
   width: 20px;
   text-align: center;
+}
+
+.logout-btn:hover {
+  background: var(--danger) !important;
+  color: white !important;
+  border-color: var(--danger) !important;
 }
 
 .main-content {

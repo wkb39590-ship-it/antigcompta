@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Immobilisation, LigneAmortissement, Facture, Societe
-from routes.deps import get_current_session
+from models import Immobilisation, LigneAmortissement, Facture, Societe, Agent
+from routes.deps import get_current_session, get_current_agent
+from utils.logging import log_action
 from services.immobilisation_service import (
     calculer_plan_amortissement,
     sauvegarder_plan,
@@ -159,6 +160,7 @@ def create_immobilisation(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """
     Crée une immobilisation.
@@ -215,6 +217,8 @@ def create_immobilisation(
     db.commit()
     db.refresh(immo)
 
+    log_action(db, agent, "CREATE", "IMMOBILISATION", immo.id, f"Création de l'immobilisation '{immo.designation}'")
+
     return _immo_to_dict(immo, with_plan=True)
 
 
@@ -249,6 +253,7 @@ def update_immobilisation(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Modifie une immobilisation et recalcule le plan d'amortissement."""
     societe_id = session.get("societe_id")
@@ -280,6 +285,9 @@ def update_immobilisation(
 
     db.commit()
     db.refresh(immo)
+
+    log_action(db, agent, "UPDATE", "IMMOBILISATION", immo.id, f"Mise à jour de l'immobilisation '{immo.designation}'")
+
     return _immo_to_dict(immo, with_plan=True)
 
 
@@ -322,6 +330,7 @@ def create_ecriture_acquisition(
     immo_id: int,
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Génère l'écriture comptable d'acquisition (Débit 2xxx+34552 / Crédit 4411)."""
     societe_id = session.get("societe_id")
@@ -337,6 +346,9 @@ def create_ecriture_acquisition(
         raise HTTPException(400, "Aucune facture liée à cette immobilisation. Liez-la d'abord.")
 
     entry = generer_ecriture_acquisition(immo, db)
+
+    log_action(db, agent, "GENERATION_ACQUISITION", "IMMOBILISATION", immo.id, f"Génération de l'écriture d'acquisition pour '{immo.designation}'")
+
     return {
         "message": "Écriture d'acquisition générée",
         "ecriture_id": entry.id,
@@ -364,6 +376,7 @@ def create_ecriture_dotation(
     annee: int,
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Génère l'écriture de dotation aux amortissements (Débit 6193 / Crédit 2835)."""
     societe_id = session.get("societe_id")
@@ -377,6 +390,7 @@ def create_ecriture_dotation(
 
     try:
         entry = generer_ecriture_dotation(immo, annee, db)
+        log_action(db, agent, "GENERATION_DOTATION", "IMMOBILISATION", immo.id, f"Génération de la dotation aux amortissements pour l'année {annee} (Asset: {immo.designation})")
     except ValueError as e:
         raise HTTPException(400, str(e))
 

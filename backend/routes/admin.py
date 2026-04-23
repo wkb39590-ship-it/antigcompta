@@ -12,6 +12,7 @@ from schemas import (
     CompteurFacturationOut, GlobalStats, ActivityOut, ActivitiesResponse,
     ActionLogOut, ActionLogResponse, AIPerformanceResponse, AIHistoryPoint
 )
+from utils.logging import log_action
 from routes.auth import get_current_agent, hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -32,26 +33,6 @@ def check_system_admin(agent: Agent, detail: str = "Accès réservé au Super Ad
         print(f"[DEBUG PERMS] DENIED For {agent.username} - Detail: {detail}")
         raise HTTPException(status_code=403, detail=detail)
 
-def log_action(db: Session, agent: Agent, action_type: str, entity_type: str, entity_id: int = None, details: str = None):
-    """Enregistre une action dans l'historique"""
-    try:
-        log = ActionLog(
-            cabinet_id=agent.cabinet_id,
-            agent_id=agent.id,
-            action_type=action_type,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            details=details
-        )
-        db.add(log)
-        db.commit()
-    except Exception as e:
-        print(f"[ERROR LOGGING] {str(e)}")
-        db.rollback()
-
-# ─────────────────────────────────────────────
-# CABINETS
-# ─────────────────────────────────────────────
 
 @router.get("/cabinets", response_model=List[CabinetOut])
 async def list_all_cabinets(

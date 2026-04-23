@@ -14,10 +14,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from database import get_db
-from models import ReleveBancaire, LigneReleve, JournalEntry, EntryLine
-from routes.deps import get_current_session
+from models import ReleveBancaire, LigneReleve, JournalEntry, EntryLine, Agent
+from routes.deps import get_current_session, get_current_agent
 from services.gemini_service import extract_bank_statement, classify_bank_transaction
 from services.pdf_utils import pdf_to_png_images_bytes
+
+from utils.logging import log_action
 
 router = APIRouter(prefix="/releves", tags=["releves"])
 
@@ -47,6 +49,7 @@ def upload_releve(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """
     Uploade un relevé et lance l'extraction si c'est une image/PDF.
@@ -127,6 +130,8 @@ def upload_releve(
             print(f"❌ Erreur critique extraction relevé {releve.id}: {e}")
             traceback.print_exc()
             pass # We still keep the releve object
+
+    log_action(db, agent, "UPLOAD", "RELEVE", releve.id, f"Import du relevé {releve.file_name}")
 
     return {"message": "Relevé importé", "id": releve.id, "file_name": releve.file_name}
 
@@ -375,7 +380,7 @@ def get_all_suggestions(releve_id: int, db: Session = Depends(get_db), session: 
     return results
 
 @router.delete("/{releve_id}")
-def delete_releve(releve_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+def delete_releve(releve_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session), agent: Agent = Depends(get_current_agent)):
     """
     Supprime un relevé, ses lignes (via cascade), son fichier physique,
     ainsi que TOUTES les écritures comptables (JournalEntry) générées automatiquement par ce relevé.
@@ -411,6 +416,8 @@ def delete_releve(releve_id: int, db: Session = Depends(get_db), session: dict =
 
     db.commit()
 
+    log_action(db, agent, "DELETE", "RELEVE", releve_id, f"Suppression du relevé {releve.file_name} et de ses écritures liées")
+
     return {"status": "success", "message": "Relevé et ses écritures supprimés avec succès"}
 
 @router.get("/suggest-account/{ligne_id}")
@@ -440,7 +447,7 @@ def suggest_account(ligne_id: int, db: Session = Depends(get_db), session: dict 
         }
 
 @router.post("/rapprocher")
-def rapprocher_ligne(payload: Dict[str, int], db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+def rapprocher_ligne(payload: Dict[str, int], db: Session = Depends(get_db), session: dict = Depends(get_current_session), agent: Agent = Depends(get_current_agent)):
     """
     Lie manuellement une ligne de relevé à une ligne d'écriture existante,
     ou génère le paiement manquant si on lie directement à une facture.
@@ -465,10 +472,13 @@ def rapprocher_ligne(payload: Dict[str, int], db: Session = Depends(get_db), ses
     ligne.is_rapproche = True
     ligne.entry_line_id = entry_line_id
     db.commit()
+
+    log_action(db, agent, "RAPPROCHEMENT", "RELEVE", ligne.id, f"Rapprochement manuel de la ligne '{ligne.description}' avec l'écriture {entry_line_id}")
+
     return {"status": "success"}
 
 @router.post("/generer-ecriture")
-def generer_ecriture(payload: Dict[str, Any], db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+def generer_ecriture(payload: Dict[str, Any], db: Session = Depends(get_db), session: dict = Depends(get_current_session), agent: Agent = Depends(get_current_agent)):
     """
     Génère une écriture comptable BQ complète à partir d'une ligne de relevé.
     """
@@ -539,4 +549,7 @@ def generer_ecriture(payload: Dict[str, Any], db: Session = Depends(get_db), ses
     ligne.entry_line_id = banque_line.id
     
     db.commit()
+
+    log_action(db, agent, "GENERATION", "ECRITURE_BQ", journal_entry.id, f"Génération d'écriture bancaire pour la ligne '{ligne.description}' (Compte: {compte_contrepartie})")
+
     return {"status": "success", "journal_entry_id": journal_entry.id}

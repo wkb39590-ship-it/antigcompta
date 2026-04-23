@@ -34,12 +34,11 @@ export const AdminDemandes: React.FC = () => {
   const loadDemandes = async () => {
     setLoading(true);
     try {
-      // Note: Assurez-vous d'ajouter listDemandesAcces à apiService 
-      // ou utilisez un appel direct api.get('/demandes-acces/')
       const res = await apiService.listDemandesAcces();
-      setDemandes(res);
+      setDemandes(Array.isArray(res) ? res : []);
     } catch (err) {
       console.error('Erreur lors du chargement des demandes:', err);
+      setDemandes([]);
     } finally {
       setLoading(false);
     }
@@ -71,39 +70,37 @@ export const AdminDemandes: React.FC = () => {
   const getStatusBadge = (statut: string) => {
     switch (statut) {
       case 'en_attente':
-        return <span className="glass-badge badge-warning"><Clock size={12} /> En attente</span>;
+        return <span className="tag tag-warning"><Clock size={12} /> EN ATTENTE</span>;
       case 'traitee':
-        return <span className="glass-badge badge-success"><CheckCircle size={12} /> Traitée</span>;
+        return <span className="tag tag-success"><CheckCircle size={12} /> TRAITÉE</span>;
       case 'rejetee':
-        return <span className="glass-badge badge-danger"><XCircle size={12} /> Rejetée</span>;
+        return <span className="tag tag-danger"><XCircle size={12} /> REJETÉE</span>;
       default:
-        return <span className="glass-badge">{statut}</span>;
+        return <span className="tag">{statut.toUpperCase()}</span>;
     }
   };
 
   const isSuper = localStorage.getItem('is_super_admin') === 'true';
 
   return (
-    <div className="admin-demandes-view">
-      <div className="view-header">
-        <div className="header-info">
-          <h1 className="glass-text">Demandes d'accès</h1>
-          <p>{isSuper ? "Vision d'ensemble de tous les prospects sur la plateforme." : "Gérez les prospects et les futures ouvertures de comptes clients."}</p>
-        </div>
+    <div className="demandes-page">
+      <div className="page-header-simple">
+        <h1>Demandes d'Accès</h1>
+        <p>{isSuper ? "Flux centralisé des prospects et demandes d'ouverture de comptes." : "Gérez les prospects et les futures ouvertures de comptes clients."}</p>
       </div>
 
-      <div className="view-controls aurora-card">
-        <div className="search-box">
-          <Search size={18} />
+      <div className="view-controls pro-card">
+        <div className="search-field">
+          <Search size={16} />
           <input 
             type="text" 
-            placeholder="Rechercher par nom, entreprise, email..." 
+            placeholder="Rechercher un prospect..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="filter-group">
-          <Filter size={18} />
+        <div className="filter-field">
+          <Filter size={16} />
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="all">Tous les statuts</option>
             <option value="en_attente">En attente</option>
@@ -113,109 +110,69 @@ export const AdminDemandes: React.FC = () => {
         </div>
       </div>
 
-      <div className="demandes-content">
+      <div className="demandes-viewport">
         {loading ? (
-          <div className="loading-state">Chargement des demandes...</div>
-        ) : filteredDemandes.length === 0 ? (
-          <div className="empty-state aurora-card">
-            <Inbox size={48} />
-            <p>Aucune demande d'accès trouvée.</p>
+          <div className="placeholder-state">
+            <div className="dot-spinner"></div>
+            <p>Chargement des demandes...</p>
           </div>
-        ) : isSuper ? (
-          /* TABLE VIEW FOR SUPER ADMIN */
-          <div className="aurora-card table-card animate-fadeIn">
-            <div className="table-responsive">
-              <table className="aurora-table-v2">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Prospect</th>
-                    <th>Entreprise</th>
-                    <th>Contact</th>
-                    <th style={{ textAlign: 'center' }}>Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDemandes.map(d => (
-                    <tr key={d.id}>
-                      <td className="date-cell">{new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
-                      <td>
-                        <div className="user-info-td">
-                          <div className="mini-avatar"><User size={14} /></div>
-                          <span className="name">{d.nom_complet}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="cabinet-tag-v2"><Building size={12} /> {d.entreprise}</div>
-                      </td>
-                      <td>
-                        <div className="contact-td">
-                          <div className="item"><Mail size={12} /> {d.email}</div>
-                          {d.telephone && <div className="item"><Phone size={12} /> {d.telephone}</div>}
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>{getStatusBadge(d.statut)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        ) : filteredDemandes.length === 0 ? (
+          <div className="placeholder-state empty">
+            <Inbox size={48} className="muted-icon" />
+            <p>Aucune demande correspondante.</p>
           </div>
         ) : (
-          /* GRID VIEW FOR CABINET ADMIN */
           <div className="demandes-grid">
             {filteredDemandes.map(demande => (
-              <div key={demande.id} className="demande-card aurora-card">
-                <div className="card-header">
+              <div key={demande.id} className="pro-card demande-item">
+                <div className="item-header">
                   {getStatusBadge(demande.statut)}
-                  <span className="date-text">{new Date(demande.created_at).toLocaleDateString('fr-FR')}</span>
+                  <span className="timestamp">{new Date(demande.created_at).toLocaleDateString('fr-FR')}</span>
                 </div>
                 
-                <div className="card-body">
-                  <div className="main-info">
-                    <div className="avatar-placeholder">
-                      <User size={24} />
-                    </div>
-                    <div>
+                <div className="item-body">
+                  <div className="prospect-profile">
+                    <div className="prospect-avatar">{demande.nom_complet[0]}</div>
+                    <div className="prospect-info">
                       <h3>{demande.nom_complet}</h3>
-                      <p className="company-text"><Building size={14} /> {demande.entreprise}</p>
+                      <span className="prospect-company"><Building size={12} /> {demande.entreprise}</span>
                     </div>
                   </div>
 
-                  <div className="contact-details">
-                    <div className="detail-item">
-                      <Mail size={14} />
+                  <div className="prospect-contacts">
+                    <div className="contact-row">
+                      <Mail size={12} />
                       <span>{demande.email}</span>
                     </div>
                     {demande.telephone && (
-                      <div className="detail-item">
-                        <Phone size={14} />
+                      <div className="contact-row">
+                        <Phone size={12} />
                         <span>{demande.telephone}</span>
                       </div>
                     )}
                   </div>
 
                   {demande.message && (
-                    <div className="message-box">
-                      <MessageSquare size={14} />
+                    <div className="prospect-message">
+                      <MessageSquare size={12} className="muted-icon" />
                       <p>{demande.message}</p>
                     </div>
                   )}
                 </div>
 
                 {demande.statut === 'en_attente' && (
-                  <div className="card-actions">
+                  <div className="item-actions">
                     <button 
-                      className="action-btn btn-success"
+                      className="btn-action-sm btn-accept"
                       onClick={() => handleUpdateStatus(demande.id, 'traitee')}
                     >
-                      <CheckCircle size={16} /> Accepter / Créer
+                      <CheckCircle size={14} /> Accepter
                     </button>
                     <button 
-                      className="action-btn btn-danger"
+                      className="btn-action-sm btn-reject"
                       onClick={() => handleUpdateStatus(demande.id, 'rejetee')}
                     >
-                      <XCircle size={16} /> Rejeter
+                      <XCircle size={14} /> Rejeter
                     </button>
                   </div>
                 )}
@@ -226,331 +183,54 @@ export const AdminDemandes: React.FC = () => {
       </div>
 
       <style>{`
-        .admin-demandes-view {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          animation: fadeIn 0.4s ease-out;
-        }
+        .demandes-page { padding: 24px; animation: fadeIn 0.4s ease-out; }
+        .page-header-simple h1 { font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; }
+        .page-header-simple p { font-size: 14px; color: #64748b; margin: 8px 0 24px; }
 
-        .view-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-        }
+        .pro-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-        .header-info h1 {
-          margin: 0;
-          font-size: 32px;
-          font-weight: 900;
-          letter-spacing: -1px;
-        }
+        .view-controls { display: flex; gap: 16px; padding: 12px 16px; margin-bottom: 24px; align-items: center; }
+        .search-field { flex: 1; display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0 12px; }
+        .search-field input { width: 100%; height: 36px; border: none; background: transparent; font-size: 13px; outline: none; }
+        .filter-field { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0 12px; }
+        .filter-field select { height: 36px; border: none; background: transparent; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; }
 
-        .aurora-btn-primary { 
-          background: #4f46e5 !important; 
-          color: white !important; 
-          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-          display: flex; align-items: center; gap: 8px; padding: 12px 24px;
-          border-radius: 14px; border: none; font-weight: 700; cursor: pointer;
-          transition: all 0.3s;
-        }
-        .aurora-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5); }
-        
-        .header-info p {
-          margin: 8px 0 0 0;
-          color: var(--text3);
-          font-weight: 500;
-        }
+        .demandes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .demande-item { display: flex; flex-direction: column; padding: 20px; transition: transform 0.2s; }
+        .demande-item:hover { transform: translateY(-2px); border-color: #3b82f6; }
 
-        .view-controls {
-          display: flex;
-          gap: 20px;
-          padding: 16px 24px;
-          background: rgba(255, 255, 255, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.6);
-        }
+        .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .timestamp { font-size: 11px; font-weight: 700; color: #94a3b8; }
 
-        .search-box {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: rgba(255, 255, 255, 0.5);
-          padding: 0 16px;
-          border-radius: 14px;
-          border: 1px solid rgba(0, 0, 0, 0.05);
-        }
+        .prospect-profile { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .prospect-avatar { width: 40px; height: 40px; background: #f1f5f9; color: #475569; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; border: 1px solid #e2e8f0; }
+        .prospect-info h3 { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
+        .prospect-company { font-size: 12px; color: #3b82f6; font-weight: 600; display: flex; align-items: center; gap: 4px; }
 
-        .search-box input {
-          width: 100%;
-          height: 44px;
-          background: transparent;
-          border: none;
-          outline: none;
-          font-size: 14px;
-          color: var(--text);
-          font-weight: 500;
-        }
+        .prospect-contacts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+        .contact-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #64748b; }
 
-        .filter-group {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: rgba(255, 255, 255, 0.5);
-          padding: 0 16px;
-          border-radius: 14px;
-          border: 1px solid rgba(0, 0, 0, 0.05);
-        }
+        .prospect-message { background: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #f1f5f9; margin-bottom: 20px; }
+        .prospect-message p { margin: 0; font-size: 12px; color: #475569; line-height: 1.5; font-style: italic; }
 
-        .filter-group select {
-          height: 44px;
-          background: transparent;
-          border: none;
-          outline: none;
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text);
-          cursor: pointer;
-        }
+        .item-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+        .btn-action-sm { border: none; padding: 10px; border-radius: 4px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; }
+        .btn-accept { background: #3b82f6; color: white; }
+        .btn-accept:hover { background: #2563eb; }
+        .btn-reject { background: #f1f5f9; color: #ef4444; border: 1px solid #fee2e2; }
+        .btn-reject:hover { background: #fee2e2; }
 
-        .demandes-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-          gap: 24px;
-          padding-bottom: 40px;
-        }
+        .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; }
+        .tag-warning { background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
+        .tag-success { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
+        .tag-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
 
-        .demande-card {
-          display: flex;
-          flex-direction: column;
-          padding: 24px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .placeholder-state { padding: 60px; text-align: center; }
+        .dot-spinner { width: 24px; height: 24px; border: 3px solid #f1f5f9; border-top-color: #3b82f6; border-radius: 50%; animation: rot 0.8s linear infinite; margin: 0 auto 12px; }
+        @keyframes rot { to { transform: rotate(360deg); } }
+        .muted-icon { color: #94a3b8; }
 
-        .demande-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
-        }
-
-        .card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-
-        .date-text {
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text3);
-        }
-
-        .main-info {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 20px;
-        }
-
-        .avatar-placeholder {
-          width: 48px;
-          height: 48px;
-          background: var(--aurora-gradient);
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          box-shadow: 0 8px 16px rgba(99, 102, 241, 0.2);
-        }
-
-        .main-info h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 800;
-          color: var(--text);
-        }
-
-        .company-text {
-          margin: 4px 0 0 0;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--accent);
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .contact-details {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          margin-bottom: 20px;
-        }
-
-        .detail-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text2);
-        }
-
-        .message-box {
-          background: rgba(0, 0, 0, 0.03);
-          padding: 12px;
-          border-radius: 12px;
-          font-size: 13px;
-          color: var(--text2);
-          display: flex;
-          gap: 10px;
-          margin-bottom: 24px;
-        }
-
-        .message-box p {
-          margin: 0;
-          line-height: 1.5;
-        }
-
-        .card-actions {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-top: auto;
-        }
-
-        .action-btn {
-          height: 40px;
-          border: none;
-          border-radius: 10px;
-          font-size: 12px;
-          font-weight: 800;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .btn-success {
-          background: rgba(34, 197, 94, 0.1);
-          color: var(--success);
-        }
-
-        .btn-success:hover {
-          background: var(--success);
-          color: white;
-        }
-
-        .btn-danger {
-          background: rgba(239, 68, 68, 0.1);
-          color: var(--danger);
-        }
-
-        .btn-danger:hover {
-          background: var(--danger);
-          color: white;
-        }
-
-        .demandes-content {
-          animation: fadeIn 0.4s ease-out;
-        }
-
-        .table-card {
-          padding: 24px;
-          overflow: hidden;
-        }
-
-        .table-responsive {
-          overflow-x: auto;
-        }
-
-        .aurora-table-v2 {
-          width: 100%;
-          border-collapse: collapse;
-        }
-
-        .aurora-table-v2 th {
-          text-align: left;
-          padding: 16px 20px;
-          font-size: 11px;
-          font-weight: 800;
-          color: var(--text3);
-          text-transform: uppercase;
-          letter-spacing: 1.5px;
-          border-bottom: 1px solid var(--border);
-        }
-
-        .aurora-table-v2 td {
-          padding: 16px 20px;
-          border-bottom: 1px solid #f1f5f9;
-          vertical-align: middle;
-        }
-
-        .date-cell {
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--text3);
-        }
-
-        .user-info-td {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .mini-avatar {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: linear-gradient(135deg, #4f46e5, #7c3aed);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
-          border: 1px solid white;
-        }
-
-        .user-info-td .name {
-          font-weight: 700;
-          font-size: 14px;
-          color: var(--text);
-        }
-
-        .cabinet-tag-v2 {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          background: rgba(99, 102, 241, 0.05);
-          border: 1px solid rgba(99, 102, 241, 0.1);
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--accent);
-        }
-
-        .contact-td {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .contact-td .item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text2);
-        }
-
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
+        @media (max-width: 600px) { .view-controls { flex-direction: column; } .search-field { width: 100%; } }
       `}</style>
     </div>
   );

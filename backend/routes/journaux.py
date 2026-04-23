@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, or_
 
 from database import get_db
-from models import JournalEntry, EntryLine, Facture, Employe, Societe, JournalComptable
+from models import JournalEntry, EntryLine, Facture, Employe, Societe, JournalComptable, Agent
 from schemas import ManualEntryCreate, JournalComptableOut, JournalComptableCreate
-from routes.deps import get_current_session
+from routes.deps import get_current_session, get_current_agent
+from utils.logging import log_action
 
 router = APIRouter(prefix="/journaux", tags=["journaux"])
 
@@ -302,6 +303,7 @@ def validate_entry(
     entry_id: int,
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Valide manuellement une écriture journalière."""
     societe_id = int(session.get("societe_id", 0))
@@ -326,6 +328,8 @@ def validate_entry(
         db.rollback()
         raise HTTPException(400, f"Erreur lors de la validation : {e}")
 
+    log_action(db, agent, "VALIDATION_MANUELLE", "ECRITURE", entry.id, f"Validation manuelle de l'écriture (Ref: {entry.reference})")
+
     return {"message": "Écriture validée avec succès", "id": entry.id}
 
 
@@ -333,7 +337,8 @@ def validate_entry(
 def create_manual_entry(
     req: ManualEntryCreate,
     db: Session = Depends(get_db),
-    context: dict = Depends(get_current_session)
+    context: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Crée une écriture journal saisie manuellement par l'agent."""
     societe_id = int(context.get("societe_id", 0))
@@ -374,6 +379,9 @@ def create_manual_entry(
         ))
     
     db.commit()
+
+    log_action(db, agent, "CREATE_MANUAL", "ECRITURE", entry.id, f"Saisie manuelle d'une écriture (Ref: {entry.reference})")
+
     return {"id": entry.id, "message": "Écriture enregistrée avec succès"}
 
 
@@ -381,7 +389,8 @@ def create_manual_entry(
 def delete_entry(
     entry_id: int,
     db: Session = Depends(get_db),
-    session: dict = Depends(get_current_session)
+    session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Supprime une écriture journal (si non liée à une facture auto)."""
     societe_id = int(session.get("societe_id", 0))
@@ -400,7 +409,10 @@ def delete_entry(
     db.query(EntryLine).filter(EntryLine.ecriture_journal_id == entry_id).delete()
     db.delete(entry)
     db.commit()
-    return {"message": "Écriture supprimée"}
+
+    log_action(db, agent, "DELETE", "ECRITURE", entry_id, f"Suppression de l'écriture {entry_id}")
+
+    return {"message": "Ériture supprimée"}
 
 
 @router.put("/{entry_id}")
@@ -408,7 +420,8 @@ def update_manual_entry(
     entry_id: int,
     req: ManualEntryCreate,
     db: Session = Depends(get_db),
-    session: dict = Depends(get_current_session)
+    session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Met à jour une écriture journal manuelle."""
     societe_id = int(session.get("societe_id", 0))
@@ -455,6 +468,9 @@ def update_manual_entry(
         ))
 
     db.commit()
+
+    log_action(db, agent, "UPDATE_MANUAL", "ECRITURE", entry.id, f"Modification de l'écriture manuelle (Ref: {entry.reference})")
+
     return {"id": entry.id, "message": "Écriture mise à jour"}
 
 

@@ -27,8 +27,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Facture, InvoiceLine, JournalEntry, EntryLine, Societe, Immobilisation
-from routes.deps import get_current_session
+from models import Facture, InvoiceLine, JournalEntry, EntryLine, Societe, Immobilisation, Agent
+from routes.deps import get_current_session, get_current_agent
+from utils.logging import log_action
 
 from services import ocr_service
 from services.gemini_service import (
@@ -222,6 +223,7 @@ def upload_facture(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Upload un fichier facture. Crée une entrée avec statut IMPORTED.
 
@@ -269,6 +271,8 @@ def upload_facture(
     db.commit()
     db.refresh(facture)
 
+    log_action(db, agent, "UPLOAD", "FACTURE", facture.id, f"Import de la facture (Fichier: {file.filename})")
+
     return {
         "message": "Facture uploadée",
         "id": facture.id,
@@ -282,7 +286,7 @@ def upload_facture(
 # ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/extract", response_model=dict)
-def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session), agent: Agent = Depends(get_current_agent)):
     """
     Lance OCR + Gemini sur la facture.
     Remplit le Tableau 1 (en-tête) et le Tableau 2 (lignes produits).
@@ -545,6 +549,8 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     db.commit()
     db.refresh(facture)
 
+    log_action(db, agent, "EXTRACTION", "FACTURE", facture.id, f"Extraction OCR/IA réussie (N° {facture.numero_facture or 'N/A'})")
+
     # Préparer tableau2 (lignes extraites)
     tableau2 = []
     for line in facture.lines:
@@ -590,7 +596,7 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
 # ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/classify", response_model=dict)
-def classify_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+def classify_facture(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session), agent: Agent = Depends(get_current_agent)):
     """
     Classifie chaque ligne produit dans le Plan Comptable Marocain.
     Passe le statut à CLASSIFIED.
@@ -613,6 +619,8 @@ def classify_facture(facture_id: int, db: Session = Depends(get_db), session: di
     facture.status = "CLASSIFIED"
     db.commit()
 
+    log_action(db, agent, "CLASSIFICATION", "FACTURE", facture.id, f"Classification PCM des lignes terminée")
+
     return {
         "message": "Classification terminée",
         "id": facture.id,
@@ -626,7 +634,7 @@ def classify_facture(facture_id: int, db: Session = Depends(get_db), session: di
 # ──────────────────────────────────────────────────────────────────────────
 
 @router.post("/{facture_id}/generate-entries", response_model=dict)
-def generate_entries(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session)):
+def generate_entries(facture_id: int, db: Session = Depends(get_db), session: dict = Depends(get_current_session), agent: Agent = Depends(get_current_agent)):
     """
     Génère le brouillon des écritures comptables PCM.
     Passe le statut à DRAFT.
@@ -644,6 +652,8 @@ def generate_entries(facture_id: int, db: Session = Depends(get_db), session: di
 
     facture.status = "DRAFT"
     db.commit()
+
+    log_action(db, agent, "GENERATION_BROUILLON", "FACTURE", facture.id, f"Génération du brouillon d'écriture comptable")
 
     return {
         "message": "Écritures générées",
@@ -870,6 +880,7 @@ def validate_facture(
     validated_by: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """
     Valide la facture et enregistre définitivement les écritures en base.
@@ -952,6 +963,8 @@ def validate_facture(
 
         db.commit()
 
+        log_action(db, agent, "VALIDATION", "FACTURE", facture.id, f"Validation finale de la facture {facture.numero_facture or ''}")
+
         return {
             "message": "Facture validée et écritures enregistrées définitivement",
             "id": facture.id,
@@ -971,6 +984,7 @@ def reject_facture(
     reason: str = Query(..., description="Motif du rejet"),
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Rejette la facture avec un motif."""
     facture = _get_facture_or_404(facture_id, db)
@@ -980,6 +994,8 @@ def reject_facture(
     facture.status = "ERROR"
     facture.reject_reason = reason
     db.commit()
+
+    log_action(db, agent, "REJET", "FACTURE", facture.id, f"Facture rejetée pour le motif: {reason}")
 
     return {
         "message": "Facture rejetée",
@@ -1133,6 +1149,7 @@ def delete_facture(
     facture_id: int,
     db: Session = Depends(get_db),
     session: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent),
 ):
     """Supprime une facture et ses fichiers associés. Doit appartenir à la société courante."""
     facture = _get_facture_or_404(facture_id, db)
@@ -1149,7 +1166,9 @@ def delete_facture(
         # Suppression physique du fichier
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
-            
+        
+        log_action(db, agent, "DELETE", "FACTURE", facture_id, f"Suppression de la facture {facture_id} et de ses fichiers")
+
         return {"message": "Facture supprimée avec succès", "id": facture_id}
     except Exception as e:
         db.rollback()

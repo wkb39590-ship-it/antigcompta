@@ -89,7 +89,6 @@ export const AdminSocietes: React.FC = () => {
       setSocietes(Array.isArray(socData) ? socData : []);
       setCabinets(Array.isArray(cabData) ? cabData : []);
 
-      // Si Admin simple, pré-sélectionner son cabinet
       if (!isSuper && adminUser?.cabinet_id) {
         setFormData((prev) => ({ ...prev, cabinet_id: String(adminUser.cabinet_id) }));
       }
@@ -169,7 +168,6 @@ export const AdminSocietes: React.FC = () => {
       const token = localStorage.getItem('access_token');
       if (!token) throw new Error('Token manquant');
 
-      // Appel à select-societe pour générer le session_token
       const response = await fetch(`${API_CONFIG.AUTH.SELECT_SOCIETE}?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,8 +182,6 @@ export const AdminSocietes: React.FC = () => {
         localStorage.setItem('session_token', data.session_token);
         localStorage.setItem('current_societe_id', String(societe.id));
         localStorage.setItem('current_cabinet_id', String(societe.cabinet_id));
-
-        // Rediriger vers le dashboard utilisateur
         window.location.href = '/dashboard';
       } else {
         throw new Error('Échec du basculement vers la société');
@@ -237,27 +233,19 @@ export const AdminSocietes: React.FC = () => {
   };
 
   return (
-    <div className="aurora-page-v2">
-      <div className="aurora-page-header">
+    <div className="societes-page">
+      <div className="page-header">
         <div className="header-info">
-          <h1 className="hero-title heading-font">Gestion des Sociétés</h1>
-          <p className="aurora-subtitle">Pilotage des entités juridiques et configuration des accès client.</p>
+          <h1 className="page-title">Gestion des Sociétés</h1>
+          <p className="page-subtitle">Pilotage des entités juridiques et configuration des accès client.</p>
         </div>
         <button
-          className={`aurora-btn-primary ${showForm ? 'active-form' : ''}`}
+          className={`btn-primary ${showForm ? 'form-active' : ''}`}
           onClick={() => {
             if (showForm) {
               setShowForm(false);
               setEditingSociete(null);
-              setFormData({
-                raison_sociale: '',
-                ice: '',
-                if_fiscal: '',
-                rc: '',
-                adresse: '',
-                cnss: '',
-                cabinet_id: '',
-              });
+              setFormData({ raison_sociale: '', ice: '', if_fiscal: '', rc: '', adresse: '', cnss: '', cabinet_id: '' });
             } else {
               setShowForm(true);
               if (!isSuper && adminUser?.cabinet_id) {
@@ -267,26 +255,26 @@ export const AdminSocietes: React.FC = () => {
             setError('');
           }}
         >
-          {showForm ? <X size={20} /> : <><PlusCircle size={18} /> <span>Nouvelle Société</span></>}
+          {showForm ? <X size={18} /> : <><PlusCircle size={16} /> <span>Nouvelle Société</span></>}
         </button>
       </div>
 
-      {error && <div className="aurora-error-toast">{error}</div>}
+      {error && <div className="error-banner">{error}</div>}
 
-      <div className="aurora-content-grid">
+      <div className="content-layout">
         {showForm && (
-          <form className="aurora-card premium-form" onSubmit={handleCreateSociete}>
+          <form className="pro-card side-form" onSubmit={handleCreateSociete}>
             <div className="form-header">
-              <h2 className="heading-font">{editingSociete ? 'Édition Structure' : 'Initialisation Entreprise'}</h2>
-              <p>Paramètres fiscaux et identification légale</p>
+              <h3>{editingSociete ? 'Éditer la structure' : 'Nouvelle Entreprise'}</h3>
+              <p>Identifiants légaux et fiscaux</p>
             </div>
 
-            <div className="aurora-form-grid">
-              <div className="aurora-input-group span-2">
+            <div className="form-grid">
+              <div className="field-group span2">
                 <label>Cabinet de rattachement</label>
                 {isSuper ? (
                   <select
-                    className="aurora-select"
+                    className="pro-select"
                     value={formData.cabinet_id}
                     onChange={(e) => setFormData({ ...formData, cabinet_id: e.target.value })}
                     required
@@ -297,14 +285,15 @@ export const AdminSocietes: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <div className="aurora-input-readonly">
-                    {cabinets.find((c: Cabinet) => String(c.id) === formData.cabinet_id)?.nom || (cabinets.length > 0 ? cabinets[0].nom : 'Chargement cabinet...')}
+                  <div className="pro-input-read">
+                    {cabinets.find((c: Cabinet) => String(c.id) === formData.cabinet_id)?.nom || 'Cabinet local'}
                   </div>
                 )}
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group">
                 <label>Raison Sociale</label>
                 <input
+                  className="pro-input"
                   type="text"
                   placeholder="Ex: SARL Optima"
                   value={formData.raison_sociale}
@@ -312,367 +301,283 @@ export const AdminSocietes: React.FC = () => {
                   required
                 />
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group">
                 <label>ICE (Identifiant Commun)</label>
                 <input
+                  className="pro-input"
                   type="text"
-                  placeholder="00234..."
+                  placeholder="00123..."
                   value={formData.ice}
                   onChange={(e) => setFormData({ ...formData, ice: e.target.value })}
                 />
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group">
                 <label>IF (Identifiant Fiscal)</label>
                 <input
+                  className="pro-input"
                   type="text"
                   placeholder="ID Fiscal"
                   value={formData.if_fiscal}
                   onChange={(e) => setFormData({ ...formData, if_fiscal: e.target.value })}
                 />
               </div>
-              <div className="aurora-input-group">
+              <div className="field-group">
                 <label>RC (Registre Commerce)</label>
                 <input
+                  className="pro-input"
                   type="text"
                   placeholder="N° Registre"
                   value={formData.rc}
                   onChange={(e) => setFormData({ ...formData, rc: e.target.value })}
                 />
               </div>
-              <div className="aurora-input-group">
-                <label>N° CNSS (Affiliation)</label>
-                <input
-                  type="text"
-                  placeholder="N° Affiliation"
-                  value={formData.cnss}
-                  onChange={(e) => setFormData({ ...formData, cnss: e.target.value })}
-                />
-              </div>
-              <div className="aurora-input-group full-width">
-                <label>Adresse d'Exploitation</label>
-                <input
-                  type="text"
-                  placeholder="Siège social, Ville"
-                  value={formData.adresse}
-                  onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
-                />
-              </div>
             </div>
 
-            <button type="submit" className="aurora-btn-primary full-width">
-              {editingSociete ? 'Sauvegarder les changements' : 'Activer la structure'}
+            <button type="submit" className="btn-primary full-w">
+              {editingSociete ? 'Enregistrer les modifications' : 'Créer la société'}
             </button>
           </form>
         )}
 
-        <div className="aurora-card table-card">
-          <div className="card-header-flex">
-            <h2 className="heading-font">Sociétés sous gestion</h2>
-            <div className="glass-pill">{societes.length} Entités</div>
+        <div className="pro-card table-section">
+          <div className="section-header">
+            <div className="header-label">
+              <Building2 size={16} className="muted-icon" />
+              <span>Sociétés enregistrées</span>
+            </div>
+            <div className="entity-count">{societes.length} Entités</div>
           </div>
 
           {loading ? (
-            <div className="aurora-loader-inline">
-              <div className="spinner-aurora"></div>
-              <span>Synchronisation des entités...</span>
+            <div className="placeholder-state">
+              <div className="dot-spinner"></div>
+              <span>Synchronisation en cours...</span>
+            </div>
+          ) : societes.length === 0 ? (
+            <div className="placeholder-state empty">
+              <Building size={48} className="muted-icon" />
+              <p>Aucune société configurée.</p>
             </div>
           ) : (
-            <div className="table-responsive">
-              {societes.length === 0 ? (
-                <div className="aurora-empty-v2">
-                  <div className="empty-icon-box"><Building size={40} /></div>
-                  <p>Aucune société rattachée pour le moment.</p>
-                </div>
-              ) : (
-                <table className="aurora-table-v2">
-                  <thead>
-                    <tr>
-                      <th>Dénomination Sociale</th>
-                      <th>Cabinet Référent</th>
-                      <th>Données Fiscales</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
+            <div className="table-wrapper">
+              <table className="pro-table">
+                <thead>
+                  <tr>
+                    <th>Dénomination</th>
+                    <th>Cabinet</th>
+                    <th>Identifiants</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {societes.map((societe: Societe) => (
+                    <tr key={societe.id}>
+                      <td>
+                        <div className="company-cell">
+                          <div className="company-icon">{societe.raison_sociale[0]}</div>
+                          <div className="company-info">
+                            <span className="company-name">{societe.raison_sociale}</span>
+                            <span className="company-address">{societe.adresse || 'Siège non localisé'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="cabinet-label">
+                          <Fingerprint size={12} className="muted-icon" />
+                          {cabinets.find((c: Cabinet) => c.id === societe.cabinet_id)?.nom || 'Cabinet...'}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="fiscal-labels">
+                          <span>ICE: {societe.ice || '-'}</span>
+                          <span>IF: {societe.if_fiscal || '-'}</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="btn-group">
+                          <button className="btn-action-sm btn-open" onClick={() => handleManageSociete(societe)}>
+                            <LayoutDashboard size={14} /> <span>Ouvrir</span>
+                          </button>
+                          <button className="btn-icon" title="Accès client" onClick={() => openClientModal(societe)}>
+                            <KeyRound size={14} />
+                          </button>
+                          <button className="btn-icon" title="Éditer" onClick={() => handleEditClick(societe)}>
+                            <Pencil size={14} />
+                          </button>
+                          <button className="btn-icon btn-danger" title="Supprimer" onClick={() => deleteSociete(societe.id)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {societes.map((societe: Societe) => (
-                      <tr key={societe.id}>
-                        <td>
-                          <div className="soc-profile-td">
-                            <div className="soc-avatar-v2">{societe.raison_sociale[0]}</div>
-                            <div className="soc-name-box">
-                              <span className="name">{societe.raison_sociale}</span>
-                              <span className="address-line">{societe.adresse || 'Adresse non spécifiée'}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="cabinet-tag-v2">
-                            <Fingerprint size={12} />
-                            {cabinets.find((c: Cabinet) => c.id === societe.cabinet_id)?.nom || 'Cabinet Inconnu'}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="fiscal-td">
-                            <div className="ice-line">ICE: {societe.ice || '---'}</div>
-                            <div className="if-line">IF: {societe.if_fiscal || '---'}</div>
-                            <div className="cnss-line">CNSS: {societe.cnss || '---'}</div>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div className="action-buttons-flex">
-                            <button
-                              className="aurora-btn-action"
-                              onClick={() => handleManageSociete(societe)}
-                            >
-                              <LayoutDashboard size={14} /> <span>Ouvrir</span>
-                            </button>
-                            <button
-                              className="icon-btn key-btn"
-                              title="Gérer accès client"
-                              onClick={() => openClientModal(societe)}
-                            >
-                              <KeyRound size={16} />
-                            </button>
-                            <button className="icon-btn edit" title="Modifier" onClick={() => handleEditClick(societe)}>
-                              <Pencil size={16} />
-                            </button>
-                            <button className="icon-btn del" title="Supprimer" onClick={() => deleteSociete(societe.id)}>
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       </div>
 
-      {/* === Modal Gestion Accès Client === */}
+      {/* === Modal Accès Client === */}
       {clientModal && (
-        <div className="client-modal-overlay" onClick={() => setClientModal(null)}>
-          <div className="client-modal-box" onClick={e => e.stopPropagation()}>
-            <div className="client-modal-header">
-              <div className="client-modal-title">
-                <KeyRound size={20} />
+        <div className="modal-backdrop" onClick={() => setClientModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                <KeyRound size={18} className="color-accent" />
                 <div>
-                  <h2>Portail Client</h2>
+                  <h4>Gestion des Accès</h4>
                   <p>{clientModal.raison_sociale}</p>
                 </div>
               </div>
-              <button onClick={() => setClientModal(null)} className="icon-btn">
+              <button className="btn-close" onClick={() => setClientModal(null)}>
                 <X size={18} />
               </button>
             </div>
 
-            {/* Existing clients */}
-            <div className="client-list-section">
-              <div className="client-list-label"><Users size={14} /> Accès actifs ({clients.length})</div>
+            <div className="modal-body">
+              <div className="client-section-label">Comptes Clients Actifs</div>
               {clientLoading ? (
-                <div className="client-loading">Chargement...</div>
+                <div className="modal-loading">Chargement des accès...</div>
               ) : clients.length === 0 ? (
-                <div className="client-empty">Aucun accès client pour cette société.</div>
+                <div className="modal-empty">Aucun utilisateur client rattaché.</div>
               ) : (
-                <div className="client-items">
+                <div className="client-list">
                   {clients.map(c => (
-                    <div key={c.id} className="client-item">
-                      <div className="client-avatar">{c.username[0].toUpperCase()}</div>
-                      <div className="client-info">
-                        <span className="client-name">{c.prenom} {c.nom}</span>
-                        <span className="client-username">@{c.username} • {c.email}</span>
+                    <div key={c.id} className="client-card">
+                      <div className="client-avatar-square">{c.username[0].toUpperCase()}</div>
+                      <div className="client-data">
+                        <span className="client-full">@{c.username} ({c.prenom} {c.nom})</span>
+                        <span className="client-email">{c.email}</span>
                       </div>
-                      <button className="icon-btn del" title="Révoquer" onClick={() => handleDeleteClient(c.id)}>
-                        <Trash2 size={14} />
+                      <button className="btn-icon-sm btn-danger" onClick={() => handleDeleteClient(c.id)}>
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* Create new client */}
-            <form className="client-form" onSubmit={handleCreateClient}>
-              <div className="client-form-title"><UserPlus size={16} /> Créer un accès</div>
-              {clientError && <div className="client-form-error">{clientError}</div>}
-              <div className="client-form-grid">
-                <input placeholder="Prénom" value={clientForm.prenom} onChange={e => setClientForm({...clientForm, prenom: e.target.value})} className="client-input"/>
-                <input placeholder="Nom" value={clientForm.nom} onChange={e => setClientForm({...clientForm, nom: e.target.value})} className="client-input"/>
-                <input placeholder="Nom d'utilisateur *" required value={clientForm.username} onChange={e => setClientForm({...clientForm, username: e.target.value})} className="client-input"/>
-                <input placeholder="Email *" type="email" required value={clientForm.email} onChange={e => setClientForm({...clientForm, email: e.target.value})} className="client-input"/>
-                <input placeholder="Mot de passe *" type="password" required value={clientForm.password} onChange={e => setClientForm({...clientForm, password: e.target.value})} className="client-input span2"/>
-              </div>
-              <button type="submit" className="aurora-btn-primary full-w-btn">
-                <UserPlus size={16} /> <span>Créer l'accès</span>
-              </button>
-            </form>
+              <form className="client-creation-form" onSubmit={handleCreateClient}>
+                <div className="form-sub-label"><UserPlus size={14} /> Ajouter un accès utilisateur</div>
+                {clientError && <div className="client-error-box">{clientError}</div>}
+                <div className="client-inputs-grid">
+                  <input placeholder="Prénom" value={clientForm.prenom} onChange={e => setClientForm({...clientForm, prenom: e.target.value})}/>
+                  <input placeholder="Nom" value={clientForm.nom} onChange={e => setClientForm({...clientForm, nom: e.target.value})}/>
+                  <input placeholder="Username *" required value={clientForm.username} onChange={e => setClientForm({...clientForm, username: e.target.value})}/>
+                  <input placeholder="Email *" type="email" required value={clientForm.email} onChange={e => setClientForm({...clientForm, email: e.target.value})}/>
+                  <input placeholder="Mot de passe *" type="password" required value={clientForm.password} onChange={e => setClientForm({...clientForm, password: e.target.value})} className="span2"/>
+                </div>
+                <button type="submit" className="btn-primary-sm full-w">Créer l'accès client</button>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       <style>{`
-        .aurora-page-v2 { animation: fadeIn 0.8s ease-out; padding-bottom: 80px; }
-        
-        .aurora-page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; }
-        .hero-title { font-size: 38px; font-weight: 800; margin: 0; letter-spacing: -1.5px; }
-        .aurora-subtitle { color: var(--text3); font-size: 14px; font-weight: 500; margin-top: 4px; }
+        .societes-page { padding: 24px; background: #fafafa; min-height: 100vh; font-family: 'Inter', sans-serif; }
 
-        .aurora-btn-primary { 
-          background: #4f46e5 !important; 
-          color: white !important; 
-          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-          display: flex; align-items: center; gap: 8px; padding: 12px 24px;
-          border-radius: 14px; border: none; font-weight: 700; cursor: pointer;
-          transition: all 0.3s;
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
+        .page-subtitle { color: #64748b; font-size: 14px; margin-top: 4px; }
+
+        .btn-primary { 
+          background: #3b82f6; color: white; border: none; padding: 10px 20px; 
+          border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer;
+          display: flex; align-items: center; gap: 8px; transition: background 0.2s;
         }
-        .aurora-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5); }
-        .aurora-btn-primary.active-form { background: #334155 !important; box-shadow: none; }
-        .full-width { width: 100%; margin-top: 20px; }
-
-        .aurora-content-grid { display: flex; flex-direction: column; gap: 30px; }
-
-        .premium-form { padding: 35px; animation: slideDown 0.4s ease-out; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .form-header { margin-bottom: 30px; }
-        .form-header h2 { font-size: 20px; font-weight: 800; margin: 0; }
-        .form-header p { font-size: 13px; color: var(--text3); margin-top: 4px; }
-
-        .aurora-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-        .span-2 { grid-column: span 2; }
-
-        .aurora-input-group label {
-          display: block; font-size: 11px; font-weight: 800; color: var(--text3);
-          text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+        .btn-primary:hover { background: #2563eb; }
+        .btn-primary.form-active { background: #475569; }
+        .btn-primary-sm { 
+          background: #3b82f6; color: white; border: none; padding: 12px;
+          border-radius: 4px; font-weight: 600; font-size: 13px; cursor: pointer;
         }
+        .full-w { width: 100%; margin-top: 15px; }
 
-        .aurora-input-group input, .aurora-select {
-          width: 100%; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border);
-          background: rgba(255, 255, 255, 0.5); color: var(--text); outline: none; transition: all 0.3s;
-          font-family: 'Inter', sans-serif; font-size: 14px;
-        }
-        .aurora-input-group input:focus, .aurora-select:focus {
-          border-color: var(--accent); background: white; box-shadow: 0 0 10px rgba(99, 102, 241, 0.1);
-        }
+        .content-layout { display: flex; flex-direction: column; gap: 24px; }
 
-        .aurora-input-readonly {
-          padding: 14px 16px; border-radius: 14px; background: rgba(99, 102, 241, 0.05);
-          color: var(--accent); font-weight: 700; font-size: 14px; border: 1px dashed var(--accent);
-        }
+        .pro-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-        .table-card { padding: 30px; }
-        .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .card-header-flex h2 { font-size: 20px; font-weight: 800; margin: 0; }
+        .side-form { padding: 24px; border-left: 4px solid #3b82f6; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .table-responsive { overflow-x: auto; }
-        .aurora-table-v2 { width: 100%; border-collapse: collapse; }
-        .aurora-table-v2 th {
-          text-align: left; padding: 15px 20px; font-size: 11px; font-weight: 800;
-          color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px;
-          border-bottom: 1px solid var(--border);
-        }
-        
-        .aurora-table-v2 tr { transition: background 0.3s; }
-        .aurora-table-v2 tr:hover { background: rgba(99, 102, 241, 0.02); }
-        .aurora-table-v2 td { padding: 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .form-header { margin-bottom: 20px; }
+        .form-header h3 { font-size: 16px; font-weight: 700; margin: 0; }
+        .form-header p { font-size: 12px; color: #64748b; margin-top: 2px; }
 
-        .soc-profile-td { display: flex; align-items: center; gap: 15px; }
-        .soc-avatar-v2 {
-          width: 44px; height: 44px; border-radius: 12px; 
-          background: linear-gradient(145deg, #10b981, #047857);
-          color: white; display: flex; align-items: center; justify-content: center;
-          font-weight: 800; font-size: 16px; 
-          box-shadow: 0 8px 15px -3px rgba(16, 185, 129, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .soc-name-box { display: flex; flex-direction: column; }
-        .soc-name-box .name { font-weight: 700; color: var(--text); font-size: 15px; }
-        .soc-name-box .address-line { font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 2px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .span2 { grid-column: span 2; }
 
-        .cabinet-tag-v2 {
-          display: inline-flex; align-items: center; gap: 8px;
-          padding: 6px 12px; background: #f8fafc; border: 1px solid #e2e8f0;
-          border-radius: 10px; font-size: 12px; font-weight: 700; color: var(--text2);
+        .field-group label { display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px; }
+        .pro-input, .pro-select {
+          width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 4px;
+          font-size: 14px; background: #fff; outline: none; transition: border-color 0.2s;
         }
+        .pro-input:focus, .pro-select:focus { border-color: #3b82f6; }
+        .pro-input-read { padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #3b82f6; font-weight: 600; font-size: 14px; }
 
-        .fiscal-td { display: flex; flex-direction: column; gap: 2px; }
-        .ice-line, .if-line, .cnss-line { font-size: 12px; font-weight: 700; color: var(--text3); }
+        .table-section { padding: 0; overflow: hidden; }
+        .section-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+        .header-label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: #334155; }
+        .entity-count { font-size: 11px; font-weight: 700; color: #3b82f6; background: #eff6ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #dbeafe; }
 
-        .action-buttons-flex { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
-        
-        .aurora-btn-action {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 8px 14px; 
-          background: linear-gradient(135deg, #1e293b, #0f172a);
-          color: white;
-          border-radius: 10px; border: none; font-size: 12px; font-weight: 800;
-          cursor: pointer; transition: all 0.3s; 
-          box-shadow: 0 5px 15px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.1);
-        }
-        .aurora-btn-action:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .table-wrapper { overflow-x: auto; }
+        .pro-table { width: 100%; border-collapse: collapse; }
+        .pro-table th { text-align: left; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
+        .pro-table td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .pro-table tr:hover { background: #fafafa; }
 
-        .icon-btn {
-          width: 36px; height: 36px; border-radius: 10px; border: 1px solid #e2e8f0;
-          background: white; color: var(--text3); cursor: pointer; transition: all 0.3s;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.05); transform: translateY(-2px); }
-        .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); }
-        .icon-btn.key-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+        .company-cell { display: flex; align-items: center; gap: 12px; }
+        .company-icon { width: 32px; height: 32px; background: #10b981; color: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+        .company-name { display: block; font-weight: 600; color: #1e293b; font-size: 14px; }
+        .company-address { display: block; font-size: 12px; color: #64748b; margin-top: 1px; }
 
-        /* === Client Modal === */
-        .client-modal-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
-          display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
-          animation: fadeIn 0.2s;
-        }
-        .client-modal-box {
-          background: white; border-radius: 20px; padding: 30px; width: 580px; max-width: 95vw;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: slideDown 0.3s;
-        }
-        .client-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .client-modal-title { display: flex; align-items: center; gap: 12px; color: var(--accent); }
-        .client-modal-title h2 { margin: 0; font-size: 18px; font-weight: 800; color: var(--text); }
-        .client-modal-title p { margin: 0; font-size: 12px; color: var(--text3); font-weight: 600; }
-        .client-list-section { margin-bottom: 20px; }
-        .client-list-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-        .client-loading, .client-empty { font-size: 13px; color: var(--text3); padding: 12px; text-align: center; }
-        .client-items { display: flex; flex-direction: column; gap: 8px; }
-        .client-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .client-avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; }
-        .client-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-        .client-name { font-size: 13px; font-weight: 700; color: var(--text); }
-        .client-username { font-size: 11px; color: var(--text3); font-weight: 600; }
-        .client-form { border-top: 1px solid #f1f5f9; padding-top: 20px; }
-        .client-form-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 14px; }
-        .client-form-error { background: rgba(239,68,68,0.08); color: #ef4444; font-size: 12px; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-weight: 600; }
-        .client-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-        .client-input { padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; outline: none; transition: all 0.2s; font-family: 'Inter', sans-serif; }
-        .client-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-        .client-input.span2 { grid-column: span 2; }
-        .full-w-btn { 
-          width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;
-          background: linear-gradient(135deg, #6366f1, #4f46e5);
-          color: #ffffff !important;
-          font-weight: 700; font-size: 14px;
-          border: none; border-radius: 12px; cursor: pointer;
-          box-shadow: 0 4px 15px rgba(99,102,241,0.4);
-          transition: all 0.2s;
-        }
-        .full-w-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.5); }
-        .aurora-empty-v2 { padding: 60px 0; text-align: center; color: var(--text3); }
-        .empty-icon-box { margin-bottom: 20px; opacity: 0.2; }
+        .cabinet-label { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; font-weight: 600; color: #475569; }
+        .fiscal-labels { display: flex; flex-direction: column; gap: 2px; font-size: 11px; font-weight: 600; color: #64748b; }
+        .muted-icon { color: #94a3b8; }
 
-        .aurora-loader-inline { padding: 60px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; color: var(--text3); }
-        .spinner-aurora { width: 32px; height: 32px; border: 3px solid #f1f5f9; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        @media (max-width: 900px) {
-          .aurora-form-grid { grid-template-columns: 1fr; }
-          .span-2 { grid-column: span 1; }
+        .btn-group { display: flex; gap: 6px; justify-content: flex-end; }
+        .btn-action-sm { 
+          display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+          background: #1e293b; color: white; border-radius: 4px; border: none;
+          font-size: 12px; font-weight: 600; cursor: pointer;
         }
+        .btn-icon { width: 30px; height: 30px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-icon:hover { color: #3b82f6; border-color: #3b82f6; }
+        .btn-icon.btn-danger:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }
+
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s; }
+        .modal-content { background: #fff; border-radius: 6px; width: 500px; max-width: 90vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1); animation: popScale 0.2s ease-out; }
+        @keyframes popScale { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .modal-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { display: flex; align-items: center; gap: 12px; }
+        .modal-title h4 { margin: 0; font-size: 16px; font-weight: 700; color: #1e293b; }
+        .modal-title p { margin: 0; font-size: 12px; color: #64748b; }
+        .color-accent { color: #3b82f6; }
+        .btn-close { background: none; border: none; color: #94a3b8; cursor: pointer; }
+
+        .modal-body { padding: 20px; }
+        .client-section-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 12px; }
+        .client-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+        .client-card { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid #f1f5f9; border-radius: 4px; background: #fafafa; }
+        .client-avatar-square { width: 32px; height: 32px; background: #3b82f6; color: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+        .client-data { flex: 1; overflow: hidden; }
+        .client-full { display: block; font-size: 13px; font-weight: 600; color: #1e293b; }
+        .client-email { font-size: 11px; color: #64748b; }
+
+        .client-creation-form { border-top: 1px solid #e2e8f0; padding-top: 20px; }
+        .form-sub-label { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .client-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .client-inputs-grid input { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-family: inherit; }
+        .client-error-box { padding: 8px; background: #fef2f2; color: #dc2626; font-size: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #fee2e2; }
+
+        .placeholder-state { padding: 48px; text-align: center; color: #64748b; }
+        .dot-spinner { width: 24px; height: 24px; border: 3px solid #f1f5f9; border-top-color: #3b82f6; border-radius: 50%; animation: rot 0.8s linear infinite; margin: 0 auto 12px; }
+        @keyframes rot { to { transform: rotate(360deg); } }
+
+        @media (max-width: 800px) { .form-grid { grid-template-columns: 1fr; } .span2 { grid-column: span 1; } }
       `}</style>
     </div>
   );

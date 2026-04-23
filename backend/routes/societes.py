@@ -8,7 +8,8 @@ from typing import Optional
 
 from database import get_db
 from models import Societe, Agent, agents_societes
-from routes.auth import get_current_agent
+from utils.logging import log_action
+from routes.deps import get_current_agent
 
 router = APIRouter(prefix="/societes", tags=["societes"])
 
@@ -61,6 +62,7 @@ def create_societe(data: SocieteCreate, agent: Agent = Depends(get_current_agent
     db.add(s)
     db.commit()
     db.refresh(s)
+    log_action(db, agent, "CREATE", "SOCIETE", s.id, f"Création de la société '{s.raison_sociale}'")
     return {"id": s.id, "raison_sociale": s.raison_sociale, "message": "Société créée"}
 
 

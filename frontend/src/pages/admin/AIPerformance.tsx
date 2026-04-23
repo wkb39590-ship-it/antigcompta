@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiService, { AIPerformanceResponse } from '../../api';
 import { 
-  Zap, 
   Target, 
   Clock, 
   BarChart3, 
@@ -30,7 +29,7 @@ export const AIPerformance: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="performance-loading">
+      <div className="performance-loading" style={{ height: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', color: 'var(--text3)' }}>
         <Loader2 className="animate-spin" size={40} />
         <p>Analyse des performances en cours...</p>
       </div>
@@ -40,13 +39,13 @@ export const AIPerformance: React.FC = () => {
   if (!data) return <div>Erreur de chargement des données.</div>;
 
   return (
-    <div className="ai-performance-page">
-      <div className="performance-header-section">
-        <h1 className="page-title-gradient">Tableau de Bord Intelligence Artificielle</h1>
+    <div className="ai-performance-page" style={{ animation: 'fadeIn 0.5s ease-out', paddingBottom: '40px' }}>
+      <div className="page-header" style={{ marginBottom: '32px' }}>
+        <h1 className="page-title" style={{ fontSize: '24px', fontWeight: 800 }}>Tableau de Bord Intelligence Artificielle</h1>
         <p className="page-subtitle">Suivi de la qualité d'extraction et de l'efficacité opérationnelle</p>
       </div>
 
-      <div className="stats-grid">
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         <StatCard 
           icon={<Target size={24} />}
           label="Taux d'exactitude"
@@ -81,225 +80,69 @@ export const AIPerformance: React.FC = () => {
         />
       </div>
 
-      <div className="charts-section-full">
-        <div className="chart-container aurora-card shadow-sm border-0">
-          <div className="chart-header">
-            <h3>Volume d'activité (7 derniers jours)</h3>
-            <div className="chart-legend">
-              <span className="legend-dot"></span>
-              Documents traités
-            </div>
+      <div className="card" style={{ padding: '32px' }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <h3 className="card-title">Volume d'activité (7 derniers jours)</h3>
+          <div className="chart-legend" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text3)', fontWeight: 600 }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)' }}></span>
+            Documents traités
           </div>
-          <div className="custom-chart-viz">
-            <SimpleBarChart history={data.history} />
-          </div>
+        </div>
+        <div className="custom-chart-viz" style={{ height: '250px', display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
+          <SimpleBarChart history={data.history} />
         </div>
       </div>
 
-      {/* Styles inline pour le design professionnel Light Mode */}
       <style>{`
-        .ai-performance-page {
-          padding-bottom: 40px;
-          animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .performance-header-section {
-          margin-bottom: 32px;
-        }
-
-        .page-title-gradient {
-          font-size: 28px;
-          font-weight: 900;
-          background: linear-gradient(135deg, #1e293b 0%, #3b82f6 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          margin-bottom: 8px;
-        }
-
-        .page-subtitle {
-          color: #64748b;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 20px;
-          margin-bottom: 32px;
-        }
-
         .stat-card-inner {
           background: white;
           padding: 24px;
-          border-radius: 24px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.8);
+          border-radius: 16px;
+          border: 1px solid var(--border);
           display: flex;
           flex-direction: column;
           gap: 16px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform 0.3s;
         }
-
-        .stat-card-inner:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
-        }
-
-        .stat-icon-box {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .stat-info .stat-value {
-          font-size: 26px;
-          font-weight: 900;
-          color: #0f172a;
-          margin-bottom: 4px;
-          display: block;
-        }
-
-        .stat-info .stat-label {
-          font-size: 14px;
-          font-weight: 700;
-          color: #64748b;
-        }
-
-        .stat-desc {
-          font-size: 11px;
-          color: #94a3b8;
-          font-weight: 500;
-        }
-
-        .charts-section-full {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 24px;
-        }
-
-        .chart-container {
-          padding: 32px;
-          min-height: 400px;
-        }
-
-        .chart-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 40px;
-        }
-
-        .chart-header h3 {
-          font-size: 18px;
-          font-weight: 800;
-          color: #1e293b;
-          margin: 0;
-        }
-
-        .chart-legend {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 12px;
-          font-weight: 600;
-          color: #64748b;
-        }
-
-        .legend-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #3b82f6;
-        }
-
-        .custom-chart-viz {
-          height: 250px;
-          display: flex;
-          align-items: flex-end;
-          gap: 12px;
-          padding-top: 20px;
-        }
-
-
-
-        .performance-loading {
-          height: 60vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 20px;
-          color: #64748b;
-        }
-
-        /* Chart Components */
-        .bar-wrapper {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          height: 100%;
-        }
-
-        .bar-pillar {
-          width: 100%;
-          background: #f1f5f9;
-          border-radius: 8px 8px 0 0;
-          position: relative;
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          cursor: pointer;
-        }
-
-        .bar-pillar:hover {
-          filter: brightness(1.05);
-          transform: scaleX(1.1);
-        }
-
-        .bar-value {
-          background: linear-gradient(to top, #3b82f6, #60a5fa);
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-        }
-
-        .bar-date {
-          font-size: 10px;
-          font-weight: 700;
-          color: #94a3b8;
-          white-space: nowrap;
-          transform: rotate(-30deg);
-          margin-top: 8px;
-        }
-
-
+        .stat-card-inner:hover { transform: translateY(-4px); }
+        .stat-icon-box { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .stat-value { font-size: 24px; font-weight: 800; color: var(--text); display: block; margin-bottom: 2px; }
+        .stat-label { font-size: 13px; font-weight: 600; color: var(--text3); }
+        .stat-desc { font-size: 11px; color: var(--text3); opacity: 0.8; }
+        
+        .bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; }
+        .bar-pillar { width: 100%; background: var(--bg3); border-radius: 6px 6px 0 0; position: relative; transition: all 0.3s; cursor: pointer; }
+        .bar-pillar.bar-value { background: var(--accent); opacity: 0.8; }
+        .bar-pillar:hover { opacity: 1; transform: scaleX(1.05); }
+        .bar-date { font-size: 10px; font-weight: 600; color: var(--text3); transform: rotate(-30deg); margin-top: 12px; }
       `}</style>
     </div>
   );
 };
 
-const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string, desc: string, color: string, bg: string }> = ({ icon, label, value, desc, color, bg }) => (
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  desc: string;
+  color: string;
+  bg: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ icon, label, value, desc, color, bg }) => (
   <div className="stat-card-inner">
     <div className="stat-icon-box" style={{ background: bg, color: color }}>
       {icon}
     </div>
     <div className="stat-info">
-      <span className="stat-label">{label}</span>
       <span className="stat-value">{value}</span>
+      <span className="stat-label">{label}</span>
     </div>
     <div className="stat-desc">{desc}</div>
   </div>
 );
 
 const SimpleBarChart: React.FC<{ history: any[] }> = ({ history }) => {
-  // S'assurer qu'on a au moins 7 jours de data pour le rendu visuel
   const displayHistory = history.length > 0 ? history : [
     {date: '2026-03-21', count: 45},
     {date: '2026-03-22', count: 52},

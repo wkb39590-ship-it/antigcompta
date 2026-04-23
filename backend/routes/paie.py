@@ -4,11 +4,12 @@ from typing import List
 from decimal import Decimal
 
 from database import get_db
-from models import Employe, BulletinPaie, JournalEntry
+from models import Employe, BulletinPaie, JournalEntry, Agent
 from schemas import BulletinPaieOut, BulletinPaieCreate
 from services.paie_service import calculer_bulletin, sauvegarder_bulletin, generer_ecriture_paie
 from services.pdf_service import generer_bulletin_pdf
-from routes.deps import get_current_session
+from routes.deps import get_current_session, get_current_agent
+from utils.logging import log_action
 
 router = APIRouter(prefix="/paie", tags=["paie"])
 
@@ -90,7 +91,8 @@ def simuler_calcul(
 def creer_bulletin(
     req: BulletinPaieCreate,
     db: Session = Depends(get_db),
-    context: dict = Depends(get_current_session)
+    context: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent)
 ):
     """Calcule et sauvegarde un bulletin en base."""
     societe_id = context['societe_id']
@@ -122,6 +124,9 @@ def creer_bulletin(
     )
     
     bulletin.employe_nom = f"{employe.prenom or ''} {employe.nom}".strip()
+    
+    log_action(db, agent, "CALCUL_PAIE", "BULLETIN", bulletin.id, f"Calcul du bulletin de paie pour {bulletin.employe_nom} ({req.mois}/{req.annee})")
+    
     return bulletin
 
 @router.get("/{bulletin_id}", response_model=BulletinPaieOut)
@@ -159,7 +164,8 @@ def get_bulletin(
 def valider_bulletin(
     bulletin_id: int,
     db: Session = Depends(get_db),
-    context: dict = Depends(get_current_session)
+    context: dict = Depends(get_current_session),
+    agent: Agent = Depends(get_current_agent)
 ):
     """Valide le bulletin et génère l'écriture comptable OD."""
     societe_id = context['societe_id']
@@ -176,16 +182,15 @@ def valider_bulletin(
         
     # Mise à jour statut
     bulletin.statut = "VALIDE"
-    bulletin.valide_par = context.get('username', 'system')
+    bulletin.valide_par = agent.username
     from datetime import datetime
     bulletin.valide_at = datetime.now()
     
-    # bulletin.statut = "VALIDE"
-    # generer_ecriture_paie(bulletin, db)
-    # NOTE: Saisie manuelle demandée par l'utilisateur dans le Journal Comptable
-    
     db.commit()
     db.refresh(bulletin)
+    
+    log_action(db, agent, "VALIDATION_PAIE", "BULLETIN", bulletin.id, f"Validation du bulletin de paie de {bulletin.employe.nom} pour {bulletin.mois}/{bulletin.annee}")
+    
     emp = bulletin.employe
     soc = emp.societe if emp else None
     bulletin.employe_nom = f"{emp.prenom or ''} {emp.nom}".strip() if emp else "Inconnu"

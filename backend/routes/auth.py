@@ -116,6 +116,8 @@ def decode_jwt_token(token: str) -> dict:
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 security = HTTPBearer(auto_error=False)
 
+from utils.logging import log_action
+
 def get_current_agent(
     token: Optional[str] = Query(None),
     auth: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -382,8 +384,7 @@ async def update_agent_profile(
         db.commit()
         db.refresh(agent)
         
-        # S'assurer que les relations nécessaires sont chargées si besoin
-        # (bien que AgentOut n'en utilise pas explicitement)
+        log_action(db, agent, "UPDATE", "PROFILE", agent.id, f"Mise à jour du profil (Agent: {agent.username})")
         
         return agent
     except HTTPException:
