@@ -46,47 +46,47 @@ Voici comment les données transitent à travers le système (rendu généré pa
 ```mermaid
 graph TD
     %% Entités Externes
-    User([👨‍💼 Utilisateur / Agent])
-    DGI([🏛️ Règles DGI (ICE/TVA)])
-    Gemini([🧠 IA - Google Gemini 2.0])
+    User(["👨‍💼 Utilisateur / Agent"])
+    DGI(["🏛️ Règles DGI (ICE/TVA)"])
+    Gemini(["🧠 IA - Google Gemini 2.0"])
 
-    %% Frontend
-    subgraph Frontend [🌐 Frontend (React + Vite)]
-        AuthUI[Interface Connexion]
-        UploadUI[Upload & Validation PDF]
-        DashboardUI[Dashboard & Statistiques]
+    %% Partie Visible (Client)
+    subgraph Client ["🌐 Interface Client (React + Vite)"]
+        AuthUI["Page de Connexion"]
+        UploadUI["Téléversement & Validation PDF"]
+        DashboardUI["Tableau de Bord & Statistiques"]
     end
 
-    %% Backend API
-    subgraph Backend [⚡ Backend (FastAPI)]
-        Router[Routes API REST]
-        Auth[Service d'Authentification / JWT]
-        OCR[Service OCR & Vision IA]
-        Compta[Moteur de Règles Comptables PCM]
-        CRUD[Accès aux données SQLAlchemy]
+    %% Serveur API
+    subgraph Serveur ["⚡ Serveur (FastAPI)"]
+        Router["Routes API REST"]
+        Auth["Service d'Authentification / JWT"]
+        OCR["Service OCR & Vision IA"]
+        Compta["Moteur de Règles Comptables PCM"]
+        CRUD["Accès aux données SQLAlchemy"]
     end
 
     %% Base de données
-    subgraph Database [🗄️ Base de Données (PostgreSQL)]
-        Schema[Tables Multi-Tenant]
-        Brouillons[Brouillons de factures]
-        Ecritures[Écritures Comptables Validées]
+    subgraph Database ["🗄️ Base de Données (PostgreSQL)"]
+        Schema["Tables Multi-Cabinets"]
+        Brouillons["Brouillons de factures"]
+        Ecritures["Écritures Comptables Validées"]
     end
 
     %% Flux d'actions
-    User -->|Télécharge Facture PDF| UploadUI
-    UploadUI -->|Requête POST| Router
+    User -->|"Télécharge Facture PDF"| UploadUI
+    UploadUI -->|"Requête POST"| Router
     Router --> Auth
     Router --> OCR
-    OCR -->|Analyse Visuelle Multimodale| Gemini
-    Gemini -->|Données Structurées JSON| OCR
+    OCR -->|"Analyse Visuelle Multimodale"| Gemini
+    Gemini -->|"Données Structurées JSON"| OCR
     Router --> Compta
-    Compta -.->|Vérification Conformité| DGI
+    Compta -.->|"Vérification Conformité"| DGI
     Compta --> CRUD
     CRUD --> Schema
     Schema --> Brouillons
-    Brouillons -->|Validation Agent| Ecritures
-    Ecritures -->|Export| User
+    Brouillons -->|"Validation Agent"| Ecritures
+    Ecritures -->|"Exportation"| User
 
     %% Styles Modernes
     classDef frontend fill:#1E88E5,stroke:#0D47A1,stroke-width:2px,color:#fff;
@@ -94,8 +94,8 @@ graph TD
     classDef db fill:#FB8C00,stroke:#E65100,stroke-width:2px,color:#fff;
     classDef ai fill:#8E24AA,stroke:#4A148C,stroke-width:2px,color:#fff;
     
-    class Frontend frontend;
-    class Backend backend;
+    class Client frontend;
+    class Serveur backend;
     class Database db;
     class Gemini,DGI ai;
 ```
