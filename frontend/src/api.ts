@@ -519,9 +519,15 @@ export const apiService = {
     clientChangePassword: (data: { old_password: string; new_password: string }) =>
         api.post('/client/me/password', data).then(r => r.data),
 
+    getPublicCabinets: () => api.get('/demandes-acces/cabinets').then(r => r.data),
+
     listDemandesAcces: () => api.get('/demandes-acces/').then(r => r.data),
-    updateStatutDemande: (id: number, statut: string) =>
-        api.patch(`/demandes-acces/${id}/statut?statut=${statut}`).then(r => r.data),
+    updateStatutDemande: (id: number, statut: string, username?: string, password?: string) =>
+        api.patch(`/demandes-acces/${id}/statut`, { statut, username, password }).then(r => r.data),
+    updateDemandeAcces: (id: number, data: { nom_complet?: string; entreprise?: string; email?: string; telephone?: string; message?: string }) =>
+        api.put(`/demandes-acces/${id}`, data).then(r => r.data),
+    deleteDemandeAcces: (id: number) =>
+        api.delete(`/demandes-acces/${id}`).then(r => r.data),
 }
 
 export default apiService

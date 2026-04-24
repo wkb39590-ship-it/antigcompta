@@ -84,6 +84,17 @@ function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
     return <>{children}</>
 }
 
+/**
+ * Redirige le Super Admin vers le dashboard s'il tente d'accéder à une page réservée aux admins de cabinet.
+ */
+function SuperAdminRedirect({ children }: { children: React.ReactNode }) {
+    const isSuperAdmin = localStorage.getItem('is_super_admin') === 'true'
+    if (isSuperAdmin) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
+    return <>{children}</>
+}
+
 function Sidebar() {
     const session = getSessionContext()
     const [showSocMenu, setShowSocMenu] = useState(false)
@@ -387,9 +398,11 @@ export default function App() {
                 path="/admin/demandes"
                 element={
                     <AdminProtectedRoute>
-                        <AdminLayout currentPage="demandes">
-                            <AdminDemandes />
-                        </AdminLayout>
+                        <SuperAdminRedirect>
+                            <AdminLayout currentPage="demandes">
+                                <AdminDemandes />
+                            </AdminLayout>
+                        </SuperAdminRedirect>
                     </AdminProtectedRoute>
                 }
             />

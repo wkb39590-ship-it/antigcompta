@@ -471,6 +471,19 @@ class DemandeAccesCreate(BaseModel):
     telephone: Optional[str] = None
     message: Optional[str] = None
     cabinet_id: Optional[int] = None
+    nom_cabinet: Optional[str] = None
+
+class DemandeAccesValidation(BaseModel):
+    statut: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+class DemandeAccesUpdate(BaseModel):
+    nom_complet: Optional[str] = None
+    entreprise: Optional[str] = None
+    email: Optional[str] = None
+    telephone: Optional[str] = None
+    message: Optional[str] = None
 
 class DemandeAccesOut(BaseModel):
     id: int
@@ -482,6 +495,9 @@ class DemandeAccesOut(BaseModel):
     statut: str
     cabinet_id: Optional[int] = None
     created_at: datetime
+    
+    generated_username: Optional[str] = None
+    generated_password: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -108,7 +108,7 @@ export const AdminProfile: React.FC = () => {
       </div>
 
       <div className="content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-        <div className="sidebar-column" style={{ display: 'flex', flexdirection: 'column', gap: '24px' }}>
+        <div className="sidebar-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div className="card" style={{ padding: '24px', width: '100%' }}>
             <h3 className="card-title" style={{ fontSize: '16px', marginBottom: '20px' }}>Indice d'Impact</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

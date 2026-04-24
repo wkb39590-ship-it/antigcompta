@@ -22,9 +22,10 @@ export default function ClientPortal() {
     const [activeTab, setActiveTab] = useState<Tab>('documents')
 
     // Access Request Form State
-    const [requestForm, setRequestForm] = useState({ nom_complet: '', entreprise: '', email: '', telephone: '', message: '' })
+    const [requestForm, setRequestForm] = useState({ nom_complet: '', entreprise: '', email: '', telephone: '', message: '', cabinet_id: '', nom_cabinet: '' })
     const [requestSubmitting, setRequestSubmitting] = useState(false)
     const [requestSuccess, setRequestSuccess] = useState(false)
+    const [isCabinetInUrl, setIsCabinetInUrl] = useState(false)
 
     // Portal state
     const [docs, setDocs] = useState<DocumentTransmis[]>([])
@@ -54,6 +55,17 @@ export default function ClientPortal() {
             loadProfile()
         }
     }, [token])
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search)
+        const cabinetIdParam = queryParams.get('cabinet')
+        if (cabinetIdParam) {
+            setIsCabinetInUrl(true)
+            setRequestForm(prev => ({ ...prev, cabinet_id: cabinetIdParam }))
+        } else {
+            setIsCabinetInUrl(false)
+        }
+    }, [showContactModal])
 
     const loadProfile = async () => {
         try {
@@ -91,10 +103,8 @@ export default function ClientPortal() {
         e.preventDefault()
         setRequestSubmitting(true)
         try {
-            const queryParams = new URLSearchParams(window.location.search)
-            const cabinetIdParam = queryParams.get('cabinet')
-            const cabinetId = cabinetIdParam ? parseInt(cabinetIdParam) : null
-            await apiService.createDemandeAcces({ ...requestForm, cabinet_id: cabinetId })
+            const cabinetIdToSubmit = requestForm.cabinet_id ? parseInt(requestForm.cabinet_id) : null
+            await apiService.createDemandeAcces({ ...requestForm, cabinet_id: cabinetIdToSubmit })
             setRequestSuccess(true)
         } catch (err: any) {
             console.error(err)
@@ -280,6 +290,12 @@ export default function ClientPortal() {
                                             <div><label style={labelS}>Nom et Prénom *</label><input required value={requestForm.nom_complet} onChange={e => setRequestForm({ ...requestForm, nom_complet: e.target.value })} style={inputS} placeholder="Votre nom complet" /></div>
                                             <div><label style={labelS}>Entreprise *</label><input required value={requestForm.entreprise} onChange={e => setRequestForm({ ...requestForm, entreprise: e.target.value })} style={inputS} placeholder="Ma Société SARL" /></div>
                                         </div>
+                                        {!isCabinetInUrl && (
+                                            <div>
+                                                <label style={labelS}>Nom du Cabinet Comptable *</label>
+                                                <input required value={requestForm.nom_cabinet} onChange={e => setRequestForm({ ...requestForm, nom_cabinet: e.target.value })} style={inputS} placeholder="Ex: Finance & Audit Maroc" />
+                                            </div>
+                                        )}
                                         <div><label style={labelS}>Email *</label><input required type="email" value={requestForm.email} onChange={e => setRequestForm({ ...requestForm, email: e.target.value })} style={inputS} placeholder="email@entreprise.ma" /></div>
                                         <div><label style={labelS}>Téléphone</label><input type="tel" value={requestForm.telephone} onChange={e => setRequestForm({ ...requestForm, telephone: e.target.value })} style={inputS} placeholder="+212 6XX XX XX XX" /></div>
                                         <div><label style={labelS}>Message (Optionnel)</label><textarea rows={2} value={requestForm.message} onChange={e => setRequestForm({ ...requestForm, message: e.target.value })} style={{ ...inputS, resize: 'none' }} placeholder="Informations complémentaires..." /></div>
@@ -296,7 +312,7 @@ export default function ClientPortal() {
                                     <div style={{ width: '72px', height: '72px', background: S.successLight, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: S.success }}><CheckCircle2 size={40} /></div>
                                     <h3 style={{ fontSize: '22px', fontWeight: 800, color: S.text, margin: '0 0 12px' }}>Demande envoyée !</h3>
                                     <p style={{ color: S.text3, lineHeight: '1.6', marginBottom: '28px' }}>Notre équipe reviendra vers vous très prochainement.</p>
-                                    <button onClick={() => { setShowContactModal(false); setRequestSuccess(false); setRequestForm({ nom_complet: '', entreprise: '', email: '', telephone: '', message: '' }) }} style={{ width: '100%', padding: '15px', borderRadius: '14px', background: S.text, color: 'white', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Fermer</button>
+                                    <button onClick={() => { setShowContactModal(false); setRequestSuccess(false); setRequestForm(prev => ({ ...prev, nom_complet: '', entreprise: '', email: '', telephone: '', message: '', nom_cabinet: '' })) }} style={{ width: '100%', padding: '15px', borderRadius: '14px', background: S.text, color: 'white', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Fermer</button>
                                 </div>
                             )}
                         </div>
