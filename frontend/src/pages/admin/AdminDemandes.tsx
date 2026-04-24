@@ -122,62 +122,71 @@ export const AdminDemandes: React.FC = () => {
             <p>Aucune demande correspondante.</p>
           </div>
         ) : (
-          <div className="demandes-grid">
-            {filteredDemandes.map(demande => (
-              <div key={demande.id} className="pro-card demande-item">
-                <div className="item-header">
-                  {getStatusBadge(demande.statut)}
-                  <span className="timestamp">{new Date(demande.created_at).toLocaleDateString('fr-FR')}</span>
-                </div>
-                
-                <div className="item-body">
-                  <div className="prospect-profile">
-                    <div className="prospect-avatar">{demande.nom_complet[0]}</div>
-                    <div className="prospect-info">
-                      <h3>{demande.nom_complet}</h3>
-                      <span className="prospect-company"><Building size={12} /> {demande.entreprise}</span>
-                    </div>
-                  </div>
-
-                  <div className="prospect-contacts">
-                    <div className="contact-row">
-                      <Mail size={12} />
-                      <span>{demande.email}</span>
-                    </div>
-                    {demande.telephone && (
-                      <div className="contact-row">
-                        <Phone size={12} />
-                        <span>{demande.telephone}</span>
+          <div className="table-wrapper pro-card" style={{ padding: 0 }}>
+            <table className="pro-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Prospect</th>
+                  <th>Entreprise</th>
+                  <th>Contact</th>
+                  <th>Statut</th>
+                  {!isSuper && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDemandes.map(demande => (
+                  <tr key={demande.id}>
+                    <td>
+                      <span className="timestamp">{new Date(demande.created_at).toLocaleDateString('fr-FR')}</span>
+                    </td>
+                    <td>
+                      <div className="prospect-profile-sm">
+                        <div className="prospect-avatar-sm">{demande.nom_complet[0].toUpperCase()}</div>
+                        <div className="prospect-info-sm">
+                          <span className="prospect-name">{demande.nom_complet}</span>
+                          {demande.message && <span className="prospect-msg-indicator" title={demande.message}><MessageSquare size={10} /> Message inclus</span>}
+                        </div>
                       </div>
+                    </td>
+                    <td>
+                      <div className="company-badge-sm">
+                        <Building size={14} className="muted-icon" /> <span>{demande.entreprise}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="contact-info-sm">
+                        <span><Mail size={12} /> {demande.email}</span>
+                        {demande.telephone && <span><Phone size={12} /> {demande.telephone}</span>}
+                      </div>
+                    </td>
+                    <td>{getStatusBadge(demande.statut)}</td>
+                    {!isSuper && (
+                      <td style={{ textAlign: 'right' }}>
+                        {demande.statut === 'en_attente' && (
+                          <div className="action-btn-group">
+                            <button 
+                              className="btn-icon btn-accept"
+                              title="Accepter"
+                              onClick={() => handleUpdateStatus(demande.id, 'traitee')}
+                            >
+                              <CheckCircle size={16} />
+                            </button>
+                            <button 
+                              className="btn-icon btn-reject"
+                              title="Rejeter"
+                              onClick={() => handleUpdateStatus(demande.id, 'rejetee')}
+                            >
+                              <XCircle size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     )}
-                  </div>
-
-                  {demande.message && (
-                    <div className="prospect-message">
-                      <MessageSquare size={12} className="muted-icon" />
-                      <p>{demande.message}</p>
-                    </div>
-                  )}
-                </div>
-
-                {demande.statut === 'en_attente' && (
-                  <div className="item-actions">
-                    <button 
-                      className="btn-action-sm btn-accept"
-                      onClick={() => handleUpdateStatus(demande.id, 'traitee')}
-                    >
-                      <CheckCircle size={14} /> Accepter
-                    </button>
-                    <button 
-                      className="btn-action-sm btn-reject"
-                      onClick={() => handleUpdateStatus(demande.id, 'rejetee')}
-                    >
-                      <XCircle size={14} /> Rejeter
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -195,30 +204,31 @@ export const AdminDemandes: React.FC = () => {
         .filter-field { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0 12px; }
         .filter-field select { height: 36px; border: none; background: transparent; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; }
 
-        .demandes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-        .demande-item { display: flex; flex-direction: column; padding: 20px; transition: transform 0.2s; }
-        .demande-item:hover { transform: translateY(-2px); border-color: #3b82f6; }
+        .table-wrapper { overflow-x: auto; background: #fff; border-radius: 4px; }
+        .pro-table { width: 100%; border-collapse: collapse; }
+        .pro-table th { text-align: left; padding: 14px 20px; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+        .pro-table td { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .pro-table tr:hover { background: #fafafa; }
 
-        .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .timestamp { font-size: 11px; font-weight: 700; color: #94a3b8; }
+        .timestamp { font-size: 13px; font-weight: 600; color: #475569; }
 
-        .prospect-profile { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-        .prospect-avatar { width: 40px; height: 40px; background: #f1f5f9; color: #475569; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; border: 1px solid #e2e8f0; }
-        .prospect-info h3 { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
-        .prospect-company { font-size: 12px; color: #3b82f6; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+        .prospect-profile-sm { display: flex; align-items: center; gap: 12px; }
+        .prospect-avatar-sm { width: 36px; height: 36px; background: #f1f5f9; color: #475569; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; border: 1px solid #e2e8f0; flex-shrink: 0; }
+        .prospect-info-sm { display: flex; flex-direction: column; gap: 4px; }
+        .prospect-name { font-size: 14px; font-weight: 600; color: #1e293b; }
+        .prospect-msg-indicator { font-size: 11px; color: #3b82f6; display: inline-flex; align-items: center; gap: 4px; cursor: help; font-weight: 600; }
 
-        .prospect-contacts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-        .contact-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #64748b; }
+        .company-badge-sm { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #334155; }
 
-        .prospect-message { background: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #f1f5f9; margin-bottom: 20px; }
-        .prospect-message p { margin: 0; font-size: 12px; color: #475569; line-height: 1.5; font-style: italic; }
+        .contact-info-sm { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #64748b; font-weight: 500; }
+        .contact-info-sm span { display: inline-flex; align-items: center; gap: 6px; }
 
-        .item-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
-        .btn-action-sm { border: none; padding: 10px; border-radius: 4px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; }
-        .btn-accept { background: #3b82f6; color: white; }
-        .btn-accept:hover { background: #2563eb; }
-        .btn-reject { background: #f1f5f9; color: #ef4444; border: 1px solid #fee2e2; }
-        .btn-reject:hover { background: #fee2e2; }
+        .action-btn-group { display: flex; gap: 8px; justify-content: flex-end; }
+        .btn-icon { width: 34px; height: 34px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .btn-icon.btn-accept { color: #16a34a; }
+        .btn-icon.btn-accept:hover { background: #16a34a; color: white; border-color: #16a34a; }
+        .btn-icon.btn-reject { color: #dc2626; }
+        .btn-icon.btn-reject:hover { background: #dc2626; color: white; border-color: #dc2626; }
 
         .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; }
         .tag-warning { background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
