@@ -15,10 +15,6 @@ import Immobilisations from './pages/Immobilisations'
 import ImmoDetail from './pages/ImmoDetail'
 import TransmissionDashboard from './pages/TransmissionDashboard'
 import JournalComptable from './pages/JournalComptable'
-import Paie from './pages/Paie'
-import BulletinPaieDetail from './pages/BulletinPaieDetail'
-import BulletinCreate from './pages/BulletinCreate'
-import EmployeCreate from './pages/EmployeCreate'
 import Releves from './pages/Releves'
 import Rapprochement from './pages/Rapprochement'
 import BilanComptable from './pages/BilanComptable'
@@ -112,7 +108,6 @@ function Sidebar() {
         { to: '/releves', label: 'Relevés Bancaires', icon: <BookOpen size={18} /> },
         { to: '/journal', label: 'Journal Comptable', icon: <BookOpen size={18} /> },
         { to: '/bilan', label: 'Bilan Comptable', icon: <FileBarChart size={18} /> },
-        { to: '/paie', label: 'Paie & Salaires', icon: <CreditCard size={18} /> },
         { to: '/history', label: 'Historique', icon: <HistoryIcon size={18} /> },
         { to: '/pcm', label: 'Plan Comptable', icon: <Book size={18} /> },
         { to: '/mappings', label: 'Répertoire', icon: <Users2 size={18} /> },
@@ -444,10 +439,6 @@ export default function App() {
                 <Route path="immobilisations/:id" element={<ProtectedRoute><ImmoDetail /></ProtectedRoute>} />
                 <Route path="journal" element={<ProtectedRoute><JournalComptable /></ProtectedRoute>} />
                 <Route path="bilan" element={<ProtectedRoute><BilanComptable /></ProtectedRoute>} />
-                <Route path="paie" element={<ProtectedRoute><Paie /></ProtectedRoute>} />
-                <Route path="paie/nouveau" element={<ProtectedRoute><BulletinCreate /></ProtectedRoute>} />
-                <Route path="paie/:id" element={<ProtectedRoute><BulletinPaieDetail /></ProtectedRoute>} />
-                <Route path="employes/nouveau" element={<ProtectedRoute><EmployeCreate /></ProtectedRoute>} />
                 <Route path="releves" element={<ProtectedRoute><Releves /></ProtectedRoute>} />
                 <Route path="releves/:id/rapprochement" element={<ProtectedRoute><Rapprochement /></ProtectedRoute>} />
             </Route>

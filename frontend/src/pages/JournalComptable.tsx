@@ -102,6 +102,9 @@ export default function JournalComptable() {
     const [showJournalModal, setShowJournalModal] = useState(false)
     const [newJournal, setNewJournal] = useState({ code: '', label: '', type: 'BANQUE' })
 
+    // PCM pour suggestions
+    const [pcmAccounts, setPcmAccounts] = useState<any[]>([])
+
     // Saisie manuelle
     const [showManualForm, setShowManualForm] = useState(false)
     const [manualHeader, setManualHeader] = useState({
@@ -181,8 +184,18 @@ export default function JournalComptable() {
         }
     }
 
+    const loadPcm = async () => {
+        try {
+            const data = await apiService.getPcmAccounts()
+            setPcmAccounts(data)
+        } catch (e) {
+            console.error("Erreur chargement PCM", e)
+        }
+    }
+
     useEffect(() => {
         loadEmployees()
+        loadPcm()
     }, [])
 
     const handleQuickAdd = async () => {
@@ -458,6 +471,16 @@ export default function JournalComptable() {
                         <option key={emp.id} value={`${emp.nom} ${emp.prenom}`} />
                     ))}
                 </datalist>
+                <datalist id="pcm-codes-datalist">
+                    {pcmAccounts.map(a => (
+                        <option key={a.id || a.code} value={a.code}>{a.label}</option>
+                    ))}
+                </datalist>
+                <datalist id="pcm-labels-datalist">
+                    {pcmAccounts.map(a => (
+                        <option key={a.id || a.label} value={a.label}>{a.code}</option>
+                    ))}
+                </datalist>
             </div>
 
             {/* Cartes totaux par journal */}
@@ -589,14 +612,40 @@ export default function JournalComptable() {
                                     {manualLines.map((line, idx) => (
                                         <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
                                             <td style={{ padding: '8px' }}>
-                                                <input type="text" placeholder="6171" value={line.account_code} onChange={e => {
-                                                    const nl = [...manualLines]; nl[idx].account_code = e.target.value; setManualLines(nl)
-                                                }} style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }} />
+                                                <input 
+                                                    type="text" 
+                                                    list="pcm-codes-datalist"
+                                                    placeholder="6111" 
+                                                    value={line.account_code} 
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        const nl = [...manualLines];
+                                                        nl[idx].account_code = val;
+                                                        // Auto-remplissage du libellé si le code existe
+                                                        const found = pcmAccounts.find(a => a.code === val);
+                                                        if (found) nl[idx].account_label = found.label;
+                                                        setManualLines(nl);
+                                                    }} 
+                                                    style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} 
+                                                />
                                             </td>
                                             <td style={{ padding: '8px' }}>
-                                                <input type="text" placeholder="..." value={line.account_label} onChange={e => {
-                                                    const nl = [...manualLines]; nl[idx].account_label = e.target.value; setManualLines(nl)
-                                                }} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }} />
+                                                <input 
+                                                    type="text" 
+                                                    list="pcm-labels-datalist"
+                                                    placeholder="Libellé du compte..." 
+                                                    value={line.account_label} 
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        const nl = [...manualLines];
+                                                        nl[idx].account_label = val;
+                                                        // Auto-remplissage du code si le libellé correspond exactement
+                                                        const found = pcmAccounts.find(a => a.label === val);
+                                                        if (found) nl[idx].account_code = found.code;
+                                                        setManualLines(nl);
+                                                    }} 
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} 
+                                                />
                                             </td>
                                             <td style={{ padding: '8px' }}>
                                                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
