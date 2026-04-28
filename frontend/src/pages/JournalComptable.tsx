@@ -138,13 +138,24 @@ export default function JournalComptable() {
             reference: entry.reference || '',
             description: entry.description || ''
         })
-        setManualLines(entry.entry_lines.map((l: any) => ({
+        
+        let lines = entry.entry_lines.map((l: any) => ({
             account_code: l.account_code,
             account_label: l.account_label,
             debit: l.debit,
             credit: l.credit,
             tiers_name: l.tiers_name || ''
-        })))
+        }))
+
+        // Intelligence : Propagation automatique du nom du salarié pour la PAYE lors de la modification
+        if (entry.journal_code === 'PAYE' || entry.journal_code === 'PAIE') {
+            const name = lines.find(l => l.tiers_name)?.tiers_name
+            if (name) {
+                lines = lines.map(l => ({ ...l, tiers_name: name }))
+            }
+        }
+
+        setManualLines(lines)
         setShowManualForm(true)
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
