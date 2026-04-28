@@ -22,7 +22,8 @@ import {
     Trash,
     Edit,
     X,
-    Search
+    Search,
+    UserPlus
 } from 'lucide-react'
 
 interface EntryLine {
@@ -149,9 +150,9 @@ export default function JournalComptable() {
 
         // Intelligence : Propagation automatique du nom du salarié pour la PAYE lors de la modification
         if (entry.journal_code === 'PAYE' || entry.journal_code === 'PAIE') {
-            const name = lines.find(l => l.tiers_name)?.tiers_name
+            const name = lines.find((l: any) => l.tiers_name)?.tiers_name
             if (name) {
-                lines = lines.map(l => ({ ...l, tiers_name: name }))
+                lines = lines.map((l: any) => ({ ...l, tiers_name: name }))
             }
         }
 
@@ -672,66 +673,92 @@ export default function JournalComptable() {
             {/* Modal Ajout Rapide Employé */}
             {showQuickAdd && (
                 <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)',
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+                    background: 'rgba(0,0,0,0.8)', 
+                    backdropFilter: 'blur(8px)', 
                     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
                 }}>
-                    <div style={{ background: 'var(--card)', padding: '30px', borderRadius: '16px', width: '500px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
-                        <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Nouveau Salarié (Complet)</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{ 
+                        background: '#FFFFFF', // Fond BLANC SOLIDE pour supprimer toute transparence
+                        padding: '32px', 
+                        borderRadius: '24px', 
+                        width: '580px', 
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
+                        border: '1px solid #e2e8f0',
+                        position: 'relative'
+                    }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '28px', fontSize: '22px', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <UserPlus size={24} style={{ color: '#4f46e5' }} /> Nouveau Salarié
+                        </h3>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
                                 <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Prénom *</label>
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Prénom *</label>
                                     <input placeholder="Prénom" value={newEmp.prenom} onChange={e => setNewEmp({...newEmp, prenom: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                                 </div>
                                 <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Nom *</label>
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Nom *</label>
                                     <input placeholder="Nom" value={newEmp.nom} onChange={e => setNewEmp({...newEmp, nom: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
                                 <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>CIN</label>
-                                    <input placeholder="CIN" value={newEmp.cin} onChange={e => setNewEmp({...newEmp, cin: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>CIN</label>
+                                    <input placeholder="Ex: AB123456" value={newEmp.cin} onChange={e => setNewEmp({...newEmp, cin: e.target.value})}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                                 </div>
                                 <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Poste</label>
-                                    <input placeholder="Poste" value={newEmp.poste} onChange={e => setNewEmp({...newEmp, poste: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-                                </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>CNSS (8 chiffres)</label>
-                                    <input placeholder="12345678" value={newEmp.numero_cnss} onChange={e => setNewEmp({...newEmp, numero_cnss: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Salaire Base *</label>
-                                    <input type="number" placeholder="MAD" value={newEmp.salaire_base || ''} onChange={e => setNewEmp({...newEmp, salaire_base: parseFloat(e.target.value) || 0})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Poste</label>
+                                    <input placeholder="Ex: Comptable" value={newEmp.poste} onChange={e => setNewEmp({...newEmp, poste: e.target.value})}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                                 </div>
                             </div>
                             
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
                                 <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Date de naissance</label>
-                                    <input type="date" value={newEmp.date_naissance || ''} onChange={e => setNewEmp({...newEmp, date_naissance: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>CNSS (8 chiffres)</label>
+                                    <input placeholder="Ex: 12345678" value={newEmp.numero_cnss} onChange={e => setNewEmp({...newEmp, numero_cnss: e.target.value})}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                                 </div>
                                 <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text3)' }}>Date d'embauche *</label>
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Salaire de Base *</label>
+                                    <input type="number" placeholder="Montant en MAD" value={newEmp.salaire_base || ''} onChange={e => setNewEmp({...newEmp, salaire_base: parseFloat(e.target.value) || 0})}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                                <div>
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Date de naissance</label>
+                                    <input type="date" value={newEmp.date_naissance || ''} onChange={e => setNewEmp({...newEmp, date_naissance: e.target.value})}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'block' }}>Date d'embauche *</label>
                                     <input type="date" value={newEmp.date_embauche || ''} onChange={e => setNewEmp({...newEmp, date_embauche: e.target.value})}
-                                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                                 </div>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setShowQuickAdd(false)} className="btn btn-ghost">Annuler</button>
-                            <button onClick={handleQuickAdd} className="btn btn-primary">Enregistrer</button>
+
+                        <div style={{ display: 'flex', gap: '14px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                            <button onClick={() => setShowQuickAdd(false)} style={{
+                                padding: '12px 24px', borderRadius: '12px', border: '2px solid #e2e8f0', 
+                                background: '#f1f5f9', color: '#475569', fontWeight: 700, cursor: 'pointer'
+                            }}>
+                                Annuler
+                            </button>
+                            <button onClick={handleQuickAdd} style={{
+                                padding: '12px 32px', borderRadius: '12px', border: 'none', 
+                                background: '#4f46e5', color: 'white', fontWeight: 800, cursor: 'pointer',
+                                boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.4)'
+                            }}>
+                                Enregistrer le salarié
+                            </button>
                         </div>
                     </div>
                 </div>
