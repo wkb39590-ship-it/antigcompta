@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import apiService, { Immo } from '../api'
+import apiService, { Immo } from '../../api'
 import {
     Building2,
     Plus,

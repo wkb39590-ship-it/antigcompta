@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import apiService, { BilanOut, BilanSection } from '../api'
+import apiService, { BilanOut, BilanSection } from '../../api'
 import { 
     FileText, 
     Calendar, 

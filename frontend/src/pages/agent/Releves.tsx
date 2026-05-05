@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import apiService, { ReleveBancaire } from '../api'
-import { getCurrentSociete } from '../utils/tokenDecoder'
+import apiService, { ReleveBancaire } from '../../api'
+import { getCurrentSociete } from '../../utils/tokenDecoder'
 import {
     FileText,
     CheckCircle2,

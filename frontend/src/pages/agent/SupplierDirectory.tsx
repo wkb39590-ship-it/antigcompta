@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import apiService from '../api';
+import apiService from '../../api';
 import { Search, Plus, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface Mapping {

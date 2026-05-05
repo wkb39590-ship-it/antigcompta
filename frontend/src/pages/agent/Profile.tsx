@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import apiService from '../api'
+import apiService from '../../api'
 import { Edit2, Zap, FileText, Building2, CheckCircle2 } from 'lucide-react'
 
 interface AgentProfile {

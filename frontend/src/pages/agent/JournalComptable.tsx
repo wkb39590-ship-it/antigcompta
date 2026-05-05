@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useLocation } from 'react-router-dom'
-import apiService from '../api'
-import { API_CONFIG } from '../config/apiConfig'
+import apiService from '../../api'
+import { API_CONFIG } from '../../config/apiConfig'
 import {
     Calendar,
     CalendarRange,

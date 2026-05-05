@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import apiService, { DocumentTransmis } from '../api'
+import apiService, { DocumentTransmis } from '../../api'
 import { Inbox, CheckCircle2, XCircle, AlertCircle, FileText, ChevronRight, Clock, Search, Filter } from 'lucide-react'
-import { getCurrentSociete } from '../utils/tokenDecoder'
+import { getCurrentSociete } from '../../utils/tokenDecoder'
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 

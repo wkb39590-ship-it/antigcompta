@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import apiService, { ReleveBancaire, LigneReleve } from '../api'
+import apiService, { ReleveBancaire, LigneReleve } from '../../api'
 import {
     FileText,
     ArrowRight,

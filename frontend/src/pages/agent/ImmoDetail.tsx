@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import apiService, { Immo } from '../api'
+import apiService, { Immo } from '../../api'
 import {
     ArrowLeft,
     CheckCircle2,

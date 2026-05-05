@@ -1,31 +1,36 @@
-
-
-# fastapi
-# uvicorn
-# sqlalchemy
-# psycopg[binary]
-# python-multipart
-# alembic
-# pdf2image==1.17.0
-# pytesseract
-# opencv-python-headless
-# openpyxl==3.1.5
-# reportlab
-
-
-
-fastapi
-uvicorn
-sqlalchemy
-psycopg[binary]
-python-multipart
-alembic
-pdf2image==1.17.0
-pytesseract
-opencv-python-headless
+alembic==1.18.3
+annotated-types==0.7.0
+anyio==4.12.1
+charset-normalizer==3.4.4
+click==8.3.1
+colorama==0.4.6
+et_xmlfile==2.0.0
+fastapi==0.128.4
+greenlet==3.3.1
+h11==0.16.0
+idna==3.11
+Mako==1.3.10
+MarkupSafe==3.0.3
+numpy==2.4.2
+opencv-python-headless==4.13.0.92
 openpyxl==3.1.5
-reportlab
-pdfplumber==0.11.4
-
-google-genai==1.63.0
-
+packaging==26.0
+pdf2image==1.17.0
+pillow==12.1.0
+psycopg==3.3.2
+psycopg-binary==3.3.2
+psycopg2-binary==2.9.11
+pydantic==2.12.5
+pydantic_core==2.41.5
+pytesseract==0.3.13
+python-dotenv==1.0.0
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.22
+reportlab==4.4.9
+SQLAlchemy==2.0.46
+starlette==0.52.1
+typing_extensions==4.15.0
+tzdata==2025.3
+uvicorn==0.40.0
+google-generativeai
+passlib[bcrypt]==1.7.4

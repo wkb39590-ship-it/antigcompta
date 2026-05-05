@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import apiService, { DocumentTransmis, UtilisateurClient } from '../api'
+import apiService, { DocumentTransmis, UtilisateurClient } from '../../api'
 import {
     UploadCloud, CheckCircle2, Clock, LogOut, Lock, User, File, Trash2,
     Building, X, FileText, History, AlertTriangle, ArrowRight, Mail,

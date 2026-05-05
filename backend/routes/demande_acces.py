@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 import difflib
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from database import get_db
 from models import DemandeAcces, ActionLog
@@ -124,14 +125,20 @@ def update_statut_demande(
         if existing:
             raise HTTPException(status_code=400, detail=f"Le nom d'utilisateur '{payload.username}' est déjà pris.")
 
-        # Créer la Société si elle n'existe pas
-        societe = db.query(Societe).filter(
-            Societe.raison_sociale == demande.entreprise,
-            Societe.cabinet_id == demande.cabinet_id
-        ).first()
-        if not societe:
+        # Recherche tolérante de la Société (casse + fautes de frappe via difflib)
+        societes_cabinet = db.query(Societe).filter(Societe.cabinet_id == demande.cabinet_id).all()
+        soc_names = [s.raison_sociale.lower() for s in societes_cabinet]
+        entreprise_normalisee = demande.entreprise.strip().lower()
+
+        soc_matches = difflib.get_close_matches(entreprise_normalisee, soc_names, n=1, cutoff=0.8)
+
+        if soc_matches:
+            # Société similaire trouvée → on la réutilise (évite les doublons)
+            societe = next(s for s in societes_cabinet if s.raison_sociale.lower() == soc_matches[0])
+        else:
+            # Société inconnue → on la crée
             societe = Societe(
-                raison_sociale=demande.entreprise,
+                raison_sociale=demande.entreprise.strip(),
                 cabinet_id=demande.cabinet_id
             )
             db.add(societe)

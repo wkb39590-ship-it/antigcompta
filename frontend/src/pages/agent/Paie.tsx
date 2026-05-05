@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import apiService, { BulletinPaie, Employe } from '../api'
+import apiService, { BulletinPaie, Employe } from '../../api'
 import {
     Users,
     Search,

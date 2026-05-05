@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import apiService from '../api'
+import apiService from '../../api'
 import { Search, Book, Tag, Info, Filter } from 'lucide-react'
 
 export default function PcmPage() {

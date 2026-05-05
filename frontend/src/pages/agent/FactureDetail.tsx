@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import apiService, { Facture, InvoiceLine, JournalEntry, DgiFlag } from '../api'
+import apiService, { Facture, InvoiceLine, JournalEntry, DgiFlag } from '../../api'
 import {
     ArrowLeft,
     CheckCircle2,

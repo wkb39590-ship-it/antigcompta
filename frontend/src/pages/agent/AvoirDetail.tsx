@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { API_CONFIG } from '../config/apiConfig'
+import { API_CONFIG } from '../../config/apiConfig'
 import { CheckCircle2, X, Clock, AlertCircle, Zap, Search, ArrowLeft, FileText } from 'lucide-react'
 
 interface EntryLine {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import apiService, { Employe } from '../api'
+import apiService, { Employe } from '../../api'
 import { ArrowLeft, Calculator, FileText } from 'lucide-react'
 
 export default function BulletinCreate() {
