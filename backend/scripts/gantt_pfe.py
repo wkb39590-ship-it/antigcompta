@@ -11,7 +11,7 @@ import matplotlib.colors as mcolors
 from datetime import date, timedelta
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
-TODAY = date(2026, 3, 25)  # <--- AUJOURD'HUI (25 Mars)
+TODAY = date(2026, 5, 5)  # <--- AUJOURD'HUI (5 Mai)
 START = date(2026, 2, 2)
 END   = date(2026, 6, 20)
 
@@ -23,14 +23,13 @@ TASKS = [
     ("Planification du projet",               date(2026,2,20), date(2026,2,25), 100),
     ("Conception de l’architecture du système",date(2026,2,25), date(2026,3,3),  100),
     ("Conception de la base de données",      date(2026,3,3),  date(2026,3,8),  100),
-    ("Conception des interfaces (Admin/User)",date(2026,3,5),  date(2026,3,12), 100), # <--- FINI
-    ("Développement du backend (FastAPI)",   date(2026,3,10), date(2026,4,15), 85),  # <--- EN PARALLÈLE
-    ("Développement du frontend (React)",    date(2026,3,12), date(2026,4,25), 75),  # <--- EN PARALLÈLE
-    ("Intégration des modules (IA/Inbox)",    date(2026,3,15), date(2026,4,25), 60),
-    ("Développement fonctionnalités compta",  date(2026,3,18), date(2026,5,15), 90),
-    ("Génération rapports & tableaux de bord",date(2026,5,12), date(2026,5,22), 20),
-    ("Tests et validation du système",        date(2026,5,20), date(2026,6,5),  0),
-    ("Déploiement de l’application",          date(2026,6,10), date(2026,6,15), 0),
+    ("Conception des interfaces (Admin/User)",date(2026,3,5),  date(2026,3,12), 100),
+    ("Développement du backend (FastAPI)",   date(2026,3,10), date(2026,4,15), 100),
+    ("Développement du frontend (React)",    date(2026,3,12), date(2026,4,25), 100),
+    ("Intégration des modules (IA/Inbox)",    date(2026,3,15), date(2026,4,25), 100),
+    ("Développement fonctionnalités compta",  date(2026,3,18), date(2026,5,15), 100),
+    ("Génération rapports & tableaux de bord",date(2026,4,20), date(2026,5,10), 98),
+    ("Tests et validation du système",        date(2026,4,25), date(2026,5,15), 95),
 ]
 
 # ── PREPARATION ───────────────────────────────────────────────────────────
@@ -49,13 +48,15 @@ norm = mcolors.Normalize(vmin=0, vmax=100)
 for i, (name, start, end, pct) in enumerate(TASKS):
     x_s = mdates.date2num(start)
     x_e = mdates.date2num(end + timedelta(days=1))
-    width = x_e - x_s
+    full_width = x_e - x_s
     
-    # Couleur basée sur le pourcentage
+    # 1. Dessiner la barre de fond (Gris clair pour la durée totale)
+    ax.barh(i, full_width, left=x_s, height=0.6, color='#EEEEEE', edgecolor='#CCCCCC', alpha=0.5)
+    
+    # 2. Dessiner la barre de progression (Couleur basée sur le %)
+    prog_width = full_width * (pct / 100.0)
     color = cmap(norm(pct))
-    
-    # Dessiner la barre de la tâche
-    ax.barh(i, width, left=x_s, height=0.6, color=color, edgecolor='none', alpha=0.9)
+    ax.barh(i, prog_width, left=x_s, height=0.6, color=color, edgecolor='none', alpha=0.9)
 
 # Axe Y (Tâches)
 ax.set_yticks(range(len(TASKS)))

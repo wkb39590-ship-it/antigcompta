@@ -358,7 +358,7 @@ def create_manual_entry(
         description=req.description,
         total_debit=total_debit,
         total_credit=total_credit,
-        is_validated=True
+        is_validated=req.is_validated
     )
     db.add(entry)
     db.flush()
@@ -450,6 +450,7 @@ def update_manual_entry(
     entry.total_debit = total_debit
     entry.total_credit = total_credit
     entry.journal_code = req.journal_code
+    entry.is_validated = req.is_validated
 
     # Remplacement des lignes
     db.query(EntryLine).filter(EntryLine.ecriture_journal_id == entry_id).delete()
@@ -630,6 +631,8 @@ def telecharger_bulletin_depuis_ecriture(
             self.amo_patronal    = round(salaire_brut * 0.0394, 2)
             self.total_patronal  = charges_pat
             self.salaire_net     = net_a_payer
+            self.net_imposable   = net_a_payer
+            self.anciennete_annees = 0
 
     class EmployeProxy:
         """Proxy pour simuler l'objet Employe attendu par pdf_service."""
@@ -638,19 +641,35 @@ def telecharger_bulletin_depuis_ecriture(
                 self.id              = employe.id
                 self.nom             = employe.nom
                 self.prenom          = employe.prenom or ""
+                self.matricule       = getattr(employe, 'matricule', '') or ""
                 self.cin             = employe.cin or ""
+                self.date_naissance  = getattr(employe, 'date_naissance', None)
+                self.situation_familiale = getattr(employe, 'situation_familiale', 'Célibataire')
+                self.adresse         = getattr(employe, 'adresse', '')
                 self.poste           = employe.poste or "Employé"
+                self.departement     = getattr(employe, 'departement', '')
                 self.date_embauche   = employe.date_embauche
                 self.numero_cnss     = employe.numero_cnss or ""
+                self.numero_mutuelle = getattr(employe, 'numero_mutuelle', '0')
+                self.numero_retraite = getattr(employe, 'numero_retraite', '0')
+                self.nb_enfants      = getattr(employe, 'nb_enfants', 0)
             else:
                 parts = nom_salarie.strip().split() if nom_salarie else ["—"]
                 self.id              = entry_id
                 self.nom             = parts[-1] if len(parts) >= 2 else nom_salarie
                 self.prenom          = " ".join(parts[:-1]) if len(parts) >= 2 else ""
+                self.matricule       = ""
                 self.cin             = ""
+                self.date_naissance  = None
+                self.situation_familiale = "Célibataire"
+                self.adresse         = ""
                 self.poste           = "Employé"
+                self.departement     = ""
                 self.date_embauche   = None
                 self.numero_cnss     = ""
+                self.numero_mutuelle = "0"
+                self.numero_retraite = "0"
+                self.nb_enfants      = 0
 
     bulletin_proxy = BulletinProxy()
     employe_proxy  = EmployeProxy()

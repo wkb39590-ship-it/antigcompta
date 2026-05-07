@@ -45,10 +45,14 @@ app = FastAPI(
 # Permet au frontend (React) de communiquer avec l'API même s'ils sont sur des ports différents
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En développement, on autorise toutes les sources
+    allow_origins=[
+        "http://localhost:3333",
+        "http://127.0.0.1:3333",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
-    allow_methods=["*"], # Autorise toutes les méthodes (GET, POST, PUT, DELETE)
-    allow_headers=["*"], # Autorise tous les en-têtes (Authorization, etc.)
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── Routers d'authentification et administration ──────────────────────

@@ -331,6 +331,16 @@ export const AdminSocietes: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, rc: e.target.value })}
                 />
               </div>
+              <div className="field-group span2">
+                <label>Adresse du siège</label>
+                <input
+                  className="pro-input"
+                  type="text"
+                  placeholder="Ex: 45, Bd Zerktouni, Casablanca"
+                  value={formData.adresse}
+                  onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
+                />
+              </div>
             </div>
 
             <button type="submit" className="btn-primary full-w">

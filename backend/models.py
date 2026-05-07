@@ -105,6 +105,10 @@ class Societe(Base):
     compteurs = relationship("CompteurFacturation", back_populates="societe", cascade="all, delete-orphan")
     immobilisations = relationship("Immobilisation", back_populates="societe", cascade="all, delete-orphan")
     employes = relationship("Employe", back_populates="societe", cascade="all, delete-orphan")
+    releves = relationship("ReleveBancaire", back_populates="societe", cascade="all, delete-orphan")
+    utilisateurs_clients = relationship("UtilisateurClient", back_populates="societe", cascade="all, delete-orphan")
+    documents = relationship("DocumentTransmis", back_populates="societe", cascade="all, delete-orphan")
+    ecritures = relationship("JournalEntry", back_populates="societe", cascade="all, delete-orphan")
 
 
 # ─────────────────────────────────────────────
@@ -362,6 +366,7 @@ class JournalEntry(Base):
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
+    societe = relationship("Societe", back_populates="ecritures")
     facture = relationship("Facture", back_populates="journal_entries")
     entry_lines = relationship("EntryLine", back_populates="journal_entry", cascade="all, delete-orphan", foreign_keys="[EntryLine.ecriture_journal_id]")
 
@@ -428,7 +433,7 @@ class UtilisateurClient(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
     # Relations
-    societe = relationship("Societe")
+    societe = relationship("Societe", back_populates="utilisateurs_clients")
 
 # ─────────────────────────────────────────────
 # Document Transmission (Boîte de réception)
@@ -453,7 +458,7 @@ class DocumentTransmis(Base):
     facture_id = Column(Integer, ForeignKey("factures.id"), nullable=True)
 
     # Relations
-    societe = relationship("Societe")
+    societe = relationship("Societe", back_populates="documents")
     client = relationship("UtilisateurClient")
     facture = relationship("Facture")
 
@@ -552,25 +557,31 @@ class Employe(Base):
     # Identité
     nom            = Column(String(100), nullable=False)
     prenom         = Column(String(100), nullable=False)
-    cin            = Column(String(20), nullable=True, unique=False)
+    matricule      = Column(String(20), nullable=True)
+    cin            = Column(String(20), nullable=True)
     date_naissance = Column(Date, nullable=True)
+    situation_familiale = Column(String(50), nullable=True) # Célibataire, Marié, etc.
+    adresse        = Column(String(500), nullable=True)
 
     # Emploi
     poste          = Column(String(200), nullable=True)
+    departement    = Column(String(100), nullable=True)
     date_embauche  = Column(Date, nullable=False)
-    type_contrat   = Column(String(20), nullable=True, server_default="CDI")  # CDI / CDD / INTERIM
+    type_contrat   = Column(String(20), nullable=True, server_default="CDI")
 
     # Salaire
-    salaire_base   = Column(Numeric(12, 2), nullable=False)    # Salaire de base brut (MAD)
-    nb_enfants     = Column(Integer, nullable=False, default=0) # Pour déduction IR
-    anciennete_pct = Column(Numeric(5, 2), nullable=True, default=0)  # Prime d'ancienneté %
+    salaire_base   = Column(Numeric(12, 2), nullable=False)
+    nb_enfants     = Column(Integer, nullable=False, default=0)
+    anciennete_pct = Column(Numeric(5, 2), nullable=True, default=0)
 
-    # CNSS
+    # Organismes
     numero_cnss    = Column(String(30), nullable=True)
+    numero_mutuelle = Column(String(30), nullable=True)
+    numero_retraite = Column(String(30), nullable=True)
     affiliee_cnss  = Column(Boolean, default=True)
 
     # Statut
-    statut         = Column(String(20), nullable=False, server_default="ACTIF")  # ACTIF / SUSPENDU / REVOQUE
+    statut         = Column(String(20), nullable=False, server_default="ACTIF")
 
     created_at     = Column(DateTime, nullable=False, server_default=func.now())
     updated_at     = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
@@ -679,7 +690,7 @@ class ReleveBancaire(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     
     # Relations
-    societe = relationship("Societe")
+    societe = relationship("Societe", back_populates="releves")
     lignes = relationship("LigneReleve", back_populates="releve", cascade="all, delete-orphan")
 
 

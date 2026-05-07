@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import apiService from '../../api'
 import { API_CONFIG } from '../../config/apiConfig'
 import {
@@ -23,7 +23,9 @@ import {
     Edit,
     X,
     Search,
-    UserPlus
+    UserPlus,
+    Calculator,
+    ArrowRight
 } from 'lucide-react'
 
 interface EntryLine {
@@ -86,6 +88,7 @@ const DEFAULT_JOURNAL_ICONS: Record<string, { icon: any, color: string }> = {
 const fmt = (n?: number) => n != null ? n.toLocaleString('fr-MA', { minimumFractionDigits: 2 }) : '0,00'
 
 export default function JournalComptable() {
+    const navigate = useNavigate()
     const [journals, setJournals] = useState<any[]>([])
     const [activeJournal, setActiveJournal] = useState('')
     const [data, setData] = useState<JournalResponse | null>(null)
@@ -110,7 +113,8 @@ export default function JournalComptable() {
     const [manualHeader, setManualHeader] = useState({
         entry_date: new Date().toISOString().split('T')[0],
         reference: '',
-        description: 'Écriture de paie mensuelle'
+        description: 'Écriture de paie mensuelle',
+        journal_code: ''
     })
     const [manualLines, setManualLines] = useState<any[]>([
         { account_code: '', account_label: '', debit: 0, credit: 0, tiers_name: '' },
@@ -140,7 +144,8 @@ export default function JournalComptable() {
         setManualHeader({
             entry_date: entry.entry_date,
             reference: entry.reference || '',
-            description: entry.description || ''
+            description: entry.description || '',
+            journal_code: entry.journal_code
         })
         
         let lines = entry.entry_lines.map((l: any) => ({
@@ -313,7 +318,7 @@ export default function JournalComptable() {
         window.open(`${API_CONFIG.BASE_URL}/journaux/export?${params}`, '_blank')
     }
 
-    const handleSaveManual = async () => {
+    const handleSaveManual = async (validate: boolean = false) => {
         const totalDebit = manualLines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0)
         const totalCredit = manualLines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0)
 
@@ -332,9 +337,10 @@ export default function JournalComptable() {
                 method: editingId ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    journal_code: activeJournal || 'PAYE',
                     ...manualHeader,
-                    lines: manualLines.filter(l => l.account_code || l.debit > 0 || l.credit > 0)
+                    journal_code: manualHeader.journal_code || activeJournal || 'PAYE',
+                    is_validated: validate,
+                    lines: manualLines.filter(l => l.account_code || parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0)
                 })
             })
             if (r.ok) {
@@ -473,12 +479,12 @@ export default function JournalComptable() {
                 </datalist>
                 <datalist id="pcm-codes-datalist">
                     {pcmAccounts.map(a => (
-                        <option key={a.id || a.code} value={a.code}>{a.label}</option>
+                        <option key={`code-${a.code}`} value={a.code}>{a.label}</option>
                     ))}
                 </datalist>
                 <datalist id="pcm-labels-datalist">
                     {pcmAccounts.map(a => (
-                        <option key={a.id || a.label} value={a.label}>{a.code}</option>
+                        <option key={`label-${a.code}`} value={a.label}>{a.code}</option>
                     ))}
                 </datalist>
             </div>
@@ -559,6 +565,35 @@ export default function JournalComptable() {
 
             {/* Formulaire Saisie Manuelle */}
             <div style={{ marginBottom: '24px' }}>
+                {!showManualForm && activeJournal === 'PAYE' && (
+                    <div style={{ 
+                        background: 'rgba(244, 63, 94, 0.05)', border: '1px solid rgba(244, 63, 94, 0.15)', 
+                        borderRadius: '16px', padding: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '20px' 
+                    }}>
+                        <div style={{ background: '#f43f5e', color: 'white', padding: '12px', borderRadius: '14px', boxShadow: '0 8px 16px -4px rgba(244, 63, 94, 0.3)' }}>
+                            <Calculator size={24} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>Assistant de Paie Automatique</h3>
+                            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text3)' }}>Générez les bulletins de paie et les écritures comptables en un clic pour tous vos salariés.</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button 
+                                onClick={() => navigate('/paie/nouveau')}
+                                style={{ 
+                                    background: '#f43f5e', color: 'white', border: 'none', padding: '10px 20px', 
+                                    borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px',
+                                    display: 'flex', alignItems: 'center', gap: '8px', transition: 'transform 0.2s'
+                                }}
+                                onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                onMouseOut={e => e.currentTarget.style.transform = 'none'}
+                            >
+                                Calculer les salaires du mois <ArrowRight size={16} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {!showManualForm ? (
                     <button onClick={() => setShowManualForm(true)} style={{
                         display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px',
@@ -708,11 +743,18 @@ export default function JournalComptable() {
                                             Écart: {fmt(Math.abs(manualLines.reduce((s,l) => s+parseFloat(l.debit||0),0) - manualLines.reduce((s,l) => s+parseFloat(l.credit||0),0)))}
                                         </div>
                                     </div>
-                                    <button onClick={handleSaveManual} disabled={loading} style={{
-                                        padding: '12px 30px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer'
-                                    }}>
-                                        {loading ? '⏳...' : 'Enregistrer l\'écriture'}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                        <button onClick={() => handleSaveManual(false)} disabled={loading} style={{
+                                            padding: '12px 20px', background: 'rgba(99,102,241,0.1)', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: '10px', fontWeight: 600, cursor: 'pointer'
+                                        }}>
+                                            {loading ? '...' : 'Enregistrer Brouillon'}
+                                        </button>
+                                        <button onClick={() => handleSaveManual(true)} disabled={loading} style={{
+                                            padding: '12px 24px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 6px -1px var(--accent-light)'
+                                        }}>
+                                            {loading ? '⏳...' : 'Enregistrer & Valider'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

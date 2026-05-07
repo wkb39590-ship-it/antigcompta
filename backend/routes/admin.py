@@ -150,7 +150,11 @@ async def list_all_agents(
     if is_system_admin(agent):
         return db.query(Agent).all()
     elif agent.is_admin:
-        return db.query(Agent).filter(Agent.cabinet_id == agent.cabinet_id).all()
+        # Un admin de cabinet ne doit voir que les agents de son cabinet qui ne sont PAS super-admins
+        return db.query(Agent).filter(
+            Agent.cabinet_id == agent.cabinet_id,
+            Agent.is_super_admin == False
+        ).all()
     else:
         raise HTTPException(status_code=403, detail="Accès refusé (LIST_AGENTS)")
 
@@ -338,6 +342,34 @@ async def update_societe(
     return societe
 
 
+@router.delete("/societes/{societe_id}")
+async def delete_societe(
+    societe_id: int,
+    agent: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Supprime une société (réservé aux admins du cabinet ou super-admin)"""
+    societe = db.query(Societe).filter(Societe.id == societe_id).first()
+    if not societe:
+        raise HTTPException(status_code=404, detail="Société introuvable")
+    
+    # Vérification des permissions
+    if not is_system_admin(agent) and agent.cabinet_id != societe.cabinet_id:
+        raise HTTPException(status_code=403, detail="Vous n'avez pas le droit de supprimer cette société")
+    
+    if not agent.is_admin and not is_system_admin(agent):
+        raise HTTPException(status_code=403, detail="Seul un administrateur peut supprimer une société")
+
+    try:
+        db.delete(societe)
+        db.commit()
+        log_action(db, agent, "DELETE", "SOCIETE", societe_id, f"Société {societe.raison_sociale} supprimée")
+        return {"message": "Société supprimée avec succès"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression : {str(e)}")
+
+
 @router.get("/logs", response_model=ActionLogResponse)
 async def get_admin_logs(
     agent: Agent = Depends(get_current_agent),
@@ -349,7 +381,12 @@ async def get_admin_logs(
     query = db.query(ActionLog)
     
     if not is_system_admin(agent):
-        query = query.filter(ActionLog.cabinet_id == agent.cabinet_id)
+        # Filtrer par cabinet ET exclure les actions effectuées par un super-admin
+        query = query.join(Agent, ActionLog.agent_id == Agent.id, isouter=True)
+        query = query.filter(
+            ActionLog.cabinet_id == agent.cabinet_id,
+            (Agent.is_super_admin == False) | (ActionLog.agent_id == None)
+        )
     
     total = query.count()
     logs = query.order_by(ActionLog.created_at.desc()).offset(offset).limit(limit).all()
@@ -606,6 +643,9 @@ async def get_recent_activities(
     query_factures = db.query(Facture).filter(Facture.status == "VALIDATED")
     if not is_system_admin(agent):
         query_factures = query_factures.join(Societe).filter(Societe.cabinet_id == agent.cabinet_id)
+        # Exclure les validations faites par un Super Admin
+        query_factures = query_factures.join(Agent, Agent.username == Facture.validated_by, isouter=True)
+        query_factures = query_factures.filter((Agent.is_super_admin == False) | (Facture.validated_by == None))
     
     factures_validees = query_factures.order_by(Facture.validated_at.desc()).limit(5).all()
     for f in factures_validees:
@@ -636,7 +676,11 @@ async def get_recent_activities(
     # 4. Nouveaux Agents / Administrateurs
     query_agents = db.query(Agent).filter(Agent.id != agent.id)
     if not is_system_admin(agent):
-        query_agents = query_agents.filter(Agent.cabinet_id == agent.cabinet_id)
+        # Admin cabinet ne voit que les agents/admins de son cabinet, hors super-admins
+        query_agents = query_agents.filter(
+            Agent.cabinet_id == agent.cabinet_id,
+            Agent.is_super_admin == False
+        )
     else:
         # Super Admin voit les nouveaux admins de cabinets
         query_agents = query_agents.filter(Agent.is_admin == True, Agent.is_super_admin == False)

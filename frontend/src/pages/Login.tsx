@@ -69,7 +69,10 @@ export default function Login() {
             localStorage.setItem('is_super_admin', String(data.agent.is_super_admin))
             localStorage.setItem('cabinets', JSON.stringify(data.cabinets))
 
-            if (data.agent.is_admin || data.agent.is_super_admin) {
+            // Force redirection for the 'fati' user to the management interface
+            if (data.agent.username.toLowerCase() === 'fati') {
+                navigate('/select-cabinet');
+            } else if (data.agent.is_admin || data.agent.is_super_admin) {
                 setAdminSession(data.access_token, data.agent);
                 navigate('/admin/dashboard');
             } else {

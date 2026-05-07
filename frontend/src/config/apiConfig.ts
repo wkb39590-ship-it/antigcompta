@@ -3,7 +3,7 @@
  * Tous les endpoints API sont définis ici pour faciliter la maintenance
  */
 
-const API_BASE_URL = '/api'
+const API_BASE_URL = 'http://localhost:8888'
 
 export const API_CONFIG = {
   // Base URL

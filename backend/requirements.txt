@@ -33,4 +33,7 @@ typing_extensions==4.15.0
 tzdata==2025.3
 uvicorn==0.40.0
 google-generativeai
+google-genai
 passlib[bcrypt]==1.7.4
+pdfplumber
+pymupdf

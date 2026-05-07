@@ -5,7 +5,8 @@ import { getSessionContext } from './utils/tokenDecoder'
 // because Vite variables are build-time embedded, and the Docker env var might
 // be resolving to 'http://backend:8000' which is an internal Docker hostname
 // not accessible from the browser.
-const API_BASE = '/api'
+// Bypass Vite proxy and talk directly to the backend
+const API_BASE = 'http://localhost:8888'
 
 console.log('[API] Initializing with base URL:', API_BASE)
 
@@ -360,6 +361,7 @@ export const apiService = {
 
     getProfile: (token: string) => api.get(`/auth/me?token=${token}`).then(r => r.data),
     getAgentStats: (token: string) => api.get(`/auth/stats?token=${token}`).then(r => r.data),
+    getActivities: () => api.get('/auth/activities').then(r => r.data),
     getFileUrl: (id: number) => `${API_BASE}/factures/${id}/file`,
     getFileBlob: (id: number) => api.get(`/factures/${id}/file`, { responseType: 'blob' }).then(r => r.data),
 
@@ -447,6 +449,8 @@ export const apiService = {
     createImmobilisation: (data: any) => api.post('/immobilisations/', data).then(r => r.data),
     generateDotation: (immoId: number, annee: number) =>
         api.post(`/immobilisations/${immoId}/dotation/${annee}`).then(r => r.data),
+    generateAcquisition: (immoId: number) =>
+        api.post(`/immobilisations/${immoId}/ecriture-acquisition`).then(r => r.data),
 
     // ── Relevés Bancaires ───────────────────────────────────
     listReleves: () => api.get('/releves/').then(r => r.data),

@@ -214,6 +214,13 @@ def create_immobilisation(
     # Calculer et sauvegarder le plan d'amortissement
     sauvegarder_plan(immo, db)
 
+    # NOUVEAU : Générer automatiquement l'écriture d'acquisition (en brouillon)
+    try:
+        generer_ecriture_acquisition(immo, db)
+        print(f"[Immo] Écriture d'acquisition auto-générée pour {immo.designation}")
+    except Exception as e:
+        print(f"[Immo] Erreur génération auto acquisition: {str(e)}")
+
     db.commit()
     db.refresh(immo)
 
@@ -342,15 +349,17 @@ def create_ecriture_acquisition(
     if not immo:
         raise HTTPException(404, "Immobilisation introuvable")
 
-    if not immo.facture_id:
-        raise HTTPException(400, "Aucune facture liée à cette immobilisation. Liez-la d'abord.")
+    # On autorise la génération même sans facture_id (saisie manuelle)
 
+    from models import JournalEntry
+    existing = db.query(JournalEntry).filter(JournalEntry.reference == f"IMMO-{immo.id}").first()
+    
     entry = generer_ecriture_acquisition(immo, db)
 
-    log_action(db, agent, "GENERATION_ACQUISITION", "IMMOBILISATION", immo.id, f"Génération de l'écriture d'acquisition pour '{immo.designation}'")
+    log_action(db, agent, "GENERATION_ACQUISITION", "IMMOBILISATION", immo.id, f"Génération/Récupération de l'écriture d'acquisition pour '{immo.designation}'")
 
     return {
-        "message": "Écriture d'acquisition générée",
+        "message": "Écriture d'acquisition déjà existante" if existing else "Écriture d'acquisition générée avec succès",
         "ecriture_id": entry.id,
         "journal_code": entry.journal_code,
         "total_debit": float(entry.total_debit) if entry.total_debit else 0,

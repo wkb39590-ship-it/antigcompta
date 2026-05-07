@@ -16,7 +16,8 @@ import {
     X,
     Trash2,
     RefreshCcw,
-    AlertCircle
+    AlertCircle,
+    Edit
 } from 'lucide-react'
 
 /**
@@ -66,111 +67,73 @@ export default function Paie() {
         <div>
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">Gestion de la Paie</h1>
-                    <p className="page-subtitle">Calcul des salaires, cotisations et éditions des bulletins</p>
+                    <h1 className="page-title">Gestion du Personnel</h1>
+                    <p className="page-subtitle">Administration des salariés et de leurs contrats</p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="btn btn-outline" onClick={load}><RefreshCcw size={18} /> Actualiser</button>
-                    <button className="btn btn-outline" onClick={() => navigate('/employes/nouveau')}>
+                    <button className="btn btn-primary" onClick={() => navigate('/employes/nouveau')}>
                         <Users size={18} /> Nouveau Salarié
                     </button>
-                    <button className="btn btn-outline" onClick={() => navigate('/paie/nouveau')}>
-                        <FileText size={18} /> Générer Bulletin
-                    </button>
-                </div>
-            </div>
-
-
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-value">{stats.total}</div>
-                    <div className="stat-label">Total Bulletins</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value" style={{ color: 'var(--success)' }}>{stats.valide}</div>
-                    <div className="stat-label">Bulletins Validés</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats.draft}</div>
-                    <div className="stat-label">En Brouillon</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value">{stats.masse.toLocaleString()} MAD</div>
-                    <div className="stat-label">Masse Salariale Nette</div>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+                {/* Liste des Salariés */}
                 <div className="card">
                     <div className="card-header">
-                        <div className="card-title">Bulletins de paie</div>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="Rechercher un salarié..."
-                            style={{ width: '250px' }}
-                            value={filter}
-                            onChange={e => setFilter(e.target.value)}
-                        />
+                        <div className="card-title">Registre du Personnel</div>
+                        <p style={{ fontSize: '13px', color: 'var(--text3)' }}>{employes.length} salarié(s) actif(s)</p>
                     </div>
-
                     <div className="table-wrap">
                         {loading ? (
                             <div className="loading">Chargement...</div>
-                        ) : filtered.length === 0 ? (
-                            <div className="empty-state">Aucun bulletin trouvé</div>
+                        ) : employes.length === 0 ? (
+                            <div className="empty-state">Aucun salarié enregistré</div>
                         ) : (
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Période</th>
-                                        <th>Salarié</th>
-                                        <th>Brut</th>
-                                        <th>Net</th>
-                                        <th>Statut</th>
-                                        <th>Action</th>
+                                        <th>Nom & Prénom</th>
+                                        <th>Poste</th>
+                                        <th>CIN</th>
+                                        <th>Date d'embauche</th>
+                                        <th>Salaire de base</th>
+                                        <th style={{ textAlign: 'center' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filtered.map(b => (
-                                        <tr
-                                            key={b.id}
-                                            onClick={() => navigate(`/paie/${b.id}`)}
-                                            style={{ cursor: 'pointer' }}
-                                        >
-                                            <td>{new Date(2024, b.mois - 1).toLocaleString('fr-FR', { month: 'long' })} {b.annee}</td>
-                                            <td style={{ fontWeight: 600 }}>{b.employe_nom}</td>
-                                            <td>{b.salaire_brut.toLocaleString()}</td>
-                                            <td style={{ fontWeight: 700 }}>{b.salaire_net.toLocaleString()} MAD</td>
-                                            <td>
-                                                <span className={`badge badge-${b.statut === 'VALIDE' ? 'validated' : 'draft'}`}>
-                                                    {b.statut}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                                    <button
+                                    {employes.map(emp => (
+                                        <tr key={emp.id}>
+                                            <td style={{ fontWeight: 600 }}>{emp.nom} {emp.prenom}</td>
+                                            <td>{emp.poste || '—'}</td>
+                                            <td>{emp.cin || '—'}</td>
+                                            <td>{emp.date_embauche}</td>
+                                            <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{emp.salaire_base?.toLocaleString()} MAD</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                    <button 
                                                         className="btn btn-ghost"
-                                                        style={{ padding: '6px', borderRadius: '8px' }}
-                                                        onClick={(e) => { e.stopPropagation(); navigate(`/paie/${b.id}`); }}
-                                                        title="Voir le bulletin"
+                                                        style={{ padding: '8px', color: 'var(--accent)' }}
+                                                        onClick={() => navigate(`/employes/${emp.id}/edit`)}
+                                                        title="Modifier"
                                                     >
-                                                        <Eye size={16} />
+                                                        <Edit size={16} />
                                                     </button>
-                                                    <button
+                                                    <button 
                                                         className="btn btn-ghost"
-                                                        style={{ padding: '6px', borderRadius: '8px', color: 'var(--accent)' }}
-                                                        title="Télécharger PDF"
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation()
-                                                            const MOIS = ['', 'Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
-                                                                'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre']
-                                                            const filename = `Bulletin_Paie_${(b.employe_nom || 'Employe').replace(/\s+/g, '_')}_${MOIS[b.mois]}_${b.annee}.pdf`
-                                                            try { await apiService.downloadBulletinPdf(b.id, filename) }
-                                                            catch { alert('Erreur PDF') }
+                                                        style={{ padding: '8px', color: '#ef4444' }}
+                                                        onClick={async () => {
+                                                            if (window.confirm(`Supprimer le salarié ${emp.nom} ${emp.prenom} ?`)) {
+                                                                try {
+                                                                    await apiService.updateEmploye(emp.id, { statut: 'INACTIF' })
+                                                                    load()
+                                                                } catch { alert('Erreur lors de la suppression') }
+                                                                }
                                                         }}
+                                                        title="Désactiver"
                                                     >
-                                                        <Download size={16} />
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -181,7 +144,6 @@ export default function Paie() {
                         )}
                     </div>
                 </div>
-
             </div>
         </div>
     )

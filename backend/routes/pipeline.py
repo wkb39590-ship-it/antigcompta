@@ -110,19 +110,27 @@ def _is_blank(value: Any) -> bool:
     return value is None or (isinstance(value, str) and not value.strip())
 
 
+def _clean_name(name: Any) -> str:
+    if not name or not isinstance(name, str):
+        return ""
+    # Nettoyage pour comparaison (sans STE, SARL, etc.)
+    n = name.upper()
+    for stop in ["STE", "SARL", "S.A.R.L", "S.A", "SA", "S.A.S", "COMPANY", "ETS", "ETABLISSEMENT"]:
+        n = n.replace(stop, "")
+    return "".join(ch for ch in n if ch.isalnum())
+
+
 def _to_float_or_none(value: Any) -> Optional[float]:
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+    from utils.parsers import parse_amount
+    return parse_amount(value)
 
 
 def _normalize_ice(value: Any) -> Optional[str]:
     if _is_blank(value):
         return None
     digits = "".join(ch for ch in str(value) if ch.isdigit())
+    if len(digits) == 14:
+        return "0" + digits
     return digits if len(digits) == 15 else None
 
 
@@ -164,20 +172,114 @@ def _normalize_header(header: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         normalized["taux_tva"] = None
         taux = None
 
+    # CAS 1 : HT + TTC connus → calculer TVA
     if ht is not None and ttc is not None and (tva is None or tva < 0 or tva > ttc):
         diff = round(ttc - ht, 2)
         if diff >= 0:
             normalized["montant_tva"] = diff
             tva = diff
 
+    # CAS 2 : HT + TVA connus → calculer TTC
     if ht is not None and tva is not None and ttc is None:
         normalized["montant_ttc"] = round(ht + tva, 2)
         ttc = normalized["montant_ttc"]
 
+    # CAS 3 : TVA + Taux connus mais HT manquant → calculer HT puis TTC
+    # Ex: TVA=808, taux=20 → HT=808/0.20=4040, TTC=4848
+    if ht is None and tva is not None and tva > 0 and taux is not None and taux > 0:
+        computed_ht = round(tva / (taux / 100.0), 2)
+        normalized["montant_ht"] = computed_ht
+        ht = computed_ht
+        print(f"[Pipeline] ✅ HT calculé depuis TVA+Taux: TVA={tva}, Taux={taux}% → HT={computed_ht}")
+        if ttc is None:
+            normalized["montant_ttc"] = round(computed_ht + tva, 2)
+            ttc = normalized["montant_ttc"]
+            print(f"[Pipeline] ✅ TTC calculé: {ttc}")
+
+    # CAS 4 : TTC + Taux connus mais HT manquant → calculer HT et TVA
+    # Ex: TTC=4848, taux=20 → HT=4848/1.20=4040, TVA=808
+    if ht is None and ttc is not None and ttc > 0 and taux is not None and taux > 0:
+        computed_ht = round(ttc / (1 + taux / 100.0), 2)
+        computed_tva = round(ttc - computed_ht, 2)
+        normalized["montant_ht"] = computed_ht
+        ht = computed_ht
+        if tva is None:
+            normalized["montant_tva"] = computed_tva
+            tva = computed_tva
+        print(f"[Pipeline] ✅ HT/TVA calculés depuis TTC+Taux: TTC={ttc}, Taux={taux}% → HT={computed_ht}, TVA={computed_tva}")
+
+    # Déduire le taux si encore manquant
     if ht not in (None, 0) and tva is not None and normalized.get("taux_tva") is None:
         normalized["taux_tva"] = round((tva / ht) * 100, 2)
 
     return normalized
+
+
+def _apply_smart_swap(header: Dict[str, Any], societe: Optional[Societe]) -> Dict[str, Any]:
+    """
+    Détecte et corrige l'inversion Fournisseur/Client.
+    Si l'ICE ou le Nom du 'Fournisseur' extrait correspond à NOTRE société, 
+    alors on inverse pour nous remettre en 'Client' (flux achat).
+    """
+    if not societe:
+        return header
+    
+    s_ice = _normalize_ice(header.get("supplier_ice"))
+    c_ice = _normalize_ice(header.get("client_ice"))
+    my_ice = _normalize_ice(societe.ice)
+    
+    s_name = _clean_name(header.get("supplier_name"))
+    c_name = _clean_name(header.get("client_name"))
+    my_name = _clean_name(societe.raison_sociale)
+    
+    should_swap = False
+    detected_type = (header.get("invoice_type") or "ACHAT").upper()
+    
+    # 1. Vérifier si on est déjà identifié quelque part
+    is_us_supplier = (s_ice and my_ice and s_ice == my_ice) or (s_name and my_name and my_name in s_name)
+    is_us_client = (c_ice and my_ice and c_ice == my_ice) or (c_name and my_name and my_name in c_name)
+    
+    # CAS A : On est le FOURNISSEUR (Vente ou Avoir de Vente probable)
+    if is_us_supplier and not is_us_client:
+        if detected_type in ["ACHAT", "AVOIR"]:
+            print(f"[SmartSwap] ✅ Nous sommes FOURNISSEUR. On garde les tiers tels quels.")
+            return header
+            
+    # CAS B : On est le CLIENT (Achat ou Avoir d'Achat probable)
+    if is_us_client and not is_us_supplier:
+        if detected_type == "VENTE":
+            print(f"[SmartSwap] ✅ Nous sommes CLIENT. On garde les tiers tels quels.")
+            return header
+
+    # CAS C : Inversion probable (On est dans le mauvais champ par rapport au type prédit par Gemini)
+    if detected_type == "VENTE":
+        if is_us_client: # On est dans le champ client alors que c'est une vente
+            should_swap = True
+    elif detected_type == "ACHAT":
+        if is_us_supplier: # On est dans le champ fournisseur alors que c'est un achat
+            should_swap = True
+
+    if should_swap:
+        new_header = dict(header)
+        # On swap les noms
+        new_header["supplier_name"], new_header["client_name"] = header.get("client_name"), header.get("supplier_name")
+        
+        # Cas spécial : Si on a notre nom en supplier mais l'ICE d'un tiers, 
+        # on ne doit PAS swapper l'ICE (car l'ICE du tiers est probablement le vrai fournisseur)
+        if s_ice and my_ice and s_ice != my_ice and s_name and my_name and my_name in s_name:
+            # On garde l'ICE tiers en fournisseur, et on met notre ICE (connu) en client
+            new_header["supplier_ice"] = header.get("supplier_ice")
+            new_header["client_ice"] = my_ice
+            print("[SmartSwap] 🛡️ Protection Mixte : Nom swappé, mais ICE tiers conservé en fournisseur.")
+        else:
+            # Swap standard des ICE/IF
+            new_header["supplier_ice"], new_header["client_ice"] = header.get("client_ice"), header.get("supplier_ice")
+            new_header["supplier_if"], new_header["client_if"] = header.get("client_if"), header.get("supplier_if")
+            new_header["supplier_address"], new_header["client_address"] = header.get("client_address"), header.get("supplier_address")
+        
+        return new_header
+
+    return header
 
 
 def _amounts_consistent(header: Dict[str, Any]) -> bool:
@@ -304,36 +406,59 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
 
     # ── Extraction unifiée via Gemini (Header + Lines) ────────
     try:
-        print(f"--- [Pipeline] Extraction unifiée pour Facture {facture_id} ---")
-        extraction_data = extract_invoice_full(image_data, mime_type=mime_type)
+        print(f"--- [Pipeline] {datetime.now()} Extraction unifiee pour Facture {facture_id} ---")
+        
+        # Récupérer les infos de la société pour le contexte Gemini
+        societe = db.query(Societe).filter(Societe.id == facture.societe_id).first()
+        context_text = ""
+        if societe:
+            context_text = f"Nom de notre société: {societe.raison_sociale}\nNotre ICE: {societe.ice or 'N/A'}"
+
+        extraction_data = extract_invoice_full(image_data, mime_type=mime_type, context_text=context_text)
         header = _normalize_header(extraction_data.get("header", {}))
+        
+        # Smart Swap pour éviter inversion Fournisseur/Client
+        societe = db.query(Societe).filter(Societe.id == facture.societe_id).first()
+        header = _apply_smart_swap(header, societe)
+        
         raw_lines = extraction_data.get("lines", [])
         
-        if not header.get("supplier_name") and not header.get("montant_ttc"):
-            # Si vide, on tente les fallbacks individuels
-            print("⚠️ Extraction unifiée vide. Tentative de fallbacks individuels...")
+        # Si le header est incomplet ou les lignes vides, on tente les fallbacks individuels
+        header_incomplete = (
+            not header.get("supplier_name") or 
+            not header.get("numero_facture") or 
+            not header.get("date_facture") or
+            (not header.get("montant_ttc") and not header.get("montant_tva"))
+        )
+        
+        if header_incomplete:
+            print("--- Header incomplet dans l'extraction unifiee. Tentative de fallback Header...")
             try:
-                header_data = extract_invoice_header(image_data, mime_type=mime_type)
-                header = _normalize_header(header_data)
-                print("✅ Fallback Header Gemini réussi")
-            except Exception:
-                header = {}
-            
+                header_data = extract_invoice_header(image_data, mime_type=mime_type, context_text=context_text)
+                header = _merge_header(header, _normalize_header(header_data))
+                print("Fallback Header Gemini reussi")
+            except Exception as e:
+                print(f"Echec fallback Header: {e}")
+
+        if not raw_lines:
+            print("--- Lignes vides dans l'extraction unifiee. Tentative de fallback Lines...")
             try:
                 raw_lines = extract_invoice_lines(image_data, mime_type=mime_type)
-                print(f"✅ Fallback Lines Gemini réussi: {len(raw_lines)} lignes")
+                print(f"Fallback Lines Gemini reussi: {len(raw_lines)} lignes")
             except Exception:
                 raw_lines = []
 
         # Si toujours pas de header, fallback OCR local
         if not header.get("supplier_name") and not header.get("montant_ttc"):
-            print("⚠️ Gemini a échoué. Passage au Fallback OCR Tesseract...")
+            print("Gemini a echoue. Passage au Fallback OCR Tesseract...")
             ocr_result = ocr_service.extract(facture.file_path)
             header = _normalize_header(parse_facture_text(ocr_result.text))
-            print(f"✅ Fallback OCR réussi: {header.get('supplier_name')}")
+            print(f"Fallback OCR reussi: {header.get('supplier_name')}")
 
     except Exception as e:
-        print(f"❌ Erreur critique dans le pipeline d'extraction: {str(e)}")
+        import traceback
+        print(f"❌ ERREUR CRITIQUE GEMINI : {str(e)}")
+        traceback.print_exc()
         header = {}
         raw_lines = []
 
@@ -373,40 +498,49 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     except Exception as e:
         print(f"❌ Erreur lors du nettoyage final des lignes: {str(e)}")
 
-    # ── Remplir Tableau 1 (Facture) ────────────────────────────
-    facture.numero_facture = header.get("numero_facture")
-    facture.date_facture = parse_date_fr(header.get("date_facture"))
-    facture.due_date = parse_date_fr(header.get("due_date"))
+    # ── Remplissage des champs (avec priorité au Swap) ──────────
+    def _keep_best(new_val, old_val):
+        return new_val if not _is_blank(new_val) else old_val
+
+    new_numero   = header.get("numero_facture")
+    new_date     = parse_date_fr(header.get("date_facture"))
+    new_due_date = parse_date_fr(header.get("due_date"))
+    new_ht       = header.get("montant_ht")
+    new_tva      = header.get("montant_tva")
+    new_ttc      = header.get("montant_ttc")
+
+    facture.numero_facture = _keep_best(new_numero, facture.numero_facture)
+    facture.date_facture   = new_date or facture.date_facture
+    facture.due_date       = new_due_date or facture.due_date
     
-    facture.supplier_name = header.get("supplier_name") or header.get("fournisseur")
-    facture.supplier_ice = header.get("supplier_ice") or header.get("ice_frs")
-    facture.supplier_if = header.get("supplier_if") or header.get("if_frs")
-    facture.supplier_rc = header.get("supplier_rc")
+    # Pour les noms (Tiers), on écrase systématiquement pour refléter la dernière extraction/swap
+    facture.supplier_name    = header.get("supplier_name")
+    facture.supplier_ice     = header.get("supplier_ice")
+    facture.supplier_if      = header.get("supplier_if")
+    facture.supplier_rc      = header.get("supplier_rc")
     facture.supplier_address = header.get("supplier_address")
 
-    facture.client_name = header.get("client_name")
-    facture.client_ice = header.get("client_ice")
-    facture.client_if = header.get("client_if")
+    facture.client_name    = header.get("client_name")
+    facture.client_ice     = header.get("client_ice")
+    facture.client_if      = header.get("client_if")
     facture.client_address = header.get("client_address")
 
+    # Protection montants : garder l'ancienne valeur si la nouvelle est absente
+    old_ht  = float(facture.montant_ht)  if facture.montant_ht  else None
+    old_tva = float(facture.montant_tva) if facture.montant_tva else None
+    old_ttc = float(facture.montant_ttc) if facture.montant_ttc else None
+
+
     # ── Déterminer le type de facture par rapport à la société ──
-    # Si la facture est adressée à notre société → ACHAT
-    # Si la facture est émise par notre société → VENTE
-    def _clean_name(name: str) -> str:
-        """Nettoie le nom pour la comparaison (supprime suffixes juridiques)"""
-        import re
-        if not name:
-            return ""
-        cleaned = name.strip().upper()
-        # Supprimer les suffixes juridiques courants
-        cleaned = re.sub(r'\b(STE|SARL|S\.A\.R\.L|SA|S\.A|EURL|E\.U\.R\.L|SPRL|S\.P\.R\.L|LLC|CORP|INC|LTD|SRL)\b', '', cleaned)
-        # Supprimer les espaces multiples
-        cleaned = ' '.join(cleaned.split())
-        return cleaned.strip()
-    
     societe = db.query(Societe).filter(Societe.id == facture.societe_id).first()
-    invoice_type_from_gemini = header.get("invoice_type") or "ACHAT"
+    invoice_type_from_gemini = (header.get("invoice_type") or "ACHAT").upper()
     
+    # Sécurité : Si des montants négatifs sont détectés dans les lignes, c'est probablement un AVOIR
+    has_negative_lines = any((_to_float_or_none(l.get("line_amount_ht")) or 0) < 0 for l in raw_lines)
+    if has_negative_lines:
+        invoice_type_from_gemini = "AVOIR"
+        print("[Pipeline] ⚠️ Montants négatifs détectés -> Force Type: AVOIR")
+
     if societe:
         societe_ice = str(societe.ice).strip() if societe.ice else ""
         client_ice = str(facture.client_ice).strip() if facture.client_ice else ""
@@ -416,25 +550,29 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
         client_name_clean = _clean_name(facture.client_name)
         supplier_name_clean = _clean_name(facture.supplier_name)
         
+        # Remplissage automatique des noms si vides mais ICE correspond
+        if _is_blank(facture.supplier_name) and societe_ice and societe_ice == supplier_ice:
+            facture.supplier_name = societe.raison_sociale
+            print(f"[Pipeline] ℹ️ Nom fournisseur rempli via ICE société: {facture.supplier_name}")
+        
+        if _is_blank(facture.client_name) and societe_ice and societe_ice == client_ice:
+            facture.client_name = societe.raison_sociale
+            print(f"[Pipeline] ℹ️ Nom client rempli via ICE société: {facture.client_name}")
+
         # 1. Détecter l'AVOIR et sa direction
         if invoice_type_from_gemini == "AVOIR":
-            # Si le client est nous => AVOIR_ACHAT (Note de crédit reçue)
             if (societe_ice and client_ice and societe_ice == client_ice) or \
                (client_name_clean and raison_social_clean and raison_social_clean in client_name_clean):
                 facture.invoice_type = "AVOIR_ACHAT"
-            # Si le fournisseur est nous => AVOIR_VENTE (Note de crédit émise)
             elif (societe_ice and supplier_ice and societe_ice == supplier_ice) or \
                  (supplier_name_clean and raison_social_clean and raison_social_clean in supplier_name_clean):
                 facture.invoice_type = "AVOIR_VENTE"
             else:
-                # Par défaut AVOIR_ACHAT si incertitude (plus courant)
-                facture.invoice_type = "AVOIR_ACHAT"
+                facture.invoice_type = "AVOIR_ACHAT" # Par défaut
                 
-        # 2. Si Gemini détecte IMMOBILISATION explicitement, on le respecte
         elif invoice_type_from_gemini == "IMMOBILISATION":
             facture.invoice_type = "IMMOBILISATION"
             
-        # 3. Comparaison prioritaire par ICE pour ACHAT/VENTE
         elif societe_ice:
             if client_ice and societe_ice == client_ice:
                 facture.invoice_type = "ACHAT"
@@ -456,15 +594,14 @@ def extract_facture(facture_id: int, db: Session = Depends(get_db), session: dic
     else:
         facture.invoice_type = invoice_type_from_gemini
 
-    facture.montant_ht = header.get("montant_ht")
-    facture.montant_tva = header.get("montant_tva")
-    facture.montant_ttc = header.get("montant_ttc")
-    facture.taux_tva = header.get("taux_tva")
-    facture.devise = header.get("devise") or "MAD"
-    facture.payment_mode = header.get("payment_mode")
-    facture.payment_terms = header.get("payment_terms")
-
-    # Legacy compat
+    # Mise à jour finale des montants avec protection
+    facture.montant_ht  = new_ht  if new_ht  is not None else old_ht
+    facture.montant_tva = new_tva if new_tva is not None else old_tva
+    facture.montant_ttc = new_ttc if new_ttc is not None else old_ttc
+    facture.taux_tva    = header.get("taux_tva") or (float(facture.taux_tva) if facture.taux_tva else None)
+    facture.devise      = header.get("devise") or facture.devise or "MAD"
+    facture.payment_mode  = header.get("payment_mode")  or facture.payment_mode
+    facture.payment_terms = header.get("payment_terms") or facture.payment_terms
     facture.fournisseur = facture.supplier_name
     facture.ice_frs = facture.supplier_ice
     facture.if_frs = facture.supplier_if

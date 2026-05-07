@@ -6,18 +6,21 @@
 
 # ── Configuration de la Base de Données ──────────────────────────────────
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
+
+# Chargement des variables d'environnement depuis le fichier .env
+load_dotenv()
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Récupération de l'URL de connexion depuis les variables d'environnement (.env ou Docker)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    # Valeur par défaut pour le développement local si Postgres n'est pas lancé
     "sqlite:///./test.db"
 )
 
-# Création du moteur de base de données (Engine)
-# future=True : utilise les fonctionnalités de SQLAlchemy 2.0
+print(f"DEBUG: DATABASE_URL chargee = {DATABASE_URL}")
+
 engine = create_engine(DATABASE_URL, future=True)
 
 # Création de la fabrique de sessions (SessionLocal)

@@ -145,7 +145,8 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
         for line in facture.lines:
             raw_account = line.pcm_account_code or "7111"
             account_code = line.corrected_account_code or raw_account
-            account_label = line.pcm_account_label or "Ventes"
+            # Priorité à la description de l'article, sinon on prend le nom du compte PCM
+            account_label = line.description or line.pcm_account_label or "Ventes"
             ht = _d(line.line_amount_ht)
             tva = _d(line.tva_amount)
             if tva == Decimal("0") and line.tva_rate and _d(line.tva_rate) > 0:
@@ -165,13 +166,13 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     elif is_avoir_vente:
         # ── AVOIR CLIENT (VENTE) ─────────────────────────────────
         # Inverse de la vente : Débit 7xxx, Débit 4455, Crédit 3421
-        ttc_total = _d(facture.montant_ttc)
+        ttc_total = abs(_d(facture.montant_ttc))
 
         for line in facture.lines:
             account_code = line.corrected_account_code or line.pcm_account_code or "7111"
-            account_label = line.pcm_account_label or "Ventes (Avoir)"
-            ht = _d(line.line_amount_ht)
-            tva = _d(line.tva_amount)
+            account_label = line.description or line.pcm_account_label or "Ventes (Avoir)"
+            ht = abs(_d(line.line_amount_ht))
+            tva = abs(_d(line.tva_amount))
             if tva == Decimal("0") and line.tva_rate:
                 tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -197,29 +198,29 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
     elif is_avoir_achat:
         # ── AVOIR FOURNISSEUR (ACHAT) ────────────────────────────
         # Inverse de l'achat : Débit 4411, Crédit 6xxx, Crédit 3455
-        ttc_total = _d(facture.montant_ttc)
+        ttc_total = abs(_d(facture.montant_ttc))
         el = EntryLine(ecriture_journal_id=entry.id, line_order=line_order, account_code="4411",
                        account_label="Fournisseurs (Avoir)", debit=ttc_total, credit=Decimal("0"),
                        tiers_name=actual_tiers_name, tiers_ice=actual_tiers_ice)
         db.add(el); entry_lines.append(el); total_debit += ttc_total; line_order += 1
 
-        sum_lines_ht = sum([_d(ln.line_amount_ht) for ln in facture.lines])
-        ttc_global = _d(facture.montant_ttc)
+        sum_lines_ht = sum([abs(_d(ln.line_amount_ht)) for ln in facture.lines])
+        ttc_global = abs(_d(facture.montant_ttc))
 
         for line in facture.lines:
             account_code = line.corrected_account_code or line.pcm_account_code or "6111"
-            account_label = line.pcm_account_label or "Achats (Avoir)"
+            account_label = line.description or line.pcm_account_label or "Achats (Avoir)"
             
-            extracted_ht = _d(line.line_amount_ht)
+            extracted_ht = abs(_d(line.line_amount_ht))
             force_recalc_tva = False
-            if abs(sum_lines_ht - ttc_global) < Decimal("0.05") and ttc_global > _d(facture.montant_ht):
+            if abs(sum_lines_ht - ttc_global) < Decimal("0.05") and ttc_global > abs(_d(facture.montant_ht)):
                 rate = _d(line.tva_rate or facture.taux_tva or 20)
                 ht = (extracted_ht / (Decimal("1") + (rate / Decimal("100")))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                 force_recalc_tva = True
             else:
                 ht = extracted_ht
 
-            tva = _d(line.tva_amount)
+            tva = abs(_d(line.tva_amount))
             if (tva == Decimal("0") or force_recalc_tva) and line.tva_rate:
                 tva = (ht * (_d(line.tva_rate) / Decimal("100"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             
@@ -252,7 +253,7 @@ def generate_journal_entries(facture: Facture, db: Session) -> JournalEntry:
                 account_label = "Achats de marchandises (redressé)"
             else:
                 account_code = line.corrected_account_code or raw_account
-                account_label = line.pcm_account_label or "Achats"
+                account_label = line.description or line.pcm_account_label or "Achats"
 
             extracted_ht = _d(line.line_amount_ht)
             

@@ -97,11 +97,16 @@ services:
       UPLOAD_DIR: /app/uploads
     ports:
       - "8888:8000"
+    extra_hosts:
+      - "generativelanguage.googleapis.com:216.239.34.223"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
     command: >
-      sh -c "python scripts/seeds/seed_pcm.py && python scripts/seeds/seed_multi_cabinet.py && uvicorn main:app --host 0.0.0.0 --port 8000"
+      sh -c "python scripts/seeds/seed_pcm.py && python scripts/seeds/seed_multi_cabinet.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:

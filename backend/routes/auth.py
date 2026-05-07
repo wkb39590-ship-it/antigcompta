@@ -133,6 +133,8 @@ def get_current_agent(
         
     data = decode_jwt_token(actual_token)
     agent = db.query(Agent).filter(Agent.id == data.get("agent_id")).first()
+    if not agent:
+        raise HTTPException(status_code=401, detail="Agent introuvable")
     if agent.username == "wissal":
         # Log minimal de sécurité
         print(f"[AUTH] Super Admin {agent.username} connecté.")
@@ -399,3 +401,33 @@ async def update_agent_profile(
             status_code=500, 
             detail=f"Échec de la mise à jour : {str(e)}"
         )
+
+
+@router.get("/activities")
+async def get_activities(
+    limit: int = Query(50, ge=1, le=200),
+    agent: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db)
+):
+    """Retourne l'historique des actions pour le cabinet de l'agent actuel."""
+    from models import ActionLog
+    
+    # Récupérer les logs du cabinet de l'agent
+    logs = db.query(ActionLog).filter(
+        ActionLog.cabinet_id == agent.cabinet_id
+    ).order_by(ActionLog.created_at.desc()).limit(limit).all()
+    
+    # Formater pour le frontend
+    result = []
+    for log in logs:
+        result.append({
+            "id": log.id,
+            "agent_username": log.agent.username if log.agent else "Système",
+            "action_type": log.action_type,
+            "entity_type": log.entity_type,
+            "entity_id": log.entity_id,
+            "details": log.details,
+            "created_at": log.created_at.isoformat()
+        })
+        
+    return result

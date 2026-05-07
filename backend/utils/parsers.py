@@ -8,24 +8,30 @@ from typing import Optional
 
 def parse_date_fr(value: Optional[str]) -> Optional[date]:
     """
-    Parse une date au format DD/MM/YYYY ou YYYY-MM-DD.
-    Retourne None si la valeur est invalide ou absente.
+    Parse une date au format DD/MM/YYYY, DD.MM.YYYY, DD-MM-YYYY ou YYYY-MM-DD.
+    Gère aussi les années sur 2 chiffres.
     """
     if not value:
         return None
 
-    value = str(value).strip()
-
+    # Nettoyage
+    s = str(value).strip().replace(".", "/").replace("-", "/").replace(" ", "/")
+    
     # Format DD/MM/YYYY
-    m = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', value)
+    m = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{2,4})$', s)
     if m:
         try:
-            return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+            day = int(m.group(1))
+            month = int(m.group(2))
+            year = int(m.group(3))
+            if year < 100:
+                year += 2000
+            return date(year, month, day)
         except ValueError:
             return None
 
-    # Format YYYY-MM-DD
-    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', value)
+    # Format YYYY/MM/DD
+    m = re.match(r'^(\d{4})/(\d{2})/(\d{2})$', s)
     if m:
         try:
             return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))

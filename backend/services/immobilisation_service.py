@@ -115,11 +115,19 @@ def generer_ecriture_acquisition(immo: Immobilisation, db: Session) -> JournalEn
     ttc = valeur + tva
 
     compte_actif = immo.compte_actif_pcm or "2355"
+    
+    # Vérifier si l'écriture existe déjà (anti-doublon)
+    existing = db.query(JournalEntry).filter(
+        JournalEntry.societe_id == immo.societe_id,
+        JournalEntry.reference == f"IMMO-{immo.id}"
+    ).first()
+    if existing:
+        return existing
 
     entry = JournalEntry(
         societe_id=immo.societe_id,
         facture_id=immo.facture_id,
-        journal_code="ACH",
+        journal_code="IMMO",
         entry_date=immo.date_acquisition,
         reference=f"IMMO-{immo.id}",
         description=f"Acquisition immobilisation : {immo.designation}",
@@ -202,7 +210,7 @@ def generer_ecriture_dotation(immo: Immobilisation, annee: int, db: Session) -> 
     entry = JournalEntry(
         societe_id=immo.societe_id,
         facture_id=immo.facture_id,
-        journal_code="OD",
+        journal_code="IMMO",
         entry_date=date(annee, 12, 31),
         reference=f"DOT-{immo.id}-{annee}",
         description=f"Dotation amortissement {annee} — {immo.designation}",

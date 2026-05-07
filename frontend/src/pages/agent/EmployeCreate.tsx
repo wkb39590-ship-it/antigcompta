@@ -1,57 +1,84 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import apiService from '../../api'
 import { ArrowLeft, Save, User as UserIcon } from 'lucide-react'
 
 export default function EmployeCreate() {
     const navigate = useNavigate()
+    const { id } = useParams()
+    const isEdit = !!id
     const [loading, setLoading] = useState(false)
+    const [fetching, setFetching] = useState(isEdit)
     const [error, setError] = useState('')
 
-    // Default values for a new employee
+    // Default values
     const [employe, setEmploye] = useState({
         prenom: '',
         nom: '',
+        matricule: '',
         cin: '',
-        poste: '',
         date_naissance: '',
+        situation_familiale: 'Célibataire',
+        adresse: '',
+        poste: '',
+        departement: '',
         date_embauche: new Date().toISOString().split('T')[0],
         salaire_base: 0,
         nb_enfants: 0,
         anciennete_pct: 0,
-        numero_cnss: ''
+        numero_cnss: '',
+        numero_mutuelle: '',
+        numero_retraite: ''
     })
+
+    useEffect(() => {
+        if (isEdit) {
+            loadEmploye()
+        }
+    }, [id])
+
+    const loadEmploye = async () => {
+        try {
+            const data = await apiService.getEmploye(Number(id))
+            setEmploye({
+                ...data,
+                date_naissance: data.date_naissance || '',
+                date_embauche: data.date_embauche || new Date().toISOString().split('T')[0],
+                situation_familiale: data.situation_familiale || 'Célibataire',
+                adresse: data.adresse || '',
+                departement: data.departement || '',
+                matricule: data.matricule || '',
+                numero_mutuelle: data.numero_mutuelle || '',
+                numero_retraite: data.numero_retraite || ''
+            })
+        } catch (err) {
+            setError("Impossible de charger les données de l'employé.")
+        } finally {
+            setFetching(false)
+        }
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError('')
         try {
-            await apiService.createEmploye({
-                prenom: employe.prenom,
-                nom: employe.nom,
-                cin: employe.cin,
-                poste: employe.poste,
-                date_naissance: employe.date_naissance || undefined,
-                date_embauche: employe.date_embauche,
-                salaire_base: employe.salaire_base,
-                nb_enfants: employe.nb_enfants,
-                anciennete_pct: employe.anciennete_pct,
-                numero_cnss: employe.numero_cnss,
-                statut: 'ACTIF' 
-            })
-            // Redirect back to Paie dashboard after success
+            if (isEdit) {
+                await apiService.updateEmploye(Number(id), employe)
+            } else {
+                await apiService.createEmploye({ ...employe, statut: 'ACTIF' })
+            }
             navigate('/paie')
         } catch (err: any) {
-            console.error('Create error:', err)
-            setError(err.response?.data?.detail || 'Erreur lors de la création de l\'employé.')
+            console.error('Save error:', err)
+            setError(err.response?.data?.detail || 'Erreur lors de l\'enregistrement.')
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <div className="page-content" style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>
             <div className="page-header" style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <button className="btn btn-ghost" onClick={() => navigate('/paie')} style={{ padding: '8px' }}>
@@ -60,9 +87,9 @@ export default function EmployeCreate() {
                     <div>
                         <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <UserIcon size={24} color="var(--accent)" />
-                            Nouveau Salarié
+                            {isEdit ? 'Modifier le Salarié' : 'Nouveau Salarié'}
                         </h1>
-                        <p className="page-subtitle">Ajouter un nouveau collaborateur au système de paie</p>
+                        <p className="page-subtitle">Gestion des informations détaillées du collaborateur</p>
                     </div>
                 </div>
             </div>
@@ -75,11 +102,21 @@ export default function EmployeCreate() {
 
             <form onSubmit={handleSubmit} className="card">
                 <div className="card-header">
-                    <div className="card-title">Informations Personnelles et Contractuelles</div>
+                    <div className="card-title">Identité et Situation Familiale</div>
                 </div>
 
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                        <div className="form-group">
+                            <label className="form-label">Matricule</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="ex: 0319"
+                                value={employe.matricule}
+                                onChange={e => setEmploye({ ...employe, matricule: e.target.value })}
+                            />
+                        </div>
                         <div className="form-group">
                             <label className="form-label">Prénom *</label>
                             <input
@@ -102,9 +139,9 @@ export default function EmployeCreate() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
-                            <label className="form-label">Numéro de CIN</label>
+                            <label className="form-label">CIN</label>
                             <input
                                 type="text"
                                 className="form-input"
@@ -112,6 +149,46 @@ export default function EmployeCreate() {
                                 onChange={e => setEmploye({ ...employe, cin: e.target.value })}
                             />
                         </div>
+                        <div className="form-group">
+                            <label className="form-label">Date de Naissance</label>
+                            <input
+                                type="date"
+                                className="form-input"
+                                value={employe.date_naissance}
+                                onChange={e => setEmploye({ ...employe, date_naissance: e.target.value })}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Situation Familiale</label>
+                            <select 
+                                className="form-input"
+                                value={employe.situation_familiale}
+                                onChange={e => setEmploye({ ...employe, situation_familiale: e.target.value })}
+                            >
+                                <option value="Célibataire">Célibataire</option>
+                                <option value="Marié(e)">Marié(e)</option>
+                                <option value="Divorcé(e)">Divorcé(e)</option>
+                                <option value="Veuf(ve)">Veuf(ve)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Adresse Personnelle</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Adresse complète..."
+                            value={employe.adresse}
+                            onChange={e => setEmploye({ ...employe, adresse: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="card-header" style={{ padding: '20px 0 10px 0', borderBottom: 'none' }}>
+                        <div className="card-title" style={{ fontSize: '15px' }}>Affectation et Salaire</div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
                             <label className="form-label">Poste Occupé</label>
                             <input
@@ -121,18 +198,14 @@ export default function EmployeCreate() {
                                 onChange={e => setEmploye({ ...employe, poste: e.target.value })}
                             />
                         </div>
-                    </div>
-
-                    <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
-                            <label className="form-label">Date de Naissance</label>
+                            <label className="form-label">Département</label>
                             <input
-                                type="date"
+                                type="text"
                                 className="form-input"
-                                value={employe.date_naissance}
-                                onChange={e => setEmploye({ ...employe, date_naissance: e.target.value })}
+                                placeholder="ex: RH, Technique..."
+                                value={employe.departement}
+                                onChange={e => setEmploye({ ...employe, departement: e.target.value })}
                             />
                         </div>
                         <div className="form-group">
@@ -149,56 +222,59 @@ export default function EmployeCreate() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
-                            <label className="form-label">Numéro de CNSS</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="8 chiffres (ex: 12345678)"
-                                value={employe.numero_cnss}
-                                onChange={e => setEmploye({ ...employe, numero_cnss: e.target.value })}
-                            />
-                        </div>
-                        <div className="form-group">
                             <label className="form-label">Salaire de Base (MAD) *</label>
                             <input
                                 type="number"
                                 step="0.01"
-                                min="0"
                                 className="form-input"
                                 required
                                 value={employe.salaire_base || ''}
                                 onChange={e => setEmploye({ ...employe, salaire_base: parseFloat(e.target.value) || 0 })}
                             />
                         </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
-                            <label className="form-label">Nombre d'enfants (Abattement IGR)</label>
+                            <label className="form-label">Nombre d'enfants</label>
                             <input
                                 type="number"
                                 min="0"
-                                max="6"
                                 className="form-input"
                                 value={employe.nb_enfants}
                                 onChange={e => setEmploye({ ...employe, nb_enfants: parseInt(e.target.value) || 0 })}
                             />
                         </div>
+                    </div>
+
+                    <div className="card-header" style={{ padding: '20px 0 10px 0', borderBottom: 'none' }}>
+                        <div className="card-title" style={{ fontSize: '15px' }}>Organismes Sociaux</div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                         <div className="form-group">
-                            <label className="form-label">Taux d'ancienneté manuel (%)</label>
+                            <label className="form-label">N° CNSS</label>
                             <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                max="25"
+                                type="text"
                                 className="form-input"
-                                placeholder="Laisser 0 pour calcul auto"
-                                value={employe.anciennete_pct}
-                                onChange={e => setEmploye({ ...employe, anciennete_pct: parseFloat(e.target.value) || 0 })}
+                                value={employe.numero_cnss}
+                                onChange={e => setEmploye({ ...employe, numero_cnss: e.target.value })}
                             />
-                            <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '4px' }}>
-                                Par défaut, calculé automatiquement selon la date d'embauche.
-                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">N° Mutuelle</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={employe.numero_mutuelle}
+                                onChange={e => setEmploye({ ...employe, numero_mutuelle: e.target.value })}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">N° Retraite</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={employe.numero_retraite}
+                                onChange={e => setEmploye({ ...employe, numero_retraite: e.target.value })}
+                            />
                         </div>
                     </div>
 

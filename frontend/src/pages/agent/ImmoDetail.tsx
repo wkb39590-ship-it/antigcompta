@@ -83,6 +83,26 @@ export default function ImmoDetail() {
                         Détails de l'immobilisation #{immo.id}
                     </p>
                 </div>
+                <div style={{ marginLeft: 'auto' }}>
+                    <button 
+                        onClick={async () => {
+                            try {
+                                await apiService.generateAcquisition(immo.id)
+                                setMsg('✅ Écriture d\'acquisition générée avec succès')
+                                loadDetail(immo.id)
+                            } catch (err: any) {
+                                setMsg('❌ ' + (err.response?.data?.detail || 'Erreur lors de la génération'))
+                            }
+                        }}
+                        style={{
+                            background: 'var(--accent)', color: 'white', border: 'none',
+                            padding: '8px 16px', borderRadius: '10px', cursor: 'pointer',
+                            fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px'
+                        }}
+                    >
+                        <Zap size={16} /> Générer l'écriture d'achat
+                    </button>
+                </div>
             </div>
 
             {msg && (

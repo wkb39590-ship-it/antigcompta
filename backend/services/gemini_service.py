@@ -11,7 +11,7 @@ from datetime import datetime
 from google import genai
 import time
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 
 def _get_api_keys() -> List[str]:
@@ -68,10 +68,7 @@ HEADER_SCHEMA: Dict[str, Any] = {
         "if_frs": {"type": ["string", "null"]},
     },
     "required": [
-        "numero_facture", "date_facture", "invoice_type",
-        "supplier_name", "supplier_ice", "supplier_if",
-        "client_name", "montant_ht", "montant_tva", "montant_ttc",
-        "taux_tva", "devise", "payment_mode"
+        "supplier_name", "montant_ttc"
     ],
 }
 
@@ -100,7 +97,7 @@ UNIFIED_SCHEMA: Dict[str, Any] = {
         "header": HEADER_SCHEMA,
         "lines": LINES_SCHEMA,
     },
-    "required": ["header", "lines"]
+    "required": [] # Facultatif pour éviter échec bloquant
 }
 
 CLASSIFICATION_SCHEMA: Dict[str, Any] = {
@@ -120,32 +117,44 @@ CLASSIFICATION_SCHEMA: Dict[str, Any] = {
 # Prompts
 # ─────────────────────────────────────────────
 
-HEADER_LINES_SYSTEM_PROMPT = """Tu es un expert-comptable marocain.
-Extrais les données de cette facture au format JSON structuré.
-TRES IMPORTANT:
-1. supplier_ice (ICE fournisseur) doit contenir exactement 15 chiffres si présent.
-2. client_name et client_ice doivent correspondre EXACTEMENT à ce qui est écrit sur la facture comme destinataire/client.
-3. supplier_name est l'émetteur de la facture (celui qui vend ou fournit).
-4. Si une information est absente de la facture, mets null.
-5. Extrais TOUTES les lignes. ATTENTION : vérifie si les montants par ligne sont HT ou TTC.
-   - Si la colonne est libellée 'TTC' ou si la somme des montants de ligne égale le MONTANT TTC total, alors extrais-les comme line_amount_ttc et calcule le line_amount_ht = TTC / (1 + taux_tva/100).
-   - Assure la cohérence: line_amount_ht + tva_amount = line_amount_ttc.
-6. invoice_type: utilise ACHAT si la facture est un achat, VENTE si c'est une vente, AVOIR pour un avoir/note de crédit, IMMOBILISATION si c'est un bien durable.
+HEADER_LINES_SYSTEM_PROMPT = """Tu es l'expert OCR numéro 1 au Maroc, spécialisé dans la lecture de factures et documents comptables.
+Analyse les images fournies et extrais les données structurées au format JSON.
+
+=== RÈGLES DE DÉTECTION DU TYPE DE DOCUMENT ===
+1. Examine le document pour les mots-clés : "AVOIR", "NOTE DE CRÉDIT", "RETOUR", "CRÉDIT".
+   - Si présent -> InvoiceType: AVOIR.
+2. Examine le document pour "IMMOBILISATION", "INVESTISSEMENT".
+   - Si présent -> InvoiceType: IMMOBILISATION.
+3. Sinon, détermine si c'est une VENTE ou un ACHAT en fonction de notre position (voir contexte).
+
+=== RÈGLES DE DÉTECTION DES TIERS ===
+1. Identifie l'ÉMETTEUR (Fournisseur) : Généralement en haut, avec le logo, les coordonnées RC/ICE/IF de la société qui a créé le document.
+2. Identifie le DESTINATAIRE (Client) : Généralement dans un encadré "Client", "Adressé à", "Doit".
+3. Extrais scrupuleusement les Noms, ICE (15 chiffres), IF, RC et adresses pour les DEUX entités.
+   - IMPORTANT : Ne laisse pas les noms vides si le texte est présent sur l'image.
+
+=== RÉFÉRENCES ET DATES ===
+- numero_facture : Le numéro du document (ex: AV2025-407).
+- date_facture : Date d'émission (JJ/MM/AAAA).
+- due_date : Date d'échéance.
+
+=== EXTRACTION DES LIGNES (TABLEAU) ===
+- Parcoure TOUTES les pages.
+- Pour chaque produit/service, extrais : désignation, quantité, unité, PU HT, Total HT, Taux TVA (en %), et Total TTC.
+- Si les quantités ou montants sont négatifs (ex: -2.00), extrais-les tels quels avec le signe moins.
 """
 
-HEADER_ONLY_SYSTEM_PROMPT = """Tu es un expert-comptable marocain.
-Extrais uniquement les informations d'en-tête de cette facture (pas les lignes de détail).
-TRES IMPORTANT:
-1. supplier_ice (ICE fournisseur) doit contenir exactement 15 chiffres si présent.
-2. client_name est le destinataire de la facture, supplier_name est l'émetteur.
-3. Si une information est absente de la facture, mets null.
+HEADER_ONLY_SYSTEM_PROMPT = """Tu es l'expert OCR numéro 1 au Maroc.
+Analyse l'en-tête, les pieds de page et les blocs de totaux.
+Identifie le Fournisseur et le Client en fonction du contexte fourni.
+Extrais le numéro de facture et la date même s'ils sont dans un tableau.
 """
 
 LINES_ONLY_SYSTEM_PROMPT = """Tu es un expert-comptable marocain.
 Extrais uniquement les lignes de produits/services de cette facture.
-Pour chaque ligne, extrais: description, quantité, unité, prix unitaire HT, montant HT, taux TVA (%), montant TVA, montant TTC ligne.
-ATTENTION : vérifie si les montants par ligne sont HT ou TTC. Si le montant affiché est TTC, calcule le HT correspondant pour remplir line_amount_ht.
-Assure-toi que: line_amount_ht + tva_amount = line_amount_ttc.
+IMPORTANT : PARCOURS TOUTES LES PAGES FOURNIES. Si le tableau de facturation s'étend sur 2, 3 ou 10 pages, extrais absolument TOUTES les lignes de TOUTES les pages.
+Pour chaque ligne, extrais : description, quantité, unité, prix unitaire HT, montant HT, taux TVA (%), montant TVA, montant TTC ligne.
+Vérifie la cohérence mathématique : Qte * PU = HT, et HT + TVA = TTC.
 Si une valeur est absente, mets null.
 """
 
@@ -192,7 +201,7 @@ RÈGLES DE CLASSIFICATION PCM:
 # Helpers internes
 # ─────────────────────────────────────────────
 
-def _build_image_parts(image_data: Any, mime_type: str, max_pages: int = 3) -> list:
+def _build_image_parts(image_data: Any, mime_type: str, max_pages: int = 10) -> list:
     """Construit la liste de parts (texte + images) pour Gemini."""
     images_list = image_data if isinstance(image_data, list) else [image_data]
     parts = []
@@ -208,7 +217,7 @@ def _call_gemini(parts: list, schema: dict, model: str = None) -> Optional[dict]
     api_keys = _get_api_keys()
 
     if not api_keys:
-        print("[Gemini] ❌ Aucune clé API disponible.")
+        print("[Gemini] ERREUR: Aucune cle API disponible.")
         return None
 
     for key_index, current_key in enumerate(api_keys):
@@ -225,10 +234,12 @@ def _call_gemini(parts: list, schema: dict, model: str = None) -> Optional[dict]
                     },
                 )
                 if resp and resp.text:
-                    return json.loads(resp.text)
+                    json_text = resp.text.strip()
+                    print(f"DEBUG Gemini (Key #{key_index}): {json_text[:250]}...")
+                    return json.loads(json_text)
             except Exception as e:
                 err_str = str(e)
-                print(f"[Gemini SDK] ⚠️ Erreur clé #{key_index} (Essai {attempt+1}/3): {err_str}")
+                print(f"[Gemini SDK] Erreur cle #{key_index} (Essai {attempt+1}/3): {err_str}")
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "503" in err_str or "unavailable" in err_str.lower():
                     time.sleep(0.5)
                 else:
@@ -246,6 +257,7 @@ def extract_invoice_full(
     image_data: Any,
     mime_type: str = "image/png",
     model: str = None,
+    context_text: str = None,
 ) -> Dict[str, Any]:
     """
     Extraction unifiée Header + Lines via Gemini (structured output JSON).
@@ -255,21 +267,23 @@ def extract_invoice_full(
         raise ValueError("image_data is empty")
 
     image_parts = _build_image_parts(image_data, mime_type)
-    parts = [{"text": HEADER_LINES_SYSTEM_PROMPT}] + image_parts
+    
+    system_prompt = HEADER_LINES_SYSTEM_PROMPT
+    if context_text:
+        system_prompt += f"\n\nCONTEXTE SOCIÉTÉ (NOUS) :\n{context_text}\nUtilise ce contexte pour identifier si nous sommes le client (achat) ou le fournisseur (vente)."
+
+    parts = [{"text": system_prompt}] + image_parts
 
     data = _call_gemini(parts, UNIFIED_SCHEMA, model)
 
     if data:
         header = data.get("header", {})
         if header.get("supplier_name") or header.get("montant_ttc"):
-            # Compatibilité legacy
-            header["fournisseur"] = header.get("supplier_name")
-            header["ice_frs"] = header.get("supplier_ice")
-            header["if_frs"] = header.get("supplier_if")
-            print(f"[Gemini] ✅ Extraction unifiée réussie: {header.get('supplier_name')} — TTC: {header.get('montant_ttc')}")
+            print(f"--- [Gemini] {datetime.now()} Extraction unifiee reussie ---")
+            print(f"Tiers: {header.get('supplier_name')} -- TTC: {header.get('montant_ttc')}")
             return data
 
-    print("[Gemini] ⚠️ Extraction unifiée vide ou échouée.")
+    print("[Gemini] Extraction unifiee vide ou echouee.")
     return {"header": {}, "lines": []}
 
 
@@ -277,6 +291,7 @@ def extract_invoice_header(
     image_data: Any,
     mime_type: str = "image/png",
     model: str = None,
+    context_text: str = None,
 ) -> Dict[str, Any]:
     """
     Extraction de l'en-tête uniquement (Header) via Gemini.
@@ -286,7 +301,12 @@ def extract_invoice_header(
         raise ValueError("image_data is empty")
 
     image_parts = _build_image_parts(image_data, mime_type)
-    parts = [{"text": HEADER_ONLY_SYSTEM_PROMPT}] + image_parts
+    
+    system_prompt = HEADER_ONLY_SYSTEM_PROMPT
+    if context_text:
+        system_prompt += f"\n\nCONTEXTE SOCIÉTÉ (NOUS) :\n{context_text}"
+
+    parts = [{"text": system_prompt}] + image_parts
 
     result = _call_gemini(parts, HEADER_SCHEMA, model)
 
@@ -294,10 +314,10 @@ def extract_invoice_header(
         result["fournisseur"] = result.get("supplier_name")
         result["ice_frs"] = result.get("supplier_ice")
         result["if_frs"] = result.get("supplier_if")
-        print(f"[Gemini] ✅ Extraction header réussie: {result.get('supplier_name')}")
+        print(f"[Gemini] Extraction header reussie: {result.get('supplier_name')}")
         return result
 
-    print("[Gemini] ⚠️ Extraction header échouée.")
+    print("[Gemini] Extraction header echouee.")
     return {}
 
 
@@ -319,10 +339,10 @@ def extract_invoice_lines(
     result = _call_gemini(parts, LINES_SCHEMA, model)
 
     if result and isinstance(result, list):
-        print(f"[Gemini] ✅ Extraction lignes réussie: {len(result)} lignes")
+        print(f"[Gemini] Extraction lignes reussie: {len(result)} lignes")
         return result
 
-    print("[Gemini] ⚠️ Extraction lignes échouée.")
+    print("[Gemini] Extraction lignes echouee.")
     return []
 
 
@@ -381,7 +401,7 @@ Type facture: {invoice_type}"""
                     return json.loads(resp.text)
             except Exception as e:
                 err_str = str(e)
-                print(f"[Gemini PCM] ⚠️ Erreur clé #{key_index} (Essai {attempt+1}/3): {err_str}")
+                print(f"[Gemini PCM] Erreur cle #{key_index} (Essai {attempt+1}/3): {err_str}")
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "503" in err_str or "unavailable" in err_str.lower():
                     time.sleep(0.5)
                 else:
@@ -433,7 +453,7 @@ BANK_CLASSIFICATION_SCHEMA: Dict[str, Any] = {
     "required": ["pcm_account_code", "pcm_account_label", "confidence"]
 }
 
-def extract_bank_statement(image_data: Any, mime_type: str = "image/png", model: str = None) -> Dict[str, Any]:
+def extract_bank_statement(image_data: Any, mime_type: str = "image/png", model: str = None, context_text: str = None) -> Dict[str, Any]:
     """Extraction d'un relevé bancaire via Gemini."""
     if not image_data:
         raise ValueError("image_data is empty")
@@ -454,6 +474,9 @@ Extrais aussi les informations générales :
 - date_debut et date_fin (Période du relevé)
 - solde_initial et solde_final
 """
+    if context_text:
+        prompt += f"\n\nCONTEXTE SOCIÉTÉ (TITULAIRE DU COMPTE) :\n{context_text}"
+
     # On autorise jusqu'à 10 pages pour un relevé
     image_parts = _build_image_parts(image_data, mime_type, max_pages=10)
     parts = [{"text": prompt}] + image_parts
@@ -485,7 +508,7 @@ def classify_bank_transaction(description: str, debit: float = 0.0, credit: floa
                     return json.loads(resp.text)
             except Exception as e:
                 err_str = str(e)
-                print(f"[Gemini Bank] ⚠️ Erreur clé #{key_index} (Essai {attempt+1}/3): {err_str}")
+                print(f"[Gemini Bank] Erreur cle #{key_index} (Essai {attempt+1}/3): {err_str}")
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "503" in err_str or "unavailable" in err_str.lower():
                     time.sleep(0.5)
                 else:

@@ -192,7 +192,7 @@ class AgentUpdate(BaseModel):
 
 class AgentOut(BaseModel):
     id: int
-    cabinet_id: int
+    cabinet_id: Optional[int] = None
     username: str
     email: str
     nom: Optional[str] = None
@@ -433,6 +433,8 @@ class ManualEntryCreate(BaseModel):
     entry_date: date
     reference: str = ""
     description: str = ""
+    is_validated: bool = False
+
     lines: List[ManualEntryLine]
 
 

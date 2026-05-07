@@ -95,8 +95,14 @@ def upload_releve(
     # Process extraction if PDF/Image
     if ext in [".pdf", ".png", ".jpg", ".jpeg"]:
         try:
+            from models import Societe
+            societe = db.query(Societe).filter(Societe.id == societe_id).first()
+            context_text = ""
+            if societe:
+                context_text = f"Nom de notre société: {societe.raison_sociale}\nNotre ICE: {societe.ice or 'N/A'}"
+
             image_data, mime_type = _get_image_data(str(dest))
-            extracted_data = extract_bank_statement(image_data, mime_type=mime_type)
+            extracted_data = extract_bank_statement(image_data, mime_type=mime_type, context_text=context_text)
             print(f"DEBUG: Data extraite: {extracted_data}")
             if not extracted_data or "lignes" not in extracted_data or not extracted_data["lignes"]:
                 print(f"⚠️ Alerte: Extraction vide pour le relevé {releve.id} ({releve.file_name})")
@@ -510,9 +516,18 @@ def generer_ecriture(payload: Dict[str, Any], db: Session = Depends(get_db), ses
     desc_suffix = f" - RELEVÉ N°{releve.id if releve else ''} {periode}".strip()
     full_desc = f"Rapprochement : {ligne.description} {desc_suffix}".strip()
 
+    from models import JournalComptable
+    
+    # Trouver le code journal bancaire de la société
+    journal_banque = db.query(JournalComptable).filter(
+        JournalComptable.societe_id == societe_id,
+        JournalComptable.type == "BANQUE"
+    ).first()
+    journal_code = journal_banque.code if journal_banque else 'BQ'
+
     # 1. Créer l'en-tête
     journal_entry = JournalEntry(
-        journal_code='BQ',
+        journal_code=journal_code,
         societe_id=societe_id,
         entry_date=ligne.date_operation,
         description=full_desc,

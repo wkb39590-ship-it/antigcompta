@@ -18,6 +18,10 @@ import JournalComptable from './pages/agent/JournalComptable'
 import Releves from './pages/agent/Releves'
 import Rapprochement from './pages/agent/Rapprochement'
 import BilanComptable from './pages/agent/BilanComptable'
+import Paie from './pages/agent/Paie'
+import BulletinCreate from './pages/agent/BulletinCreate'
+import BulletinPaieDetail from './pages/agent/BulletinPaieDetail'
+import EmployeCreate from './pages/agent/EmployeCreate'
 import {
     LayoutDashboard,
     Upload as UploadIcon,
@@ -28,6 +32,7 @@ import {
     CreditCard,
     Book,
     Users2,
+    Users,
     User,
     LogOut,
     ChevronUp,
@@ -108,6 +113,7 @@ function Sidebar() {
         { to: '/releves', label: 'Relevés Bancaires', icon: <BookOpen size={18} /> },
         { to: '/journal', label: 'Journal Comptable', icon: <BookOpen size={18} /> },
         { to: '/bilan', label: 'Bilan Comptable', icon: <FileBarChart size={18} /> },
+        { to: '/paie', label: 'Personnel', icon: <Users size={18} /> },
         { to: '/history', label: 'Historique', icon: <HistoryIcon size={18} /> },
         { to: '/pcm', label: 'Plan Comptable', icon: <Book size={18} /> },
         { to: '/mappings', label: 'Répertoire', icon: <Users2 size={18} /> },
@@ -441,6 +447,13 @@ export default function App() {
                 <Route path="bilan" element={<ProtectedRoute><BilanComptable /></ProtectedRoute>} />
                 <Route path="releves" element={<ProtectedRoute><Releves /></ProtectedRoute>} />
                 <Route path="releves/:id/rapprochement" element={<ProtectedRoute><Rapprochement /></ProtectedRoute>} />
+                
+                {/* Routes Paie & Personnel */}
+                <Route path="paie" element={<ProtectedRoute><Paie /></ProtectedRoute>} />
+                <Route path="paie/nouveau" element={<ProtectedRoute><BulletinCreate /></ProtectedRoute>} />
+                <Route path="paie/:id" element={<ProtectedRoute><BulletinPaieDetail /></ProtectedRoute>} />
+                <Route path="employes/nouveau" element={<ProtectedRoute><EmployeCreate /></ProtectedRoute>} />
+                <Route path="employes/:id/edit" element={<ProtectedRoute><EmployeCreate /></ProtectedRoute>} />
             </Route>
 
 

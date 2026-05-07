@@ -52,39 +52,56 @@ def _to_float(value: Optional[str]) -> Optional[float]:
 
 
 def _find_date_ddmmyyyy(text: str) -> Optional[str]:
-    injected = re.search(r"DATE_FACTURE:\s*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})", text, flags=re.IGNORECASE)
-    if injected:
-        return injected.group(1).replace("-", "/").replace(".", "/")
+    lines = text.splitlines()
+    # Recherche spécifique format tableau (Arrahma)
+    for i, line in enumerate(lines):
+        if re.search(r"Facture\s+Date", line, re.IGNORECASE) and i + 1 < len(lines):
+            next_line = lines[i+1].strip().split()
+            if len(next_line) >= 2:
+                date_val = next_line[1]
+                if re.match(r"\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}", date_val):
+                    return date_val.replace("-", "/").replace(".", "/")
 
+    # Recherche spécifique "Date" suivi d'une date
+    match = re.search(r"Date\s*[\n\r\t]*(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})", text, re.IGNORECASE)
+    if match:
+        return match.group(1).replace("-", "/").replace(".", "/")
+
+    # Recherche standard
     match = re.search(r"\b(\d{1,2})\s*[/\-\.]\s*(\d{1,2})\s*[/\-\.]\s*(\d{2,4})\b", text)
     if not match:
         return None
 
     day, month, year = match.groups()
-    if len(year) == 2:
-        year = f"20{year}"
+    if len(year) == 2: year = f"20{year}"
     return f"{day.zfill(2)}/{month.zfill(2)}/{year}"
 
 
 def _find_num_facture(text: str) -> Optional[str]:
-    patterns = [
-        r"\bFACTURE\s*(?:N|N°|NO|NUM(?:ERO)?|Nº)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-\.]{2,40})\b",
-        r"\b(?:REF|REFERENCE|R[ÉE]F[ÉE]RENCE)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-\.]{2,40})\b",
-        r"\b(?:N°|NO|Nº)\s*[:\-]?\s*([A-Z0-9][A-Z0-9/\-\.]{2,40})\b",
-    ]
-    bad_values = {"CLIENT", "CLT", "ICE", "IF", "RC", "PATENTE", "TOTAL", "TTC", "HT"}
-    bad_context = re.compile(r"\b(PATENTE|RC|R\.C|CNSS|ICE|IF|I\.F|TVA|CLIENT)\b", re.IGNORECASE)
+    lines = text.splitlines()
+    
+    # Recherche spécifique format tableau (Arrahma) : Facture Date ...
+    for i, line in enumerate(lines[:30]):
+        if re.search(r"Facture\s+Date", line, re.IGNORECASE) and i + 1 < len(lines):
+            next_line = lines[i+1].strip().split()
+            if len(next_line) >= 1:
+                val = next_line[0]
+                if any(char.isdigit() for char in val) and len(val) >= 3:
+                    return val
 
-    for line in text.splitlines():
-        if bad_context.search(line):
-            continue
-        for pattern in patterns:
-            match = re.search(pattern, line, flags=re.IGNORECASE)
-            if not match:
-                continue
-            value = match.group(1).strip(" -:./")
-            if len(value) >= 3 and value.upper() not in bad_values:
-                return value
+    # Patterns plus larges
+    patterns = [
+        r"Facture\s*[\n\r\t]*([A-Z0-9/\-\.]{3,20})", 
+        r"N[°º.o]?\s*[:\-]?\s*([A-Z0-9/\-\.]{3,20})",
+    ]
+    
+    for pattern in patterns:
+        for line_idx, line in enumerate(lines[:30]):
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                val = match.group(1).strip()
+                if any(char.isdigit() for char in val) and len(val) >= 3:
+                    return val
     return None
 
 
@@ -154,20 +171,19 @@ def _find_supplier_footer_line(text: str) -> Optional[str]:
 
 
 def _find_ice_if(text: str) -> Tuple[Optional[str], Optional[str]]:
-    search_space = _find_supplier_footer_line(text) or text
-
-    supplier_if_match = re.search(r"\bI\.?\s*F\b\s*[:\-]?\s*([0-9]{4,12})\b", search_space, flags=re.IGNORECASE)
-    supplier_ice_match = re.search(r"\bICE\b\s*[:\-]?\s*([0-9]{15})\b", search_space, flags=re.IGNORECASE)
-
-    supplier_if = supplier_if_match.group(1) if supplier_if_match else None
-    supplier_ice = supplier_ice_match.group(1) if supplier_ice_match else None
-
-    if supplier_ice is None:
-        all_ice = re.findall(r"\b(\d{15})\b", text)
-        if all_ice:
-            supplier_ice = all_ice[0]
- 
-    return supplier_if, supplier_ice
+    # On cherche d'abord l'ICE du FOURNISSEUR (Arrahma)
+    # Si on est dans une VENTE, Arrahma est le fournisseur.
+    
+    ice_matches = re.findall(r"ICE\s*[:\-]?\s*(\d{15})", text, re.IGNORECASE)
+    if_matches = re.findall(r"IF\s*[:\-]?\s*(\d{4,12})", text, re.IGNORECASE)
+    
+    # Sur votre facture, Arrahma (002012861000010) est en haut.
+    # Shemadri (003272689000032) est plus bas.
+    
+    ice_frs = ice_matches[0] if len(ice_matches) > 0 else None
+    if_frs = if_matches[0] if len(if_matches) > 0 else None
+    
+    return if_frs, ice_frs
 
 
 def _find_supplier_name(text: str) -> Optional[str]:
@@ -193,10 +209,28 @@ def parse_facture_text(text: str) -> Dict[str, Any]:
     normalized = _normalize_text(text)
 
     fournisseur = _find_supplier_name(normalized)
+    
+    # Détection du type (AVOIR)
+    invoice_type = "ACHAT"
+    if re.search(r"\b(AVOIR|NOTE\s*DE\s*CR[EÉ]DIT|RETOUR)\b", normalized, re.IGNORECASE):
+        invoice_type = "AVOIR"
+
     date_facture = _find_date_ddmmyyyy(normalized)
     numero_facture = _find_num_facture(normalized)
     montant_ht, montant_tva, montant_ttc = _find_totals(normalized)
+    
+    # ICE/IF
     if_frs, ice_frs = _find_ice_if(normalized)
+    
+    # Recherche d'un deuxième ICE (Client)
+    ice_matches = re.findall(r"ICE\s*[:\-]?\s*(\d{15})", normalized, re.IGNORECASE)
+    ice_client = None
+    if len(ice_matches) >= 2:
+        # Si le premier est le fournisseur, le deuxième est probablement le client
+        ice_client = ice_matches[1]
+    elif len(ice_matches) == 1 and fournisseur is None:
+        # Si on n'a qu'un ICE et pas de fournisseur, c'est peut-être celui du client
+        pass
 
     taux_tva = _extract_tva_rate(normalized)
     if taux_tva is None and montant_ht is not None and montant_tva is not None and montant_ht != 0:
@@ -212,5 +246,7 @@ def parse_facture_text(text: str) -> Dict[str, Any]:
         "montant_ttc": montant_ttc,
         "if_frs": if_frs,
         "ice_frs": ice_frs,
+        "client_ice": ice_client,
         "taux_tva": taux_tva,
+        "invoice_type": invoice_type,
     }
