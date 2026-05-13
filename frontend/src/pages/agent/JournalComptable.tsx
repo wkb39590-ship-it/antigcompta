@@ -77,12 +77,16 @@ interface Totaux {
 
 const DEFAULT_JOURNAL_ICONS: Record<string, { icon: any, color: string }> = {
     'ACH': { icon: <ShoppingCart size={16} />, color: '#f59e0b' },
+    'ACHAT': { icon: <ShoppingCart size={16} />, color: '#f59e0b' },
     'VTE': { icon: <TrendingUp size={16} />, color: '#10b981' },
+    'VENTE': { icon: <TrendingUp size={16} />, color: '#10b981' },
     'IMMO': { icon: <Scale size={16} />, color: '#ec4899' },
     'PAYE': { icon: <FileText size={16} />, color: '#f43f5e' },
+    'PAIE': { icon: <FileText size={16} />, color: '#f43f5e' },
     'OD': { icon: <FileJson size={16} />, color: '#8b5cf6' },
     'BANQUE': { icon: <Banknote size={16} />, color: '#3b82f6' },
     'BQ': { icon: <Banknote size={16} />, color: '#3b82f6' },
+    'CAISSE': { icon: <Banknote size={16} />, color: '#10b981' },
 }
 
 const fmt = (n?: number) => n != null ? n.toLocaleString('fr-MA', { minimumFractionDigits: 2 }) : '0,00'
@@ -104,6 +108,7 @@ export default function JournalComptable() {
     // Modal nouveau journal
     const [showJournalModal, setShowJournalModal] = useState(false)
     const [newJournal, setNewJournal] = useState({ code: '', label: '', type: 'BANQUE' })
+    const [customType, setCustomType] = useState('')
 
     // PCM pour suggestions
     const [pcmAccounts, setPcmAccounts] = useState<any[]>([])
@@ -303,9 +308,16 @@ export default function JournalComptable() {
 
     const handleCreateJournal = async () => {
         if (!newJournal.code || !newJournal.label) return
+        
+        const finalType = newJournal.type === 'AUTRE' ? (customType || 'OD') : newJournal.type
+        
         try {
-            await apiService.createJournalConfig(newJournal)
+            await apiService.createJournalConfig({
+                ...newJournal,
+                type: finalType
+            })
             setNewJournal({ code: '', label: '', type: 'BANQUE' })
+            setCustomType('')
             setShowJournalModal(false)
             fetchJournals()
         } catch (err) {
@@ -1015,7 +1027,7 @@ export default function JournalComptable() {
                         padding: '32px', width: '450px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Nouveau Journal de Banque</h3>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Nouveau Journal Comptable</h3>
                             <button onClick={() => setShowJournalModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
                                 <X size={20} />
                             </button>
@@ -1023,16 +1035,52 @@ export default function JournalComptable() {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Code (ex: BQ2, BQ_BMCE)</label>
-                                <input
-                                    type="text"
-                                    value={newJournal.code}
-                                    onChange={e => setNewJournal({ ...newJournal, code: e.target.value.toUpperCase(), type: 'BANQUE' })}
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Type de Journal</label>
+                                <select
+                                    value={newJournal.type}
+                                    onChange={e => setNewJournal({ ...newJournal, type: e.target.value })}
                                     style={{
                                         width: '100%', padding: '12px', borderRadius: '10px', border: '2px solid #e2e8f0',
                                         background: 'white', color: '#1e293b', fontSize: '14px'
                                     }}
-                                    placeholder="BQ2"
+                                >
+                                    <option value="BANQUE">Banque</option>
+                                    <option value="ACHAT">Achats</option>
+                                    <option value="VENTE">Ventes</option>
+                                    <option value="CAISSE">Caisse</option>
+                                    <option value="PAYE">Paie / Salaires</option>
+                                    <option value="IMMO">Immobilisations</option>
+                                    <option value="OD">Opérations Diverses (OD)</option>
+                                    <option value="AUTRE">Autre type personnalisé...</option>
+                                </select>
+                            </div>
+
+                            {newJournal.type === 'AUTRE' && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Précisez le type</label>
+                                    <input
+                                        type="text"
+                                        value={customType}
+                                        onChange={e => setCustomType(e.target.value.toUpperCase())}
+                                        style={{
+                                            width: '100%', padding: '12px', borderRadius: '10px', border: '2px solid #e2e8f0',
+                                            background: 'white', color: '#1e293b', fontSize: '14px'
+                                        }}
+                                        placeholder="Ex: STOCKS, CLOTURE..."
+                                    />
+                                </div>
+                            )}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>Code (ex: BQ2, ACH_F, VTE_S)</label>
+                                <input
+                                    type="text"
+                                    value={newJournal.code}
+                                    onChange={e => setNewJournal({ ...newJournal, code: e.target.value.toUpperCase() })}
+                                    style={{
+                                        width: '100%', padding: '12px', borderRadius: '10px', border: '2px solid #e2e8f0',
+                                        background: 'white', color: '#1e293b', fontSize: '14px'
+                                    }}
+                                    placeholder="Ex: BQ2"
                                 />
                             </div>
                             <div>
@@ -1045,7 +1093,7 @@ export default function JournalComptable() {
                                         width: '100%', padding: '12px', borderRadius: '10px', border: '2px solid #e2e8f0',
                                         background: 'white', color: '#1e293b', fontSize: '14px'
                                     }}
-                                    placeholder="Banque Populaire"
+                                    placeholder="Ex: Journal des Achats"
                                 />
                             </div>
                             {/* Le type est forcé sur BANQUE par défaut */}

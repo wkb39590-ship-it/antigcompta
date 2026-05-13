@@ -4,16 +4,16 @@ Basé sur les fonctionnalités réelles du projet (Gemini, SHA-256, PCM)
 """
 import matplotlib.pyplot as plt
 
-# Données réelles du projet ComptaFacile (Zéro Saisie)
+# Données réelles du projet (Zéro Saisie)
 backlog = [
-    {"ID": "US01", "User Story": "Authentification sécurisée & Rôles (JWT)", "Priorité": "Critique", "Statut": "Terminé"},
-    {"ID": "US02", "User Story": "Gestion multi-tenant (Isolation Cabinets)", "Priorité": "Haute", "Statut": "Terminé"},
-    {"ID": "US03", "User Story": "Extraction IA sémantique (API Gemini)", "Priorité": "Critique", "Statut": "Terminé"},
-    {"ID": "US04", "User Story": "Détection doublons binaires (SHA-256)", "Priorité": "Haute", "Statut": "Terminé"},
-    {"ID": "US05", "User Story": "Classification auto Plan Comptable Marocain", "Priorité": "Haute", "Statut": "Terminé"},
+    {"ID": "US01", "User Story": "Intégration de l'IA Gemini (Extraction sémantique)", "Priorité": "Critique", "Statut": "Terminé"},
+    {"ID": "US02", "User Story": "Intégration du Plan Comptable Marocain (PCM)", "Priorité": "Critique", "Statut": "Terminé"},
+    {"ID": "US03", "User Story": "Authentification sécurisée & Rôles (JWT)", "Priorité": "Haute", "Statut": "Terminé"},
+    {"ID": "US04", "User Story": "Gestion multi-tenant (Isolation Cabinets)", "Priorité": "Haute", "Statut": "Terminé"},
+    {"ID": "US05", "User Story": "Détection doublons binaires (SHA-256)", "Priorité": "Moyenne", "Statut": "Terminé"},
     {"ID": "US06", "User Story": "Portail client pour transmission documents", "Priorité": "Moyenne", "Statut": "Terminé"},
     {"ID": "US07", "User Story": "Gestion des Journaux et du Grand Livre", "Priorité": "Haute", "Statut": "Terminé"},
-    {"ID": "US08", "User Story": "Logs d'audit et historique des actions", "Priorité": "Moyenne", "Statut": "Terminé"},
+    {"ID": "US08", "User Story": "Logs d'audit et historique des actions", "Priorité": "Faible", "Statut": "Terminé"},
 ]
 
 def generate_backlog_viz():
@@ -32,8 +32,13 @@ def generate_backlog_viz():
 
     # Style du tableau
     table.auto_set_font_size(False)
-    table.set_fontsize(11)
-    table.scale(1.2, 2.8)
+    table.set_fontsize(10)
+    table.scale(1.0, 3.0) # Hauteur de ligne augmentée
+
+    # Ajustement manuel des largeurs de colonnes
+    widths = [0.1, 0.5, 0.2, 0.2]
+    for (row, col), cell in table.get_celld().items():
+        cell.set_width(widths[col])
 
     # Coloration des entêtes et des statuts
     for (row, col), cell in table.get_celld().items():
